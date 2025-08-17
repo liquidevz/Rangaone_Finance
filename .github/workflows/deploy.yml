@@ -85,12 +85,20 @@ jobs:
             
             # Setup domain directory
             DOMAIN_PATH="/home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }}"
-            rm -rf $DOMAIN_PATH
-            mkdir -p $DOMAIN_PATH
             cd $DOMAIN_PATH
             
-            # Clone repository
-            git clone https://github.com/${{ github.repository }} .
+            # Clean and update repository
+            if [ -d ".git" ]; then
+              git fetch origin
+              git reset --hard origin/main
+              git clean -fd
+            else
+              cd ..
+              rm -rf ${{ secrets.CLOUDPANEL_DOMAIN }}
+              mkdir -p ${{ secrets.CLOUDPANEL_DOMAIN }}
+              cd ${{ secrets.CLOUDPANEL_DOMAIN }}
+              git clone https://github.com/${{ github.repository }} .
+            fi
             
             # Install and build
             npm install --legacy-peer-deps
