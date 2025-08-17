@@ -92,30 +92,25 @@ jobs:
             # Clone repository
             git clone https://github.com/${{ github.repository }} .
             
-            # Create deployment script
-            cat > deploy_app.sh << 'EOF'
-            #!/bin/bash
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            nvm use 20
+            # Install and build
+            npm install --legacy-peer-deps
+            npm run build
             
-            if command -v docker-compose &> /dev/null; then
-              docker-compose -f docker-compose.prod.yml down || true
-              docker-compose -f docker-compose.prod.yml up -d --build
+            # Kill existing process
+            pkill -f "next start" || true
+            pkill -f "node.*server.js" || true
+            
+            # Start the app and exit SSH immediately
+            npm start > app.log 2>&1 &
+            echo $! > app.pid
+            
+            # Verify it started
+            sleep 2
+            if kill -0 $(cat app.pid) 2>/dev/null; then
+              echo "✅ App started with PID $(cat app.pid)"
             else
-              npm install --legacy-peer-deps
-              npm run build
-              pkill -f "next start" || true
-              npm start > app.log 2>&1 &
+              echo "❌ App failed to start"
             fi
-            EOF
-            
-            chmod +x deploy_app.sh
-            
-            # Run deployment in screen session
-            screen -dmS deployment ./deploy_app.sh
-            
-            echo "✅ Deployment started in background"
       
       - name: Send failure notification
         if: failure()
