@@ -17,8 +17,52 @@ jobs:
       - run: npm run build
       - run: npm run lint
 
-  deploy:
+  docker-test:
     needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test Docker Build
+        id: docker-build
+        run: |
+          docker build -t test-build . 2>&1 | tee build.log
+          if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            echo "BUILD_FAILED=true" >> $GITHUB_OUTPUT
+            echo "BUILD_LOG<<EOF" >> $GITHUB_OUTPUT
+            cat build.log >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+      
+      - name: Send Docker Build Failure Email
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: 'Docker Build Failed - ${{ github.repository }}'
+          body: |
+            Docker build failed for commit ${{ github.sha }}
+            
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref }}
+            
+            Build Error:
+            ${{ steps.docker-build.outputs.BUILD_LOG }}
+            
+            Common fixes:
+            - Check package.json dependencies
+            - Verify Dockerfile syntax
+            - Check for missing files
+            
+            View logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: 'GitHub Actions'
+
+  deploy:
+    needs: [test, docker-test]
     runs-on: ubuntu-latest
     steps:
       - name: Deploy with Docker
@@ -39,17 +83,13 @@ jobs:
             # Clone repository
             git clone https://github.com/${{ github.repository }} .
             
-            # Check if Docker is available, if not use Node.js directly
-            if command -v docker &> /dev/null && command -v docker-compose &> /dev/null; then
-              docker-compose -f docker-compose.prod.yml up -d --build
-            else
-              # Fallback to Node.js deployment
-              npm install --production
-              npm run build
-              # Kill existing process and start new one
-              pkill -f "next start" || true
-              nohup npm start > app.log 2>&1 &
-            fi
+            # Use legacy peer deps for npm install
+            npm install --legacy-peer-deps
+            npm run build
+            
+            # Kill existing process and start new one
+            pkill -f "next start" || true
+            nohup npm start > app.log 2>&1 &
       
       - name: Send failure notification
         if: failure()
