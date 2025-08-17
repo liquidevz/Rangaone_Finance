@@ -71,6 +71,8 @@ jobs:
           host: ${{ secrets.CLOUDPANEL_HOST }}
           username: ${{ secrets.CLOUDPANEL_USER }}
           password: ${{ secrets.CLOUDPANEL_PASSWORD }}
+          timeout: 300s
+          command_timeout: 300s
           script: |
             # Install nvm and Node.js 20
             export NVM_DIR="$HOME/.nvm"
@@ -90,20 +92,30 @@ jobs:
             # Clone repository
             git clone https://github.com/${{ github.repository }} .
             
-            # Check if Docker is available, if not fallback to direct deployment
-            if command -v docker &> /dev/null && command -v docker-compose &> /dev/null; then
-              # Deploy with Docker
+            # Create deployment script
+            cat > deploy_app.sh << 'EOF'
+            #!/bin/bash
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            nvm use 20
+            
+            if command -v docker-compose &> /dev/null; then
               docker-compose -f docker-compose.prod.yml down || true
               docker-compose -f docker-compose.prod.yml up -d --build
             else
-              # Fallback: Direct deployment with background process
               npm install --legacy-peer-deps
               npm run build
               pkill -f "next start" || true
-              setsid npm start > app.log 2>&1 < /dev/null &
+              npm start > app.log 2>&1 &
             fi
+            EOF
             
-            echo "✅ Application deployed successfully with Docker"
+            chmod +x deploy_app.sh
+            
+            # Run deployment in screen session
+            screen -dmS deployment ./deploy_app.sh
+            
+            echo "✅ Deployment started in background"
       
       - name: Send failure notification
         if: failure()

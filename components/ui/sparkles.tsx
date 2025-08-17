@@ -21,7 +21,7 @@ export const SparklesCore: React.FC<SparklesCoreProps> = ({
   particleColor = "#FFFFFF",
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number>(0);
   const particlesRef = useRef<Array<{
     x: number;
     y: number;
@@ -55,7 +55,7 @@ export const SparklesCore: React.FC<SparklesCoreProps> = ({
     return particle;
   }, [maxSize, minSize]);
 
-  const animate = useCallback(() => {
+  const animationLoop = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -92,8 +92,7 @@ export const SparklesCore: React.FC<SparklesCoreProps> = ({
       createParticle();
     }
 
-    const animateFrame = () => animate();
-    animationRef.current = requestAnimationFrame(animateFrame);
+    animationRef.current = requestAnimationFrame(animationLoop);
   }, [particleColor, particleDensity, createParticle]);
 
   useEffect(() => {
@@ -114,7 +113,7 @@ export const SparklesCore: React.FC<SparklesCoreProps> = ({
       createParticle();
     }
 
-    animate();
+    animationRef.current = requestAnimationFrame(animationLoop);
 
     return () => {
       window.removeEventListener("resize", resizeCanvas);
@@ -122,7 +121,7 @@ export const SparklesCore: React.FC<SparklesCoreProps> = ({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [animate, particleDensity, createParticle]);
+  }, [particleDensity, createParticle]);
 
   return (
     <canvas
