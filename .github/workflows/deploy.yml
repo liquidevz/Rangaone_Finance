@@ -72,16 +72,17 @@ jobs:
           username: ${{ secrets.CLOUDPANEL_USER }}
           password: ${{ secrets.CLOUDPANEL_PASSWORD }}
           script: |
-            # Install Node.js 20 if not present
-            if ! node --version | grep -q "v20"; then
-              curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-              apt-get install -y nodejs
+            # Install nvm and Node.js 20
+            export NVM_DIR="$HOME/.nvm"
+            if [ ! -d "$NVM_DIR" ]; then
+              curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
             fi
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            nvm install 20
+            nvm use 20
             
             # Setup domain directory
             DOMAIN_PATH="/home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }}"
-            
-            # Remove existing directory and recreate
             rm -rf $DOMAIN_PATH
             mkdir -p $DOMAIN_PATH
             cd $DOMAIN_PATH
@@ -89,7 +90,7 @@ jobs:
             # Clone repository
             git clone https://github.com/${{ github.repository }} .
             
-            # Use legacy peer deps for npm install
+            # Install and build
             npm install --legacy-peer-deps
             npm run build
             
