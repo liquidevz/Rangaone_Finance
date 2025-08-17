@@ -1,10 +1,8 @@
-name: Deploy to CloudPanel
+name: Docker Deploy to Domain
 
 on:
   push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
+    branches: [main]
 
 jobs:
   test:
@@ -18,76 +16,23 @@ jobs:
       - run: npm ci --legacy-peer-deps
       - run: npm run build
       - run: npm run lint
-      
-      - name: Send test failure notification
-        if: failure()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ secrets.SMTP_SERVER }}
-          server_port: ${{ secrets.SMTP_PORT }}
-          username: ${{ secrets.SMTP_USERNAME }}
-          password: ${{ secrets.SMTP_PASSWORD }}
-          subject: 'Tests Failed - ${{ github.repository }}'
-          body: |
-            Tests failed for commit ${{ github.sha }}
-            
-            Repository: ${{ github.repository }}
-            Branch: ${{ github.ref }}
-            
-            View logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          to: ${{ secrets.NOTIFICATION_EMAIL }}
-          from: 'GitHub Actions'
 
   deploy:
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Deploy to CloudPanel
+      - name: Deploy with Docker
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.CLOUDPANEL_HOST }}
-          port: 22
-          username: ${{ secrets.CLOUDPANEL_USER }}
-          password: ${{ secrets.CLOUDPANEL_PASSWORD }}
-          timeout: 60s
-          command_timeout: 60s
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Install Docker if not present
-            if ! command -v docker &> /dev/null; then
-              curl -fsSL https://get.docker.com -o get-docker.sh
-              sudo sh get-docker.sh
-              sudo usermod -aG docker $USER
-            fi
-            
-            # Install Docker Compose if not present
-            if ! command -v docker-compose &> /dev/null; then
-              sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-              sudo chmod +x /usr/local/bin/docker-compose
-            fi
-            
-            # Create and setup project directory
-            mkdir -p /home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }}
-            cd /home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }}
-            
-            # Clone or pull repository
-            if [ ! -d ".git" ]; then
-              git clone https://github.com/${{ github.repository }} .
-            else
-              git pull origin main
-            fi
-            
-            # Setup environment
-            if [ ! -f ".env.production" ]; then
-              cp .env.production.example .env.production
-            fi
-            
-            # Deploy with Docker
-            /usr/local/bin/docker-compose down || true
-            /usr/local/bin/docker-compose up -d --build
-            /usr/local/bin/docker system prune -f || true
+            cd /home/cloudpanel/htdocs/${{ secrets.DOMAIN_NAME }}
+            git pull origin main
+            docker-compose -f docker-compose.prod.yml down
+            docker-compose -f docker-compose.prod.yml up -d --build
+            docker system prune -f
       
       - name: Send failure notification
         if: failure()
