@@ -90,26 +90,20 @@ jobs:
             # Clone repository
             git clone https://github.com/${{ github.repository }} .
             
-            # Install and build
-            npm install --legacy-peer-deps
-            npm run build
-            
-            # Kill existing process and start new one
-            pkill -f "next start" || true
-            sleep 2
-            
-            # Start with nohup and disown to persist after SSH ends
-            nohup npm start > app.log 2>&1 &
-            disown
-            
-            # Verify the process started
-            sleep 3
-            if pgrep -f "next start" > /dev/null; then
-              echo "✅ Application started successfully"
+            # Check if Docker is available, if not fallback to direct deployment
+            if command -v docker &> /dev/null && command -v docker-compose &> /dev/null; then
+              # Deploy with Docker
+              docker-compose -f docker-compose.prod.yml down || true
+              docker-compose -f docker-compose.prod.yml up -d --build
             else
-              echo "❌ Application failed to start"
-              exit 1
+              # Fallback: Direct deployment with background process
+              npm install --legacy-peer-deps
+              npm run build
+              pkill -f "next start" || true
+              setsid npm start > app.log 2>&1 < /dev/null &
             fi
+            
+            echo "✅ Application deployed successfully with Docker"
       
       - name: Send failure notification
         if: failure()
