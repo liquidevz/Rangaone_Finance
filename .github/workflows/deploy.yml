@@ -96,7 +96,20 @@ jobs:
             
             # Kill existing process and start new one
             pkill -f "next start" || true
+            sleep 2
+            
+            # Start with nohup and disown to persist after SSH ends
             nohup npm start > app.log 2>&1 &
+            disown
+            
+            # Verify the process started
+            sleep 3
+            if pgrep -f "next start" > /dev/null; then
+              echo "✅ Application started successfully"
+            else
+              echo "❌ Application failed to start"
+              exit 1
+            fi
       
       - name: Send failure notification
         if: failure()
