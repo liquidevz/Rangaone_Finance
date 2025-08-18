@@ -360,10 +360,10 @@ export default function StockRecommendationPage() {
                       </div>
                     )}
                     
-                    {tipData.horizon && (
+                    {(tipData.exitPrice || getExitRange(tipData.content)) && (
                       <div className="text-center">
-                        <p className="text-[0.9rem] md:text-2xl lg:text-2xl" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>Horizon</p>
-                        <p className="md:text-xl text-[0.9rem] font-bold text-green-600" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>{tipData.horizon}</p>
+                        <p className="text-[0.9rem] md:text-2xl lg:text-2xl" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>Exit Range</p>
+                        <p className="md:text-xl text-[0.9rem] font-bold text-green-600" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>{getExitRange(tipData.content) || tipData.exitPrice}</p>
                       </div>
                     )}
                     
@@ -387,13 +387,15 @@ export default function StockRecommendationPage() {
                         <p className="md:text-xl text-[0.9rem] font-bold text-green-600" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>{format(new Date(tipData.updatedAt), 'dd MMM yyyy')}</p>
                       </div>
                     )}
-                    
-                    {(tipData.exitPrice || getExitRange(tipData.content)) && (
+
+                    {tipData.horizon && (
                       <div className="text-center">
-                        <p className="text-[0.9rem] md:text-2xl lg:text-2xl" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>Exit Range</p>
-                        <p className="md:text-xl text-[0.9rem] font-bold text-green-600" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>{getExitRange(tipData.content) || tipData.exitPrice}</p>
+                        <p className="text-[0.9rem] md:text-2xl lg:text-2xl" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>Horizon</p>
+                        <p className="md:text-xl text-[0.9rem] font-bold text-green-600" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>{tipData.horizon}</p>
                       </div>
                     )}
+                    
+
                   </>
                 ) : (
                   /* Active tip fields */
