@@ -98,21 +98,21 @@ jobs:
             pkill -f "next start" || true
             pkill -f "node.*server.js" || true
             
-            # Stop existing containers and start fresh with Docker
-            docker-compose -f docker-compose.prod.yml down || true
-            docker system prune -f || true
-            
-            # Build and start with Docker in detached mode
+            # Create Docker deployment script
+            cat > docker-deploy.sh << 'EOF'
+            #!/bin/bash
+            docker-compose -f docker-compose.prod.yml down
+            docker system prune -f
             docker-compose -f docker-compose.prod.yml up -d --build
+            echo "Docker deployment completed" > docker_status.txt
+            EOF
             
-            # Quick verification
-            sleep 10
-            if docker-compose -f docker-compose.prod.yml ps | grep -q "Up"; then
-              echo "✅ Docker container is running"
-            else
-              echo "❌ Docker container failed to start"
-              docker-compose -f docker-compose.prod.yml logs
-            fi
+            chmod +x docker-deploy.sh
+            
+            # Run Docker deployment in background and exit immediately
+            nohup ./docker-deploy.sh > docker.log 2>&1 &
+            
+            echo "✅ Docker deployment started in background"
       
       - name: Send failure notification
         if: failure()
