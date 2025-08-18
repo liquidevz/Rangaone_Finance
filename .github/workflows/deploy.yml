@@ -108,16 +108,17 @@ jobs:
             pkill -f "next start" || true
             pkill -f "node.*server.js" || true
             
-            # Start the app and exit SSH immediately
-            npm start > app.log 2>&1 &
+            # Start the app with nohup to survive SSH disconnect
+            nohup npm start > app.log 2>&1 &
             echo $! > app.pid
             
-            # Verify it started
-            sleep 2
+            # Brief verification
+            sleep 3
             if kill -0 $(cat app.pid) 2>/dev/null; then
               echo "✅ App started with PID $(cat app.pid)"
             else
               echo "❌ App failed to start"
+              exit 1
             fi
       
       - name: Send failure notification
