@@ -66,13 +66,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy with Docker
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.CLOUDPANEL_HOST }}
           username: ${{ secrets.CLOUDPANEL_USER }}
           password: ${{ secrets.CLOUDPANEL_PASSWORD }}
-          timeout: 600s
-          command_timeout: 600s
+          timeout: 30m
+          command_timeout: 30m
+          script_stop: true
           script: |
             # Install nvm and Node.js 20
             export NVM_DIR="$HOME/.nvm"
