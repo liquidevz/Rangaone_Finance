@@ -143,7 +143,7 @@ jobs:
             chown -R ${{ secrets.CLOUDPANEL_USER }}:${{ secrets.CLOUDPANEL_USER }} .
             chmod -R 755 .
             
-            echo "✅ Next.js app deployed successfully on port 3000"
+            echo "✅ Next.js app deployed successfully on port d3000"
       
       - name: Send failure notification
         if: failure()
