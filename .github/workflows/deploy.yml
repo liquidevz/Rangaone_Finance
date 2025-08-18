@@ -74,6 +74,7 @@ jobs:
           timeout: 30m
           command_timeout: 30m
           script_stop: false
+          sync: true
           script: |
             # Install nvm and Node.js 20
             export NVM_DIR="$HOME/.nvm"
@@ -103,10 +104,22 @@ jobs:
             npm install --legacy-peer-deps
             npm run build
             
-            # Start app with nohup and disown to completely detach
-            nohup npm start > /dev/null 2>&1 &
-            disown
-            echo "✅ Deployment completed"
+            # Start app and verify it's running before disconnecting
+            npm start > app.log 2>&1 &
+            APP_PID=$!
+            
+            # Wait and verify app is actually running
+            sleep 10
+            if kill -0 $APP_PID 2>/dev/null; then
+              echo "✅ App is running with PID $APP_PID"
+              curl -f http://localhost:3000 || echo "App starting..."
+            else
+              echo "❌ App failed to start"
+              cat app.log
+              exit 1
+            fi
+            
+            echo "✅ Deployment completed successfully"
       
       - name: Send failure notification
         if: failure()
