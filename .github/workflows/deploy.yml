@@ -5,64 +5,64 @@ on:
     branches: [main]
 
 jobs:
-  # test:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: '20'
-  #         cache: 'npm'
-  #     - run: npm install --legacy-peer-deps
-  #     - run: npm run build
-  #     - run: npm run lint
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm install --legacy-peer-deps
+      - run: npm run build
+      - run: npm run lint
 
-  # docker-test:
-  #   needs: test
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Test Docker Build
-  #       id: docker-build
-  #       run: |
-  #         docker build -t test-build . 2>&1 | tee build.log
-  #         if [ ${PIPESTATUS[0]} -ne 0 ]; then
-  #           echo "BUILD_FAILED=true" >> $GITHUB_OUTPUT
-  #           echo "BUILD_LOG<<EOF" >> $GITHUB_OUTPUT
-  #           cat build.log >> $GITHUB_OUTPUT
-  #           echo "EOF" >> $GITHUB_OUTPUT
-  #           exit 1
-  #         fi
-  #     
-  #     - name: Send Docker Build Failure Email
-  #       if: failure()
-  #       uses: dawidd6/action-send-mail@v3
-  #       with:
-  #         server_address: smtp.gmail.com
-  #         server_port: 587
-  #         username: ${{ secrets.EMAIL_USERNAME }}
-  #         password: ${{ secrets.EMAIL_PASSWORD }}
-  #         subject: 'Docker Build Failed - ${{ github.repository }}'
-  #         body: |
-  #           Docker build failed for commit ${{ github.sha }}
-  #           
-  #           Repository: ${{ github.repository }}
-  #           Branch: ${{ github.ref }}
-  #           
-  #           Build Error:
-  #           ${{ steps.docker-build.outputs.BUILD_LOG }}
-  #           
-  #           Common fixes:
-  #           - Check package.json dependencies
-  #           - Verify Dockerfile syntax
-  #           - Check for missing files
-  #           
-  #           View logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-  #         to: ${{ secrets.NOTIFICATION_EMAIL }}
-  #         from: 'GitHub Actions'
+  docker-test:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test Docker Build
+        id: docker-build
+        run: |
+          docker build -t test-build . 2>&1 | tee build.log
+          if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            echo "BUILD_FAILED=true" >> $GITHUB_OUTPUT
+            echo "BUILD_LOG<<EOF" >> $GITHUB_OUTPUT
+            cat build.log >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+      
+      - name: Send Docker Build Failure Email
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: 'Docker Build Failed - ${{ github.repository }}'
+          body: |
+            Docker build failed for commit ${{ github.sha }}
+            
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref }}
+            
+            Build Error:
+            ${{ steps.docker-build.outputs.BUILD_LOG }}
+            
+            Common fixes:
+            - Check package.json dependencies
+            - Verify Dockerfile syntax
+            - Check for missing files
+            
+            View logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: 'GitHub Actions'
 
   deploy:
-    # needs: [test, docker-test]
+    needs: [test, docker-test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

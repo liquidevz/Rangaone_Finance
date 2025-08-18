@@ -130,7 +130,7 @@ export default function PricingSection() {
           transition={{ duration: 0.6 }}
         >
            <div className="text-center mb-8 sm:mb-12">
-             <h2 className="text-5xl lg:text-8xl sm:text-7xl font-bold font-serif text-gray-900 dark:text-[#FFFFF0]">RANGAONE WEALTH</h2>
+             <h2 className="text-5xl lg:text-8xl sm:text-7xl font-bold font-serif text-gray-900 dark:text-[#FFFFF0]">RANGAONE's WEALTH</h2>
              <p className="px-1 mt-2 text-[1.1rem] font-medium text-gray-600 dark:text-gray-300">
              Your way to smarter investing and long-term wealth creation! Stay ahead and make every move impactful
             </p>
