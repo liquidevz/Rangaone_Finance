@@ -71,9 +71,9 @@ jobs:
           host: ${{ secrets.CLOUDPANEL_HOST }}
           username: ${{ secrets.CLOUDPANEL_USER }}
           password: ${{ secrets.CLOUDPANEL_PASSWORD }}
-          timeout: 30m
-          command_timeout: 30m
-          script_stop: true
+          timeout: 1800
+          command_timeout: 1800
+          script_stop: false
           script: |
             # Install nvm and Node.js 20
             export NVM_DIR="$HOME/.nvm"
@@ -103,9 +103,10 @@ jobs:
             npm install --legacy-peer-deps
             npm run build
             
-            # Start app in background and exit immediately
-            npm start &
-            echo "✅ Deployment completed - app starting in background"
+            # Start app with nohup and disown to completely detach
+            nohup npm start > /dev/null 2>&1 &
+            disown
+            echo "✅ Deployment completed"
       
       - name: Send failure notification
         if: failure()
