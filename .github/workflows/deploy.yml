@@ -71,8 +71,8 @@ jobs:
           host: ${{ secrets.CLOUDPANEL_HOST }}
           username: ${{ secrets.CLOUDPANEL_USER }}
           password: ${{ secrets.CLOUDPANEL_PASSWORD }}
-          timeout: 300s
-          command_timeout: 300s
+          timeout: 600s
+          command_timeout: 600s
           script: |
             # Install nvm and Node.js 20
             export NVM_DIR="$HOME/.nvm"
@@ -108,14 +108,13 @@ jobs:
             pkill -f "next start" || true
             pkill -f "node.*server.js" || true
             
-            # Start the app with nohup to survive SSH disconnect
-            nohup npm start > app.log 2>&1 &
-            echo $! > app.pid
+            # Start with screen to detach completely
+            screen -dmS nextapp npm start
+            sleep 5
             
-            # Brief verification
-            sleep 3
-            if kill -0 $(cat app.pid) 2>/dev/null; then
-              echo "✅ App started with PID $(cat app.pid)"
+            # Verify app is running
+            if screen -list | grep -q nextapp; then
+              echo "✅ App started in screen session"
             else
               echo "❌ App failed to start"
               exit 1
