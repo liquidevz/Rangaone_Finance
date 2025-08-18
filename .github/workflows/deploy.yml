@@ -81,7 +81,8 @@ jobs:
         with:
           host: ${{ secrets.CLOUDPANEL_HOST }}
           username: ${{ secrets.CLOUDPANEL_USER }}
-          password: ${{ secrets.CLOUDPANEL_PASSWORD }}
+          key: ${{ secrets.CLOUDPANEL_SSH_KEY }}
+          port: 22
           timeout: 300s
           command_timeout: 300s
           script: |
