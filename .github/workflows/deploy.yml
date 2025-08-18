@@ -98,22 +98,21 @@ jobs:
             pkill -f "next start" || true
             pkill -f "node.*server.js" || true
             
-            # Create deployment script to run in background
-            cat > deploy.sh << 'EOF'
-            #!/bin/bash
-            npm install --legacy-peer-deps
-            npm run build
-            pkill -f "next start" || true
-            npm start > app.log 2>&1 &
-            echo "Deployment completed" > deploy_status.txt
-            EOF
+            # Stop existing containers and start fresh with Docker
+            docker-compose -f docker-compose.prod.yml down || true
+            docker system prune -f || true
             
-            chmod +x deploy.sh
-            nohup ./deploy.sh &
+            # Build and start with Docker in detached mode
+            docker-compose -f docker-compose.prod.yml up -d --build
             
-            # Wait briefly then exit
-            sleep 5
-            echo "✅ Deployment started in background"
+            # Quick verification
+            sleep 10
+            if docker-compose -f docker-compose.prod.yml ps | grep -q "Up"; then
+              echo "✅ Docker container is running"
+            else
+              echo "❌ Docker container failed to start"
+              docker-compose -f docker-compose.prod.yml logs
+            fi
       
       - name: Send failure notification
         if: failure()
