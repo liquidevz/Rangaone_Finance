@@ -34,6 +34,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [processingMsg, setProcessingMsg] = useState("Preparing secure payment…")
   const [showDigio, setShowDigio] = useState(false)
   const [agreementData, setAgreementData] = useState<PaymentAgreementData | null>(null)
+  const [telegramLinks, setTelegramLinks] = useState<Array<{ invite_link: string }> | null>(null)
   const cancelRequested = useRef(false)
   const continuedAfterAuthRef = useRef(false)
   
@@ -98,6 +99,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     setStep("plan")
     setProcessing(false)
     setShowDigio(false)
+    setTelegramLinks(null)
     onClose()
   }
 
@@ -198,9 +200,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             if (verify.success || ["active", "authenticated"].includes((verify as any).subscriptionStatus || "")) {
               const links = (verify as any)?.telegramInviteLinks as Array<{ invite_link: string }> | undefined
               if (links && links.length) {
-                links.forEach(l => {
-                  try { window.open(l.invite_link, "_blank") } catch {}
-                })
+                setTelegramLinks(links)
               }
               
               setStep("success")
@@ -250,6 +250,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             })
 
             if (verify.success) {
+              const links = (verify as any)?.telegramInviteLinks as Array<{ invite_link: string }> | undefined
+              if (links && links.length) {
+                setTelegramLinks(links)
+              }
+              
               setStep("success")
               setProcessing(false)
               toast({ title: "Payment Successful", description: "Subscription activated" })
@@ -490,10 +495,35 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       handleClose()
                       router.push('/dashboard')
                     }}
-                    className="w-full bg-green-600 hover:bg-green-700"
+                    className="w-full bg-green-600 hover:bg-green-700 mb-4"
                   >
                     Continue to Dashboard
                   </Button>
+                  
+                  {/* Telegram Links Section */}
+                  {telegramLinks && telegramLinks.length > 0 && (
+                    <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <h4 className="text-sm font-semibold text-blue-800 mb-3">
+                        Join Your Telegram Groups:
+                      </h4>
+                      <div className="space-y-2">
+                        {telegramLinks.map((link, index) => (
+                          <a
+                            key={index}
+                            href={link.invite_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block w-full px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-center"
+                          >
+                            Join Telegram Group {index + 1}
+                          </a>
+                        ))}
+                      </div>
+                      <p className="text-xs text-blue-600 mt-2">
+                        Click the links above to join your exclusive Telegram groups
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 

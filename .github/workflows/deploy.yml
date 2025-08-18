@@ -1,141 +1,39 @@
-name: Docker Deploy to Domain
+name: Deploy to Production
 
 on:
   push:
-    branches: [main]
+    branches: [ main, master ]
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - run: npm install --legacy-peer-deps
-      - run: npm run build
-      - run: npm run lint
-
-  docker-test:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Test Docker Build
-        id: docker-build
-        run: |
-          docker build -t test-build . 2>&1 | tee build.log
-          if [ ${PIPESTATUS[0]} -ne 0 ]; then
-            echo "BUILD_FAILED=true" >> $GITHUB_OUTPUT
-            echo "BUILD_LOG<<EOF" >> $GITHUB_OUTPUT
-            cat build.log >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-      
-      - name: Send Docker Build Failure Email
-        if: failure()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 587
-          username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: 'Docker Build Failed - ${{ github.repository }}'
-          body: |
-            Docker build failed for commit ${{ github.sha }}
-            
-            Repository: ${{ github.repository }}
-            Branch: ${{ github.ref }}
-            
-            Build Error:
-            ${{ steps.docker-build.outputs.BUILD_LOG }}
-            
-            Common fixes:
-            - Check package.json dependencies
-            - Verify Dockerfile syntax
-            - Check for missing files
-            
-            View logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          to: ${{ secrets.NOTIFICATION_EMAIL }}
-          from: 'GitHub Actions'
-
   deploy:
-    needs: [test, docker-test]
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Deploy with Docker
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.CLOUDPANEL_HOST }}
-          username: ${{ secrets.CLOUDPANEL_USER }}
-          password: ${{ secrets.CLOUDPANEL_PASSWORD }}
-          timeout: 300s
-          command_timeout: 300s
-          script: |
-            # Install nvm and Node.js 20
-            export NVM_DIR="$HOME/.nvm"
-            if [ ! -d "$NVM_DIR" ]; then
-              curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-            fi
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            nvm install 20
-            nvm use 20
-            
-            # Setup domain directory
-            DOMAIN_PATH="/home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }}"
-            cd $DOMAIN_PATH
-            
-            # Clean and update repository
-            if [ -d ".git" ]; then
-              git fetch origin
-              git reset --hard origin/main
-              git clean -fd
-            else
-              cd ..
-              rm -rf ${{ secrets.CLOUDPANEL_DOMAIN }}
-              mkdir -p ${{ secrets.CLOUDPANEL_DOMAIN }}
-              cd ${{ secrets.CLOUDPANEL_DOMAIN }}
-              git clone https://github.com/${{ github.repository }} .
-            fi
-            
-            # Install and build
-            npm install --legacy-peer-deps
-            npm run build
-            
-            # Kill existing process
-            pkill -f "next start" || true
-            pkill -f "node.*server.js" || true
-            
-            # Start the app and exit SSH immediately
-            npm start > app.log 2>&1 &
-            echo $! > app.pid
-            
-            # Verify it started
-            sleep 2
-            if kill -0 $(cat app.pid) 2>/dev/null; then
-              echo "✅ App started with PID $(cat app.pid)"
-            else
-              echo "❌ App failed to start"
-            fi
+    - name: Checkout code
+      uses: actions/checkout@v4
       
-      - name: Send failure notification
-        if: failure()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ secrets.SMTP_SERVER }}
-          server_port: ${{ secrets.SMTP_PORT }}
-          username: ${{ secrets.SMTP_USERNAME }}
-          password: ${{ secrets.SMTP_PASSWORD }}
-          subject: 'Deployment Failed - ${{ github.repository }}'
-          body: |
-            Deployment failed for commit ${{ github.sha }}
-            
-            Repository: ${{ github.repository }}
-            Branch: ${{ github.ref }}
-            Commit: ${{ github.event.head_commit.message }}
-            
-            View logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          to: ${{ secrets.NOTIFICATION_EMAIL }}
-          from: 'GitHub Actions'
+    - name: Build and Deploy via SSH
+      uses: appleboy/ssh-action@v1.2.0
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_KEY }}
+        port: ${{ secrets.PORT }}
+        script: |
+          cd /home/${{ secrets.USERNAME }}/htdocs/${{ secrets.DOMAIN }}
+          
+          # Clean up existing files (force remove)
+          sudo rm -rf .next node_modules package-lock.json || true
+          
+          # Pull latest code
+          git fetch --all
+          git reset --hard origin/main
+          
+          # Build and run with Docker
+          docker-compose -f docker-compose.prod.yml down || true
+          docker-compose -f docker-compose.prod.yml build --no-cache
+          docker-compose -f docker-compose.prod.yml up -d
+          
+          # Verify deployment
+          sleep 10
+          curl -f http://localhost:3000 || exit 1
