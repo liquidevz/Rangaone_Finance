@@ -71,10 +71,11 @@ jobs:
           host: ${{ secrets.CLOUDPANEL_HOST }}
           username: ${{ secrets.CLOUDPANEL_USER }}
           password: ${{ secrets.CLOUDPANEL_PASSWORD }}
-          timeout: 30m
-          command_timeout: 30m
+          timeout: 45m
+          command_timeout: 45m
           script_stop: false
           sync: true
+          request_pty: true
           script: |
             # Install nvm and Node.js 20
             export NVM_DIR="$HOME/.nvm"
