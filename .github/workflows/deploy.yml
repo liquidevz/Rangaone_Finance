@@ -86,14 +86,19 @@ jobs:
             # Setup domain directory
             DOMAIN_PATH="/home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }}"
             
-            # Move to parent and completely remove directory
-            cd /home/${{ secrets.CLOUDPANEL_USER }}/htdocs/
-            rm -rf ${{ secrets.CLOUDPANEL_DOMAIN }} || true
+            # Move to temp directory for fresh deployment
+            cd /tmp
+            rm -rf deploy-temp
+            git clone https://github.com/${{ github.repository }} deploy-temp
             
-            # Create fresh directory and clone
-            mkdir ${{ secrets.CLOUDPANEL_DOMAIN }}
+            # Move to parent and force remove with different approach
+            cd /home/${{ secrets.CLOUDPANEL_USER }}/htdocs/
+            mv ${{ secrets.CLOUDPANEL_DOMAIN }} ${{ secrets.CLOUDPANEL_DOMAIN }}.old 2>/dev/null || true
+            rm -rf ${{ secrets.CLOUDPANEL_DOMAIN }}.old &
+            
+            # Move fresh code to domain directory
+            mv /tmp/deploy-temp ${{ secrets.CLOUDPANEL_DOMAIN }}
             cd ${{ secrets.CLOUDPANEL_DOMAIN }}
-            git clone https://github.com/${{ github.repository }} .
             
             # Install and build
             npm install --legacy-peer-deps
