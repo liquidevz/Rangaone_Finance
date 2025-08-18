@@ -145,7 +145,7 @@ export default function StockTrading() {
             change: 23.5,
             changePercent: 1.52,
             target: 25,
-            timeHorizon: "Medium Term",
+            timeHorizon: "Swing",
           },
           {
             symbol: "RELIANCE",
@@ -196,7 +196,7 @@ export default function StockTrading() {
             change: -8.4,
             changePercent: -0.67,
             target: 22,
-            timeHorizon: "Medium Term",
+            timeHorizon: "Swing",
             closed: true,
             returnPercentage: 18.3,
           },
@@ -220,7 +220,7 @@ export default function StockTrading() {
             change: 156.2,
             changePercent: 1.5,
             target: 30,
-            timeHorizon: "Medium Term",
+            timeHorizon: "Swing",
             closed: true,
             returnPercentage: 27.8,
           },
@@ -255,7 +255,7 @@ export default function StockTrading() {
           return "from-blue-50/70 to-blue-100/70 border-blue-200/70"
         case "Long Term":
           return "from-amber-50/70 to-amber-100/70 border-amber-200/70"
-        case "Medium Term":
+        case "Swing":
           return "from-purple-50/70 to-purple-100/70 border-purple-200/70"
         default:
           return "from-gray-50/70 to-gray-100/70 border-gray-200/70"
@@ -267,7 +267,7 @@ export default function StockTrading() {
         return "from-blue-50 to-blue-100 border-blue-200"
       case "Long Term":
         return "from-amber-50 to-amber-100 border-amber-200"
-      case "Medium Term":
+      case "Swing":
         return "from-purple-50 to-purple-100 border-purple-200"
       default:
         return "from-gray-50 to-gray-100 border-gray-200"
@@ -280,7 +280,7 @@ export default function StockTrading() {
         return "bg-blue-100 text-blue-800"
       case "Long Term":
         return "bg-amber-100 text-amber-800"
-      case "Medium Term":
+      case "Swing":
         return "bg-purple-100 text-purple-800"
       default:
         return "bg-gray-100 text-gray-800"

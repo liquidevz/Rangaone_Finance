@@ -50,7 +50,7 @@ const RangaOneWealthRecommendations = [
     stock: {
       name: "ICICI BANK",
       exchange: "NSE",
-      horizon: "Medium Term",
+      horizon: "Swing",
       price: "₹978.35",
       change: "₹12.65(1.31%)",
       target: "27%",

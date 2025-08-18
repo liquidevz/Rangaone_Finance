@@ -87,7 +87,7 @@ const openRecommendations = [
     change: 23.5,
     changePercent: 1.52,
     target: 25,
-    timeHorizon: "Medium Term",
+    timeHorizon: "Swing",
     category: "Premium",
   },
   {
@@ -121,7 +121,7 @@ export default function OpenRecommendations() {
   const filteredStocks = openRecommendations.filter((stock) => {
     if (filter === "all") return true
     if (filter === "short" && stock.timeHorizon === "Short Term") return true
-    if (filter === "medium" && stock.timeHorizon === "Medium Term") return true
+    if (filter === "medium" && stock.timeHorizon === "Swing") return true
     if (filter === "long" && stock.timeHorizon === "Long Term") return true
     return false
   })
@@ -176,7 +176,7 @@ export default function OpenRecommendations() {
               onClick={() => setFilter("medium")}
               className={filter === "medium" ? "bg-blue-600 hover:bg-blue-700" : ""}
             >
-              Medium Term
+              Swing
             </Button>
             <Button
               variant={filter === "long" ? "default" : "outline"}
