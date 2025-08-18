@@ -65,7 +65,18 @@ jobs:
     needs: [test, docker-test]
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy with Docker
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Build application
+        run: |
+          npm install --legacy-peer-deps
+          npm run build
+      
+      - name: Deploy to CloudPanel
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.CLOUDPANEL_HOST }}
@@ -74,7 +85,7 @@ jobs:
           timeout: 300s
           command_timeout: 300s
           script: |
-            # Install nvm and Node.js 20
+            # Install Node.js 20 if not present
             export NVM_DIR="$HOME/.nvm"
             if [ ! -d "$NVM_DIR" ]; then
               curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
@@ -92,30 +103,47 @@ jobs:
             # Clone repository
             git clone https://github.com/${{ github.repository }} .
             
-            # Create deployment script
-            cat > deploy_app.sh << 'EOF'
-            #!/bin/bash
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            nvm use 20
+            # Install dependencies and build
+            npm install --legacy-peer-deps
+            npm run build
             
-            if command -v docker-compose &> /dev/null; then
-              docker-compose -f docker-compose.prod.yml down || true
-              docker-compose -f docker-compose.prod.yml up -d --build
-            else
-              npm install --legacy-peer-deps
-              npm run build
-              pkill -f "next start" || true
-              npm start > app.log 2>&1 &
-            fi
+            # Create PM2 ecosystem file
+            cat > ecosystem.config.js << 'EOF'
+            module.exports = {
+              apps: [{
+                name: 'rangaone-fe',
+                script: '.next/standalone/server.js',
+                instances: 1,
+                autorestart: true,
+                watch: false,
+                max_memory_restart: '1G',
+                env: {
+                  NODE_ENV: 'production',
+                  PORT: 3000
+                }
+              }]
+            };
             EOF
             
-            chmod +x deploy_app.sh
+            # Install PM2 if not present
+            if ! command -v pm2 &> /dev/null; then
+              npm install -g pm2
+            fi
             
-            # Run deployment in screen session
-            screen -dmS deployment ./deploy_app.sh
+            # Copy static files to standalone
+            cp -r .next/static .next/standalone/.next/
+            cp -r public .next/standalone/
             
-            echo "✅ Deployment started in background"
+            # Stop existing process and start new one
+            pm2 delete rangaone-fe || true
+            pm2 start ecosystem.config.js
+            pm2 save
+            
+            # Set proper permissions
+            chown -R ${{ secrets.CLOUDPANEL_USER }}:${{ secrets.CLOUDPANEL_USER }} .
+            chmod -R 755 .
+            
+            echo "✅ Next.js app deployed successfully on port 3000"
       
       - name: Send failure notification
         if: failure()
