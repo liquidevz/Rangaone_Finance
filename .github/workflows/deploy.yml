@@ -86,23 +86,18 @@ jobs:
             # Setup domain directory
             DOMAIN_PATH="/home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }}"
             
-            # Force clean .next and node_modules with sudo
-            sudo rm -rf $DOMAIN_PATH/.next $DOMAIN_PATH/node_modules || true
+            # Change ownership and force clean
+            chown -R ${{ secrets.CLOUDPANEL_USER }}:${{ secrets.CLOUDPANEL_USER }} $DOMAIN_PATH || true
+            rm -rf $DOMAIN_PATH/.next $DOMAIN_PATH/node_modules || true
             
+            # Complete fresh start
+            rm -rf $DOMAIN_PATH
+            mkdir -p $DOMAIN_PATH
             cd $DOMAIN_PATH
             
-            # Clean and update repository
-            if [ -d ".git" ]; then
-              git fetch origin
-              git reset --hard origin/main
-              git clean -fd
-            else
-              cd ..
-              rm -rf ${{ secrets.CLOUDPANEL_DOMAIN }}
-              mkdir -p ${{ secrets.CLOUDPANEL_DOMAIN }}
-              cd ${{ secrets.CLOUDPANEL_DOMAIN }}
-              git clone https://github.com/${{ github.repository }} .
-            fi
+            # Clone repository
+            git clone https://github.com/${{ github.repository }} .
+            chown -R ${{ secrets.CLOUDPANEL_USER }}:${{ secrets.CLOUDPANEL_USER }} .
             
             # Install and build
             npm install --legacy-peer-deps
