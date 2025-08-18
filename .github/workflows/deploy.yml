@@ -91,14 +91,16 @@ jobs:
             rm -rf deploy-temp
             git clone https://github.com/${{ github.repository }} deploy-temp
             
-            # Move to parent and force remove with different approach
-            cd /home/${{ secrets.CLOUDPANEL_USER }}/htdocs/
-            mv ${{ secrets.CLOUDPANEL_DOMAIN }} ${{ secrets.CLOUDPANEL_DOMAIN }}.old 2>/dev/null || true
-            rm -rf ${{ secrets.CLOUDPANEL_DOMAIN }}.old &
+            # Attempt to remove the old directory with sudo, if necessary
+            # This assumes the user has sudo privileges on the remote server for this specific action
+            # Alternatively, ensure the user running the deployment has proper ownership/permissions on the CLOUDPANEL_DOMAIN directory
+            if [ -d "/home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }}" ]; then
+              sudo rm -rf /home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }}
+            fi
             
             # Move fresh code to domain directory
-            mv /tmp/deploy-temp ${{ secrets.CLOUDPANEL_DOMAIN }}
-            cd ${{ secrets.CLOUDPANEL_DOMAIN }}
+            mv /tmp/deploy-temp /home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }}
+            cd /home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }}
             
             # Install and build
             npm install --legacy-peer-deps

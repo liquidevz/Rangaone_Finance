@@ -355,7 +355,7 @@ export default function StockRecommendationPage() {
                   <>
                     {tipData.buyRange && (
                       <div className="text-center">
-                        <p className="md:text-2xl lg:text-2xl" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>Buy Range</p>
+                        <p className="text-[0.9rem] md:text-2xl lg:text-2xl" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>Buy Range</p>
                         <p className="md:text-xl text-md font-bold text-green-600" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>{tipData.buyRange}</p>
                       </div>
                     )}
