@@ -332,7 +332,7 @@ export function ProfileCompletionModal({ open, onOpenChange, onProfileComplete, 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="w-5 h-5" />
-            Complete Your Profile to Continue
+            Complete Your Profile to Proceed
           </DialogTitle>
         </DialogHeader>
         
