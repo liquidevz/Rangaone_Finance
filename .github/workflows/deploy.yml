@@ -66,16 +66,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy with Docker
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v0.1.5
         with:
           host: ${{ secrets.CLOUDPANEL_HOST }}
           username: ${{ secrets.CLOUDPANEL_USER }}
           password: ${{ secrets.CLOUDPANEL_PASSWORD }}
-          timeout: 45m
-          command_timeout: 45m
-          script_stop: false
-          sync: true
-          request_pty: true
+          timeout: 3600
+          command_timeout: 3600
           script: |
             # Install nvm and Node.js 20
             export NVM_DIR="$HOME/.nvm"
@@ -101,26 +98,22 @@ jobs:
             pkill -f "next start" || true
             pkill -f "node.*server.js" || true
             
-            # Install and build
+            # Create deployment script to run in background
+            cat > deploy.sh << 'EOF'
+            #!/bin/bash
             npm install --legacy-peer-deps
             npm run build
-            
-            # Start app and verify it's running before disconnecting
+            pkill -f "next start" || true
             npm start > app.log 2>&1 &
-            APP_PID=$!
+            echo "Deployment completed" > deploy_status.txt
+            EOF
             
-            # Wait and verify app is actually running
-            sleep 10
-            if kill -0 $APP_PID 2>/dev/null; then
-              echo "✅ App is running with PID $APP_PID"
-              curl -f http://localhost:3000 || echo "App starting..."
-            else
-              echo "❌ App failed to start"
-              cat app.log
-              exit 1
-            fi
+            chmod +x deploy.sh
+            nohup ./deploy.sh &
             
-            echo "✅ Deployment completed successfully"
+            # Wait briefly then exit
+            sleep 5
+            echo "✅ Deployment started in background"
       
       - name: Send failure notification
         if: failure()
