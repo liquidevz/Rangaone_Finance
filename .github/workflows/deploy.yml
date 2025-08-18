@@ -83,6 +83,8 @@ jobs:
           username: ${{ secrets.CLOUDPANEL_USER }}
           password: ${{ secrets.CLOUDPANEL_PASSWORD }}
           port: 22
+          debug: true
+          use_insecure_cipher: true
           timeout: 300s
           command_timeout: 300s
           script: |
