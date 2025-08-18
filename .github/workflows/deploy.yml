@@ -71,8 +71,8 @@ jobs:
           host: ${{ secrets.CLOUDPANEL_HOST }}
           username: ${{ secrets.CLOUDPANEL_USER }}
           password: ${{ secrets.CLOUDPANEL_PASSWORD }}
-          timeout: 1800
-          command_timeout: 1800
+          timeout: 30m
+          command_timeout: 30m
           script_stop: false
           script: |
             # Install nvm and Node.js 20
