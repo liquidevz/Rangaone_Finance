@@ -91,25 +91,49 @@ jobs:
             rm -rf deploy-temp
             git clone https://github.com/${{ github.repository }} deploy-temp
             
-            # Attempt to remove the old directory with sudo, if necessary
-            # This assumes the user has sudo privileges on the remote server for this specific action
-            # Alternatively, ensure the user running the deployment has proper ownership/permissions on the CLOUDPANEL_DOMAIN directory
-            if [ -d "/home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }}" ]; then
-              sudo rm -rf /home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }}
+            # Kill existing process first to release file locks
+            pkill -f "next start" || true
+            pkill -f "node.*server.js" || true
+            screen -S nextapp -X quit || true
+            
+            # Wait a moment for processes to fully terminate
+            sleep 5
+            
+            # Change to htdocs directory
+            cd /home/${{ secrets.CLOUDPANEL_USER }}/htdocs/
+            
+            # Use a more robust approach to handle the old directory
+            if [ -d "${{ secrets.CLOUDPANEL_DOMAIN }}" ]; then
+              # Try to change ownership first (if you have sudo access)
+              sudo chown -R ${{ secrets.CLOUDPANEL_USER }}:${{ secrets.CLOUDPANEL_USER }} ${{ secrets.CLOUDPANEL_DOMAIN }} || true
+              
+              # Try to change permissions to make files writable
+              chmod -R 755 ${{ secrets.CLOUDPANEL_DOMAIN }} || true
+              
+              # Move to backup location with timestamp
+              BACKUP_NAME="${{ secrets.CLOUDPANEL_DOMAIN }}_backup_$(date +%Y%m%d_%H%M%S)"
+              mv ${{ secrets.CLOUDPANEL_DOMAIN }} $BACKUP_NAME || true
+              
+              # If move failed, try force removal with sudo
+              if [ -d "${{ secrets.CLOUDPANEL_DOMAIN }}" ]; then
+                sudo rm -rf ${{ secrets.CLOUDPANEL_DOMAIN }} || true
+              fi
+              
+              # Clean up old backups (keep only last 3)
+              ls -dt ${{ secrets.CLOUDPANEL_DOMAIN }}_backup_* 2>/dev/null | tail -n +4 | xargs -r rm -rf
             fi
             
             # Move fresh code to domain directory
-            mv /tmp/deploy-temp /home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }}
-            cd /home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }}
+            mv /tmp/deploy-temp ${{ secrets.CLOUDPANEL_DOMAIN }}
+            cd ${{ secrets.CLOUDPANEL_DOMAIN }}
+            
+            # Set proper ownership and permissions
+            sudo chown -R ${{ secrets.CLOUDPANEL_USER }}:${{ secrets.CLOUDPANEL_USER }} . || true
+            chmod -R 755 . || true
             
             # Install and build
             npm install --legacy-peer-deps
             npm run build
-            
-            # Kill existing process
-            pkill -f "next start" || true
-            pkill -f "node.*server.js" || true
-            screen -S nextapp -X quit || true
             
             # Start app in background and exit immediately
             npm start &
