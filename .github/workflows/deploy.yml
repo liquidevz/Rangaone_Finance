@@ -76,22 +76,11 @@ jobs:
           npm install --legacy-peer-deps
           npm run build
       
-      - name: Deploy to CloudPanel
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.CLOUDPANEL_HOST }}
-          username: ${{ secrets.CLOUDPANEL_USER }}
-          password: ${{ secrets.CLOUDPANEL_PASSWORD }}
-          port: 22
-          script: |
-            cd /home/rangaone/htdocs/www.rangaone.finance/rangaone-fe
-            git pull origin main
-            npm install --legacy-peer-deps
-            npm run build
-            cp -r .next/static .next/standalone/.next/
-            cp -r public .next/standalone/
-            pm2 restart rangaone-fe || pm2 start ecosystem.config.js
-            pm2 save
+      - name: Trigger deployment webhook
+        run: |
+          curl -X POST ${{ secrets.DEPLOY_WEBHOOK_URL }} \
+            -H "Content-Type: application/json" \
+            -d '{"ref": "${{ github.ref }}", "repository": "${{ github.repository }}", "commit": "${{ github.sha }}"}' || echo "Webhook failed, deploy manually"
       
 
       
