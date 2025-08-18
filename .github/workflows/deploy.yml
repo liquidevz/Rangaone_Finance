@@ -61,7 +61,7 @@ jobs:
   #         to: ${{ secrets.NOTIFICATION_EMAIL }}
   #         from: 'GitHub Actions'
 
-  build:
+  deploy:
     # needs: [test, docker-test]
     runs-on: ubuntu-latest
     steps:
@@ -75,6 +75,23 @@ jobs:
         run: |
           npm install --legacy-peer-deps
           npm run build
+      
+      - name: Deploy to CloudPanel
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.CLOUDPANEL_HOST }}
+          username: ${{ secrets.CLOUDPANEL_USER }}
+          password: ${{ secrets.CLOUDPANEL_PASSWORD }}
+          port: 22
+          script: |
+            cd /home/rangaone/htdocs/www.rangaone.finance/rangaone-fe
+            git pull origin main
+            npm install --legacy-peer-deps
+            npm run build
+            cp -r .next/static .next/standalone/.next/
+            cp -r public .next/standalone/
+            pm2 restart rangaone-fe || pm2 start ecosystem.config.js
+            pm2 save
       
 
       
