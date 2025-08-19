@@ -74,20 +74,17 @@ jobs:
           timeout: 300s
           command_timeout: 300s
           script: |
-            # Install nvm and Node.js 20
-            export NVM_DIR="$HOME/.nvm"
-            if [ ! -d "$NVM_DIR" ]; then
-              curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-            fi
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            nvm install 20
-            nvm use 20
-            
             # Setup domain directory
             DOMAIN_PATH="/home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }}"
             cd $DOMAIN_PATH
             
+            # Stop existing containers and clean up
+            echo "🛑 Stopping existing containers..."
+            docker-compose -f docker-compose.prod.yml down --remove-orphans || true
+            docker system prune -f || true
+            
             # Clean and update repository
+            echo "📥 Updating repository..."
             if [ -d ".git" ]; then
               git fetch origin
               git reset --hard origin/main
@@ -100,41 +97,90 @@ jobs:
               git clone https://github.com/${{ github.repository }} .
             fi
             
-            # Install and build
-            npm install --legacy-peer-deps
-            npm run build
+            # Clear Next.js cache completely
+            echo "🧹 Clearing Next.js cache..."
+            rm -rf .next || true
+            rm -rf node_modules/.cache || true
             
-            # Kill existing process
-            pkill -f "next start" || true
-            pkill -f "node.*server.js" || true
+            # Build and start with Docker
+            echo "🏗️ Building and starting containers..."
+            docker-compose -f docker-compose.prod.yml up -d --build --force-recreate
             
-            # Start the app and exit SSH immediately
-            npm start > app.log 2>&1 &
-            echo $! > app.pid
+            # Wait for application to be ready
+            echo "⏳ Waiting for application to start..."
+            sleep 30
             
-            # Verify it started
-            sleep 2
-            if kill -0 $(cat app.pid) 2>/dev/null; then
-              echo "✅ App started with PID $(cat app.pid)"
-            else
-              echo "❌ App failed to start"
+            # Health check with retries
+            echo "🏥 Performing health check..."
+            max_attempts=10
+            attempt=1
+            
+            while [ $attempt -le $max_attempts ]; do
+              if curl -f http://localhost:3000/api/health >/dev/null 2>&1; then
+                echo "✅ Application is healthy and serving latest code!"
+                break
+              else
+                echo "⏳ Attempt $attempt/$max_attempts - waiting for application..."
+                sleep 10
+                ((attempt++))
+              fi
+            done
+            
+            if [ $attempt -gt $max_attempts ]; then
+              echo "❌ Health check failed - showing container logs:"
+              docker-compose -f docker-compose.prod.yml logs --tail=50
+              exit 1
             fi
+            
+            # Show final status
+            echo "📊 Final container status:"
+            docker-compose -f docker-compose.prod.yml ps
+            echo "🎉 Deployment completed successfully!"
+      
+      - name: Send success notification
+        if: success()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: '✅ Deployment Successful - ${{ github.repository }}'
+          body: |
+            🎉 Deployment completed successfully!
+            
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref }}
+            Commit: ${{ github.event.head_commit.message }}
+            
+            ✅ Latest code is now live on your domain
+            🔄 All caches cleared and containers rebuilt
+            🏥 Health checks passed
+            
+            View deployment: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: 'GitHub Actions'
       
       - name: Send failure notification
         if: failure()
         uses: dawidd6/action-send-mail@v3
         with:
-          server_address: ${{ secrets.SMTP_SERVER }}
-          server_port: ${{ secrets.SMTP_PORT }}
-          username: ${{ secrets.SMTP_USERNAME }}
-          password: ${{ secrets.SMTP_PASSWORD }}
-          subject: 'Deployment Failed - ${{ github.repository }}'
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: '❌ Deployment Failed - ${{ github.repository }}'
           body: |
             Deployment failed for commit ${{ github.sha }}
             
             Repository: ${{ github.repository }}
             Branch: ${{ github.ref }}
             Commit: ${{ github.event.head_commit.message }}
+            
+            Common fixes:
+            - Check container logs in the deployment output
+            - Verify environment variables are set correctly
+            - Ensure Docker has enough resources
             
             View logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           to: ${{ secrets.NOTIFICATION_EMAIL }}

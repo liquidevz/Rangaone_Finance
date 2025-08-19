@@ -26,8 +26,13 @@ const NavLinks = [
     sublinks: [],
   },
   {
+    title: "Policies",
+    href: "/Policies",
+    sublinks: [],
+  },
+  {
     title: "Contact Us",
-    href: "/#contact",
+    href: "/Policies/contact-us",
     sublinks: [],
   },
 ];

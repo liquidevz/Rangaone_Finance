@@ -67,7 +67,7 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/contact" className="text-gray-600 hover:text-[#1e3a8a] transition-colors">
+                <Link href="/Policies/contact-us" className="text-gray-600 hover:text-[#1e3a8a] transition-colors">
                   Contact us
                 </Link>
               </li>
@@ -138,13 +138,18 @@ export default function Footer() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/privacy-policy" className="text-gray-600 hover:text-[#1e3a8a] transition-colors">
+                  <Link href="/Policies/privacy-policy" className="text-gray-600 hover:text-[#1e3a8a] transition-colors">
                     Privacy Policy
                   </Link>
                 </li>
                 <li>
-                  <Link href="/terms" className="text-gray-600 hover:text-[#1e3a8a] transition-colors">
-                    Terms and Condition
+                  <Link href="/Policies/terms-and-conditions" className="text-gray-600 hover:text-[#1e3a8a] transition-colors">
+                    Terms and Conditions
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/Policies/cancellations-refunds" className="text-gray-600 hover:text-[#1e3a8a] transition-colors">
+                    Cancellations & Refunds
                   </Link>
                 </li>
               </ul>
