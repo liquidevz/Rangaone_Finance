@@ -7,8 +7,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Log the deployment
         file_put_contents('/tmp/deploy.log', date('Y-m-d H:i:s') . " - Deployment triggered\n", FILE_APPEND);
         
-        // Run deployment script
-        $output = shell_exec('cd /home/rangaone/htdocs/www.rangaone.finance/rangaone-fe && bash deploy-manual.sh 2>&1');
+        // Run deployment script with environment variables
+        $output = shell_exec('cd /home/rangaone/htdocs/www.rangaone.finance/rangaone-fe && cp .env.production .env.local && bash deploy-manual.sh 2>&1');
         
         // Log output
         file_put_contents('/tmp/deploy.log', $output . "\n", FILE_APPEND);

@@ -73,10 +73,13 @@ export const userPortfolioService = {
       }
       
       // If not authenticated, use public API endpoint
+      console.log('Fetching portfolios from:', process.env.NEXT_PUBLIC_API_BASE_URL + '/api/user/portfolios');
       const response = await publicApi.get<UserPortfolio[]>("/api/user/portfolios");
+      console.log('Portfolios response:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error("Failed to fetch portfolios:", error);
+      console.error("Failed to fetch portfolios:", error.response?.data || error.message);
+      console.error("API URL:", process.env.NEXT_PUBLIC_API_BASE_URL);
       if (error.response?.status === 401) {
         localStorage.removeItem("accessToken");
         sessionStorage.removeItem("accessToken");

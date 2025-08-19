@@ -19,6 +19,9 @@ cd $DOMAIN_PATH
 # Pull latest changes
 git pull origin main
 
+# Copy environment files
+cp .env.production .env.local
+
 # Install dependencies and build
 npm install --legacy-peer-deps
 npm run build
@@ -29,12 +32,14 @@ if ! command -v pm2 &> /dev/null; then
 fi
 
 # Copy static files to standalone
-cp -r .next/static .next/standalone/.next/
-cp -r public .next/standalone/
+cp -r .next/static .next/standalone/.next/ 2>/dev/null || true
+cp -r public .next/standalone/ 2>/dev/null || true
 
 # Stop existing process and start new one
-pm2 delete rangaone-fe || true
+pm2 delete rangaone-fe 2>/dev/null || true
 pm2 start ecosystem.config.js
 pm2 save
+
+echo "🚀 Deployment completed at $(date)"
 
 echo "✅ Next.js app deployed successfully on port 3000"
