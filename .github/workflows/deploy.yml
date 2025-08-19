@@ -65,22 +65,34 @@ jobs:
     needs: [test, docker-test]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Deploy with Docker
+        uses: appleboy/ssh-action@master
         with:
-          node-version: '20'
-          cache: 'npm'
-      
-      - name: Build application
-        run: |
-          npm install --legacy-peer-deps
-          npm run build
-      
-      - name: Trigger deployment webhook
-        run: |
-          curl -X POST ${{ secrets.DEPLOY_WEBHOOK_URL }} \
-            -H "Content-Type: application/json" \
-            -d '{"ref": "${{ github.ref }}", "repository": "${{ github.repository }}", "commit": "${{ github.sha }}"}' || echo "Webhook failed, deploy manually"
+          host: ${{ secrets.CLOUDPANEL_HOST }}
+          username: ${{ secrets.CLOUDPANEL_USER }}
+          password: ${{ secrets.CLOUDPANEL_PASSWORD }}
+          timeout: 300s
+          command_timeout: 300s
+          script: |
+            DOMAIN_PATH="/home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }}"
+            cd $DOMAIN_PATH
+            
+            # Kill processes using port 3000
+            sudo lsof -ti:3000 | xargs kill -9 || true
+            
+            # Stop containers
+            docker-compose -f docker-compose.prod.yml down --remove-orphans || true
+            
+            # Update code
+            git fetch origin && git reset --hard origin/main
+            rm -rf .next node_modules/.cache
+            
+            # Deploy
+            docker-compose -f docker-compose.prod.yml up -d --build --force-recreate
+            
+            # Health check
+            sleep 30
+            curl -f http://localhost/api/health || exit 1
       
 
       
