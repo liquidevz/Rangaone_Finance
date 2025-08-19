@@ -116,7 +116,7 @@ jobs:
             attempt=1
             
             while [ $attempt -le $max_attempts ]; do
-              if curl -f http://localhost:3000/api/health >/dev/null 2>&1; then
+              if curl -f http://localhost/api/health >/dev/null 2>&1; then
                 echo "✅ Application is healthy and serving latest code!"
                 break
               else
