@@ -1,7 +1,8 @@
 "use client"
 
-import DashboardLayout from "@/components/dashboard-layout"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import PublicLayout from "@/components/public-layout"
+import { Card, CardContent } from "@/components/ui/card"
+import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { FileText, Shield, CreditCard, Phone, ArrowRight } from "lucide-react"
 import Link from "next/link"
@@ -39,28 +40,28 @@ export default function PoliciesIndex() {
   ]
 
   return (
-    <DashboardLayout>
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div className="bg-indigo-900 text-[#FFFFF0] py-8 px-8 rounded-lg shadow-md text-center">
-          <h1 className="text-4xl font-bold mb-2">Policies & Information</h1>
-          <p className="text-lg opacity-90">
-            Important information about our services, policies, and how to reach us
-          </p>
-        </div>
+    <PublicLayout>
+      <div className="space-y-6">
+        <PageHeader 
+          title="Policies & Information" 
+          subtitle="Important information about our services, policies, and how to reach us"
+          showBackButton={false}
+          size="hero"
+        />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {policies.map((policy, index) => {
             const IconComponent = policy.icon
             return (
               <Card key={index} className="hover:shadow-lg transition-shadow duration-300">
-                <CardHeader className="pb-4">
+                <div className="p-4 pb-2">
                   <div className="flex items-center space-x-3">
                     <div className={`p-3 rounded-lg ${policy.color}`}>
                       <IconComponent size={24} />
                     </div>
                     <CardTitle className="text-xl">{policy.title}</CardTitle>
                   </div>
-                </CardHeader>
+                </div>
                 <CardContent className="pt-0">
                   <p className="text-gray-600 mb-4 leading-relaxed">
                     {policy.description}
@@ -104,9 +105,9 @@ export default function PoliciesIndex() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Important Disclaimers</CardTitle>
-          </CardHeader>
+            <div className="p-4 pb-2">
+              <h2 className="text-xl font-bold">Important Disclaimers</h2>
+            </div>
           <CardContent className="space-y-4 text-sm text-gray-700">
             <p>
               <strong>SEBI Registration:</strong> RangaOne FINWALA is a SEBI Registered Research Analyst 
@@ -136,6 +137,6 @@ export default function PoliciesIndex() {
           </CardContent>
         </Card>
       </div>
-    </DashboardLayout>
+    </PublicLayout>
   )
 }

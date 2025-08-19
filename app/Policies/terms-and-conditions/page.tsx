@@ -1,19 +1,22 @@
 "use client"
 
-import DashboardLayout from "@/components/dashboard-layout"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import PublicLayout from "@/components/public-layout"
+import { Card, CardContent } from "@/components/ui/card"
+import { PageHeader } from "@/components/page-header"
 
 export default function TermsAndConditions() {
   return (
-    <DashboardLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="bg-indigo-900 text-[#FFFFF0] py-6 px-8 rounded-lg shadow-md">
-          <h1 className="text-3xl font-bold text-center">Terms and Conditions</h1>
-          <p className="text-center mt-2">Last updated: {new Date().toLocaleDateString()}</p>
-        </div>
+    <PublicLayout>
+      <div className="space-y-6">
+        <PageHeader 
+          title="Terms and Conditions" 
+          subtitle={`Last updated: ${new Date().toLocaleDateString()}`}
+          showBackButton={false}
+          size="lg"
+        />
 
         <Card>
-          <CardContent className="p-8 space-y-6">
+            <CardContent className="p-4 md:p-8 space-y-6">
             <section>
               <h2 className="text-2xl font-bold mb-4 text-indigo-900">1. Acceptance of Terms</h2>
               <p className="text-gray-700 leading-relaxed">
@@ -117,6 +120,6 @@ export default function TermsAndConditions() {
           </CardContent>
         </Card>
       </div>
-    </DashboardLayout>
+    </PublicLayout>
   )
 }

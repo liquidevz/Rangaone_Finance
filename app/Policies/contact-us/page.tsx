@@ -1,8 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import DashboardLayout from "@/components/dashboard-layout"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import PublicLayout from "@/components/public-layout"
+import { Card, CardContent } from "@/components/ui/card"
+import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -57,12 +58,14 @@ export default function ContactUs() {
   }
 
   return (
-    <DashboardLayout>
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div className="bg-indigo-900 text-[#FFFFF0] py-6 px-8 rounded-lg shadow-md">
-          <h1 className="text-3xl font-bold text-center">Contact Us</h1>
-          <p className="text-center mt-2">We're here to help with your investment journey</p>
-        </div>
+    <PublicLayout>
+      <div className="space-y-6">
+        <PageHeader 
+          title="Contact Us" 
+          subtitle="We're here to help with your investment journey"
+          showBackButton={false}
+          size="lg"
+        />
 
         {/* Quick Contact Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -113,12 +116,12 @@ export default function ContactUs() {
           {/* Contact Information */}
           <div className="lg:col-span-1 space-y-6">
             <Card>
-              <CardHeader className="bg-blue-50">
-                <CardTitle className="text-xl flex items-center">
+              <div className="bg-blue-50 p-4 rounded-t-lg">
+                <h2 className="text-xl font-bold flex items-center">
                   <MapPin className="mr-2" size={20} />
                   Contact Information
-                </CardTitle>
-              </CardHeader>
+                </h2>
+              </div>
               <CardContent className="p-6 space-y-6">
                 <div>
                   <h3 className="font-semibold mb-3 text-indigo-900">Office Address</h3>
@@ -190,9 +193,9 @@ export default function ContactUs() {
             </Card>
 
             <Card>
-              <CardHeader className="bg-yellow-50">
-                <CardTitle className="text-xl">SEBI Registration</CardTitle>
-              </CardHeader>
+              <div className="bg-yellow-50 p-4 rounded-t-lg">
+                <h2 className="text-xl font-bold">SEBI Registration</h2>
+              </div>
               <CardContent className="p-6">
                 <div className="text-sm text-gray-700 space-y-2">
                   <p><strong>Registration No:</strong> INH000013350</p>
@@ -207,10 +210,10 @@ export default function ContactUs() {
           {/* Contact Form */}
           <div className="lg:col-span-2">
             <Card>
-              <CardHeader className="bg-blue-50">
-                <CardTitle className="text-xl">Send Us a Message</CardTitle>
+              <div className="bg-blue-50 p-4 rounded-t-lg">
+                <h2 className="text-xl font-bold">Send Us a Message</h2>
                 <p className="text-gray-600">Fill out the form below and we'll get back to you soon</p>
-              </CardHeader>
+              </div>
               <CardContent className="p-6">
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -344,9 +347,9 @@ export default function ContactUs() {
 
         {/* Additional Information */}
         <Card>
-          <CardHeader className="bg-gray-50">
-            <CardTitle>Important Information</CardTitle>
-          </CardHeader>
+            <div className="bg-gray-50 p-4 rounded-t-lg">
+              <h2 className="text-xl font-bold">Important Information</h2>
+            </div>
           <CardContent className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-gray-700">
               <div>
@@ -368,6 +371,6 @@ export default function ContactUs() {
           </CardContent>
         </Card>
       </div>
-    </DashboardLayout>
+    </PublicLayout>
   )
 }

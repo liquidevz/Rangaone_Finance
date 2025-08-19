@@ -1,17 +1,20 @@
 "use client"
 
-import DashboardLayout from "@/components/dashboard-layout"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import PublicLayout from "@/components/public-layout"
+import { Card, CardContent } from "@/components/ui/card"
 import { AlertTriangle, Clock, CreditCard } from "lucide-react"
+import { PageHeader } from "@/components/page-header"
 
 export default function CancellationsRefunds() {
   return (
-    <DashboardLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="bg-indigo-900 text-[#FFFFF0] py-6 px-8 rounded-lg shadow-md">
-          <h1 className="text-3xl font-bold text-center">Cancellations & Refunds Policy</h1>
-          <p className="text-center mt-2">Last updated: {new Date().toLocaleDateString()}</p>
-        </div>
+    <PublicLayout>
+      <div className="space-y-6">
+        <PageHeader 
+          title="Cancellations & Refunds Policy" 
+          subtitle={`Last updated: ${new Date().toLocaleDateString()}`}
+          showBackButton={false}
+          size="lg"
+        />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <Card className="text-center">
@@ -38,7 +41,7 @@ export default function CancellationsRefunds() {
         </div>
 
         <Card>
-          <CardContent className="p-8 space-y-6">
+          <CardContent className="p-4 md:p-8 space-y-6">
             <section>
               <h2 className="text-2xl font-bold mb-4 text-indigo-900">1. Subscription Cancellation</h2>
               <div className="bg-blue-50 p-4 rounded-lg mb-4">
@@ -194,6 +197,6 @@ export default function CancellationsRefunds() {
           </CardContent>
         </Card>
       </div>
-    </DashboardLayout>
+    </PublicLayout>
   )
 }
