@@ -274,7 +274,7 @@ export default function PortfolioPriceHistoryChart({
                   stroke="#3b82f6"
                   strokeWidth={3}
                   dot={false}
-                  activeDot={{ r: 8, stroke: '#3b82f6', strokeWidth: 3, fill: '#ffffff', shadow: true }}
+                  activeDot={{ r: 8, stroke: '#3b82f6', strokeWidth: 3, fill: '#ffffff' }}
                   name={portfolioName}
                   filter="drop-shadow(0 2px 4px rgba(59, 130, 246, 0.3))"
                 />
