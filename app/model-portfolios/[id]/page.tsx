@@ -241,16 +241,27 @@ export default function PortfolioDetailsPage() {
     return () => clearTimeout(timeoutId);
   }, [priceHistory]);
 
-  // Compute and store Daily PnL in localStorage based on last two priceHistory points
+  // Compute and store Daily PnL based on current holdings value changes
   useEffect(() => {
-    if (!priceHistory || priceHistory.length === 0) return;
+    if (!holdingsWithPrices || holdingsWithPrices.length === 0) return;
     try {
-      const last = priceHistory[priceHistory.length - 1]?.portfolioValue ?? 0;
-      const prev = priceHistory.length > 1 ? (priceHistory[priceHistory.length - 2]?.portfolioValue ?? 0) : last;
-      const change = last - prev;
-      const percent = prev > 0 ? (change / prev) * 100 : 0;
+      // Calculate current total value: sum of (currentPrice * quantity) for all holdings
+      const currentTotalValue = holdingsWithPrices.reduce((sum, holding) => {
+        const currentValue = (holding.currentPrice || 0) * (holding.quantity || 0);
+        return sum + currentValue;
+      }, 0);
+      
+      // Calculate previous total value: sum of (previousPrice * quantity) for all holdings
+      const previousTotalValue = holdingsWithPrices.reduce((sum, holding) => {
+        const previousValue = (holding.previousPrice || holding.currentPrice || 0) * (holding.quantity || 0);
+        return sum + previousValue;
+      }, 0);
+      
+      const change = currentTotalValue - previousTotalValue;
+      const percent = previousTotalValue > 0 ? (change / previousTotalValue) * 100 : 0;
       const rounded = { value: Number(change.toFixed(2)), percent: Number(percent.toFixed(2)) };
       setDailyPnl(rounded);
+      
       const key = `dailyPnL:${portfolioId}`;
       localStorage.setItem(key, JSON.stringify({
         date: new Date().toISOString().slice(0, 10),
@@ -259,7 +270,7 @@ export default function PortfolioDetailsPage() {
     } catch (e) {
       // ignore storage errors
     }
-  }, [priceHistory, portfolioId]);
+  }, [holdingsWithPrices, portfolioId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1002,26 +1013,16 @@ export default function PortfolioDetailsPage() {
     // Use backend calculated values instead of frontend calculations
     const holdingsWithQuantities = useBackendCalculatedValues(holdingsWithPrices, minInvestment);
     
-    // Use backend current values if available, otherwise calculate from holdings
+    // Calculate holdings value using currentPrice * quantity for consistency
     const actualHoldingsValue = holdingsWithQuantities.reduce((sum: number, holding: any) => {
-      if (holding.currentValue !== undefined && holding.currentValue > 0) {
-        // Use backend current value
-        console.log(`📈 ${holding.symbol}: Backend Current Value: ₹${holding.currentValue}`);
-        return parseFloat((sum + holding.currentValue).toFixed(2));
-      } else if (holding.currentPrice && holding.quantity > 0) {
-        // Fallback: calculate based on quantity * current price
-        const currentValue = parseFloat((holding.quantity * holding.currentPrice).toFixed(2));
-        console.log(`📈 ${holding.symbol}: Calculated Current Value: ₹${currentValue}`);
-        return parseFloat((sum + currentValue).toFixed(2));
-      } else {
-        console.log(`📉 ${holding.symbol}: No current value available`);
-        return parseFloat((sum + 0).toFixed(2));
-      }
+      const currentValue = parseFloat(((holding.currentPrice || 0) * (holding.quantity || 0)).toFixed(2));
+      console.log(`📈 ${holding.symbol}: Current Value: ₹${currentValue} (${holding.currentPrice} × ${holding.quantity})`);
+      return parseFloat((sum + currentValue).toFixed(2));
     }, 0);
     
-    // Calculate total actual investments (sum of all minimumInvestmentValueStock)
+    // Calculate total actual investments using buyPrice * quantity for consistency
     const totalActualInvestments = holdingsWithQuantities.reduce((sum: number, holding: any) => {
-      const actualInvestment = holding.minimumInvestmentValueStock || 0;
+      const actualInvestment = parseFloat(((holding.buyPrice || 0) * (holding.quantity || 0)).toFixed(2));
       return parseFloat((sum + actualInvestment).toFixed(2));
     }, 0);
     
@@ -1478,18 +1479,13 @@ export default function PortfolioDetailsPage() {
                               <div>
                                 <span className="text-gray-600 font-medium">Investment:</span>
                                 <div className="text-gray-800 font-medium">
-                                  ₹{(holding.minimumInvestmentValueStock || holding.actualInvestment || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                  ₹{((holding.buyPrice || 0) * (holding.quantity || 0)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                                 </div>
                               </div>
                               <div>
                                 <span className="text-gray-600 font-medium">Current Value:</span>
                                 <div className="text-gray-800 font-medium">
-                                  {holding.currentValue !== undefined && holding.currentValue > 0
-                                    ? `₹${holding.currentValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
-                                    : holding.currentPrice && holding.quantity > 0 
-                                    ? `₹${(holding.quantity * holding.currentPrice).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
-                                    : `₹0.00`
-                                  }
+                                  ₹{((holding.currentPrice || 0) * (holding.quantity || 0)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                                 </div>
                               </div>
                             </div>
@@ -1588,17 +1584,12 @@ export default function PortfolioDetailsPage() {
                   </td>
                       <td className="px-2 py-2 text-center">
                         <span className="font-medium">
-                          ₹{(holding.minimumInvestmentValueStock || holding.actualInvestment || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                          ₹{((holding.buyPrice || 0) * (holding.quantity || 0)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                         </span>
                   </td>
                       <td className="px-2 py-2 text-center">
                         <span className="font-medium">
-                          {holding.currentValue !== undefined && holding.currentValue > 0
-                            ? `₹${holding.currentValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
-                            : holding.currentPrice && holding.quantity > 0 
-                            ? `₹${(holding.quantity * holding.currentPrice).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
-                            : `₹0.00`
-                          }
+                          ₹{((holding.currentPrice || 0) * (holding.quantity || 0)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                         </span>
                       </td>
                       <td className="px-2 py-2 text-center">
