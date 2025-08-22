@@ -71,9 +71,9 @@ jobs:
           mkdir -p htdocs/www.rangaone.finance &&
           cd htdocs/www.rangaone.finance &&
           git clone https://github.com/${{ github.repository }}.git . &&
-          sudo systemctl stop nginx || true &&
-          sudo lsof -ti:3000 | xargs kill -9 || true &&
           docker compose -f docker-compose.prod.yml down --remove-orphans || true &&
+          sudo lsof -ti:3000 | xargs sudo kill -9 || true &&
+          sudo lsof -ti:80 | xargs sudo kill -9 || true &&
           rm -rf .next node_modules/.cache &&
           docker system prune -f &&
           docker compose -f docker-compose.prod.yml up -d --build --force-recreate &&
