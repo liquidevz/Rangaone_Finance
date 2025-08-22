@@ -71,9 +71,11 @@ jobs:
           mkdir -p htdocs/www.rangaone.finance &&
           cd htdocs/www.rangaone.finance &&
           git clone https://github.com/${{ github.repository }}.git . &&
+          rm -rf .next node_modules/.cache &&
+          docker compose -f docker-compose.prod.yml build --no-cache &&
           docker stop rangaone-app rangaone-nginx-prod || true &&
           docker rm rangaone-app rangaone-nginx-prod || true &&
-          docker compose -f docker-compose.prod.yml up -d --build &&
+          docker compose -f docker-compose.prod.yml up -d &&
           docker system prune -f || true &&
           sleep 30 &&
           echo "Testing API connectivity..." &&
