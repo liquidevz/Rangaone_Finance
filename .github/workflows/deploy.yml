@@ -65,13 +65,23 @@ jobs:
       - name: Execute deployment
         run: |
           ssh ${{ secrets.CLOUDPANEL_USER }}@${{ secrets.CLOUDPANEL_HOST }} '
-          cd /home/rangaone/htdocs/www.rangaone.finance &&
-          rm -rf * .git &&
+          cd /home/rangaone &&
+          cp -r htdocs/www.rangaone.finance htdocs/backup-$(date +%s) || true &&
+          rm -rf htdocs/www.rangaone.finance &&
+          mkdir -p htdocs/www.rangaone.finance &&
+          cd htdocs/www.rangaone.finance &&
           git clone https://github.com/${{ github.repository }}.git . &&
           sudo lsof -ti:3000 | xargs kill -9 || true &&
           docker compose -f docker-compose.prod.yml down --remove-orphans || true &&
           rm -rf .next node_modules/.cache &&
           docker compose -f docker-compose.prod.yml up -d --build --force-recreate &&
           sleep 30 &&
-          curl -f http://localhost/api/health
+          if ! curl -f http://localhost/api/health; then
+            echo "Health check failed, rolling back..." &&
+            docker compose down &&
+            rm -rf * .git &&
+            cp -r ../backup-* . &&
+            docker compose -f docker-compose.prod.yml up -d &&
+            exit 1
+          fi
           '
