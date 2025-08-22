@@ -3,6 +3,7 @@ name: Docker Deploy to Domain
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   test:
