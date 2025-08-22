@@ -55,19 +55,17 @@ jobs:
     # needs: [test, docker-test]
     runs-on: ubuntu-latest
     steps:
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          cat > ~/.ssh/id_rsa << 'EOF'
-          ${{ secrets.CLOUDPANEL_SSH_KEY }}
-          EOF
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan ${{ secrets.CLOUDPANEL_HOST }} >> ~/.ssh/known_hosts
-      
       - name: Deploy
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.CLOUDPANEL_SSH_KEY }}
+          known_hosts: ${{ secrets.CLOUDPANEL_HOST }}
+      
+      - name: Execute deployment
         run: |
-          ssh -i ~/.ssh/id_rsa ${{ secrets.CLOUDPANEL_USER }}@${{ secrets.CLOUDPANEL_HOST }} '
-          cd /home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }} &&
+          ssh ${{ secrets.CLOUDPANEL_USER }}@${{ secrets.CLOUDPANEL_HOST }} '
+          cd /home/rangaone/htdocs/www.rangaone.finance &&
+          if [ ! -d ".git" ]; then git clone https://github.com/${{ github.repository }}.git . ; fi &&
           sudo lsof -ti:3000 | xargs kill -9 || true &&
           docker-compose -f docker-compose.prod.yml down --remove-orphans || true &&
           git fetch origin && git reset --hard origin/main &&
