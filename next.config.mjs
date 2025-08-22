@@ -2,6 +2,9 @@
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
+  generateBuildId: async () => {
+    return 'build-' + Date.now()
+  },
   images: {
     domains: ['v0.blob.com'],
     remotePatterns: [
