@@ -1,187 +1,81 @@
-name: Docker Deploy to Domain
+name: Deploy to Production
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  test:
+  build-and-deploy:
     runs-on: ubuntu-latest
+    
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - run: npm install --legacy-peer-deps
-      - run: npm run build
-      - run: npm run lint
+    - name: Checkout
+      uses: actions/checkout@v4
 
-  docker-test:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Test Docker Build
-        id: docker-build
-        run: |
-          docker build -t test-build . 2>&1 | tee build.log
-          if [ ${PIPESTATUS[0]} -ne 0 ]; then
-            echo "BUILD_FAILED=true" >> $GITHUB_OUTPUT
-            echo "BUILD_LOG<<EOF" >> $GITHUB_OUTPUT
-            cat build.log >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-      
-      - name: Send Docker Build Failure Email
-        if: failure()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 587
-          username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: 'Docker Build Failed - ${{ github.repository }}'
-          body: |
-            Docker build failed for commit ${{ github.sha }}
-            
-            Repository: ${{ github.repository }}
-            Branch: ${{ github.ref }}
-            
-            Build Error:
-            ${{ steps.docker-build.outputs.BUILD_LOG }}
-            
-            Common fixes:
-            - Check package.json dependencies
-            - Verify Dockerfile syntax
-            - Check for missing files
-            
-            View logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          to: ${{ secrets.NOTIFICATION_EMAIL }}
-          from: 'GitHub Actions'
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
-  deploy:
-    needs: [test, docker-test]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy with Docker
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.CLOUDPANEL_HOST }}
-          username: ${{ secrets.CLOUDPANEL_USER }}
-          password: ${{ secrets.CLOUDPANEL_PASSWORD }}
-          timeout: 300s
-          command_timeout: 300s
-          script: |
-            # Setup domain directory
-            DOMAIN_PATH="/home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }}"
-            cd $DOMAIN_PATH
-            
-            # Stop existing containers and clean up
-            echo "🛑 Stopping existing containers..."
-            docker-compose -f docker-compose.prod.yml down --remove-orphans || true
-            docker system prune -f || true
-            
-            # Clean and update repository
-            echo "📥 Updating repository..."
-            if [ -d ".git" ]; then
-              git fetch origin
-              git reset --hard origin/main
-              git clean -fd
-            else
-              cd ..
-              rm -rf ${{ secrets.CLOUDPANEL_DOMAIN }}
-              mkdir -p ${{ secrets.CLOUDPANEL_DOMAIN }}
-              cd ${{ secrets.CLOUDPANEL_DOMAIN }}
-              git clone https://github.com/${{ github.repository }} .
-            fi
-            
-            # Clear Next.js cache completely
-            echo "🧹 Clearing Next.js cache..."
-            rm -rf .next || true
-            rm -rf node_modules/.cache || true
-            
-            # Build and start with Docker
-            echo "🏗️ Building and starting containers..."
-            docker-compose -f docker-compose.prod.yml up -d --build --force-recreate
-            
-            # Wait for application to be ready
-            echo "⏳ Waiting for application to start..."
-            sleep 30
-            
-            # Health check with retries
-            echo "🏥 Performing health check..."
-            max_attempts=10
-            attempt=1
-            
-            while [ $attempt -le $max_attempts ]; do
-              if curl -f http://localhost/api/health >/dev/null 2>&1; then
-                echo "✅ Application is healthy and serving latest code!"
-                break
-              else
-                echo "⏳ Attempt $attempt/$max_attempts - waiting for application..."
-                sleep 10
-                ((attempt++))
-              fi
-            done
-            
-            if [ $attempt -gt $max_attempts ]; then
-              echo "❌ Health check failed - showing container logs:"
-              docker-compose -f docker-compose.prod.yml logs --tail=50
-              exit 1
-            fi
-            
-            # Show final status
-            echo "📊 Final container status:"
-            docker-compose -f docker-compose.prod.yml ps
-            echo "🎉 Deployment completed successfully!"
-      
-      - name: Send success notification
-        if: success()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 587
-          username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: '✅ Deployment Successful - ${{ github.repository }}'
-          body: |
-            🎉 Deployment completed successfully!
-            
-            Repository: ${{ github.repository }}
-            Branch: ${{ github.ref }}
-            Commit: ${{ github.event.head_commit.message }}
-            
-            ✅ Latest code is now live on your domain
-            🔄 All caches cleared and containers rebuilt
-            🏥 Health checks passed
-            
-            View deployment: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          to: ${{ secrets.NOTIFICATION_EMAIL }}
-          from: 'GitHub Actions'
-      
-      - name: Send failure notification
-        if: failure()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 587
-          username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: '❌ Deployment Failed - ${{ github.repository }}'
-          body: |
-            Deployment failed for commit ${{ github.sha }}
-            
-            Repository: ${{ github.repository }}
-            Branch: ${{ github.ref }}
-            Commit: ${{ github.event.head_commit.message }}
-            
-            Common fixes:
-            - Check container logs in the deployment output
-            - Verify environment variables are set correctly
-            - Ensure Docker has enough resources
-            
-            View logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          to: ${{ secrets.NOTIFICATION_EMAIL }}
-          from: 'GitHub Actions'
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile.optimized
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        build-args: |
+          NODE_ENV=production
+          NEXT_TELEMETRY_DISABLED=1
+          BUILD_TIME=${{ github.run_id }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Deploy to VPS
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        script: |
+          cd /opt/rangaone-fe
+          
+          # Pull latest image
+          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          
+          # Update docker-compose with new image
+          export IMAGE_TAG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          export DEPLOYMENT_TIMESTAMP=$(date +%s)
+          
+          # Deploy
+          docker-compose -f docker-compose.production.yml down
+          docker-compose -f docker-compose.production.yml up -d
+          
+          # Cleanup old images
+          docker image prune -f
+          
+          # Health check
+          sleep 30
+          curl -f http://localhost/api/health || exit 1

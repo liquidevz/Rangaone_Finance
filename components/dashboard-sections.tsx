@@ -98,7 +98,7 @@ export function MarketIndicesSection() {
           return
         }
         
-        const indexSymbols = ['NIFTY', 'MIDCAP150', 'NIFTYSMLCAP250']
+        const indexSymbols = ['NIFTY50', 'MIDCAP150', 'NIFTYSMLCAP250']
         const results = await stockPriceService.getMultipleStockPrices(indexSymbols)
         
         const validIndices = Array.from(results.values())
