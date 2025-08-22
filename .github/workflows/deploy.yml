@@ -56,55 +56,22 @@ jobs:
     # needs: [test, docker-test]
     runs-on: ubuntu-latest
     steps:
-      - name: Setup SSH key
+      - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.CLOUDPANEL_SSH_KEY }}" > ~/.ssh/id_rsa
+          printf '%s\n' "${{ secrets.CLOUDPANEL_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.CLOUDPANEL_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan ${{ secrets.CLOUDPANEL_HOST }} >> ~/.ssh/known_hosts
       
-      - name: Deploy with Docker
+      - name: Deploy
         run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.CLOUDPANEL_USER }}@${{ secrets.CLOUDPANEL_HOST }} << 'EOF'
-          DOMAIN_PATH="/home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }}"
-          cd $DOMAIN_PATH
-          
-          # Kill processes using port 3000
-          sudo lsof -ti:3000 | xargs kill -9 || true
-          
-          # Stop containers
-          docker-compose -f docker-compose.prod.yml down --remove-orphans || true
-          
-          # Update code
-          git fetch origin && git reset --hard origin/main
-          rm -rf .next node_modules/.cache
-          
-          # Deploy
-          docker-compose -f docker-compose.prod.yml up -d --build --force-recreate
-          
-          # Health check
-          sleep 30
-          curl -f http://localhost/api/health || exit 1
-          EOF
-          timeout: 300s
-          command_timeout: 300s
-          script: |
-            DOMAIN_PATH="/home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }}"
-            cd $DOMAIN_PATH
-            
-            # Kill processes using port 3000
-            sudo lsof -ti:3000 | xargs kill -9 || true
-            
-            # Stop containers
-            docker-compose -f docker-compose.prod.yml down --remove-orphans || true
-            
-            # Update code
-            git fetch origin && git reset --hard origin/main
-            rm -rf .next node_modules/.cache
-            
-            # Deploy
-            docker-compose -f docker-compose.prod.yml up -d --build --force-recreate
-            
-            # Health check
-            sleep 30
-            curl -f http://localhost/api/health || exit 1
+          ssh -i ~/.ssh/id_rsa ${{ secrets.CLOUDPANEL_USER }}@${{ secrets.CLOUDPANEL_HOST }} '
+          cd /home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }} &&
+          sudo lsof -ti:3000 | xargs kill -9 || true &&
+          docker-compose -f docker-compose.prod.yml down --remove-orphans || true &&
+          git fetch origin && git reset --hard origin/main &&
+          rm -rf .next node_modules/.cache &&
+          docker-compose -f docker-compose.prod.yml up -d --build --force-recreate &&
+          sleep 30 &&
+          curl -f http://localhost/api/health
+          '
