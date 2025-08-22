@@ -1,5 +1,6 @@
 // services/user-portfolio.service.ts
 import axios from "axios";
+import axiosApi from "@/lib/axios";
 
 export interface SubscriptionFee {
   type: "monthly" | "quarterly" | "yearly";
@@ -77,7 +78,7 @@ export const userPortfolioService = {
       console.log('API Base URL:', apiUrl);
       console.log('Fetching portfolios from:', apiUrl + '/api/user/portfolios');
       
-      const response = await publicApi.get<UserPortfolio[]>("/api/user/portfolios");
+      const response = await axiosApi.get<UserPortfolio[]>("/api/user/portfolios");
       console.log('Portfolios response status:', response.status);
       console.log('Portfolios response data length:', response.data?.length || 0);
       return response.data;
