@@ -45,7 +45,7 @@ export interface UserPortfolio {
 
 // Create a separate axios instance for public API calls (without auth headers)
 const publicApi = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || "https://stocks-backend-cmjxc.ondigitalocean.app",
+  baseURL: "https://stocks-backend-cmjxc.ondigitalocean.app",
   headers: {
     "Content-Type": "application/json",
     accept: "application/json",
@@ -63,7 +63,7 @@ export const userPortfolioService = {
       // If authenticated, use auth token
       if (authToken) {
         const response = await axios.get<UserPortfolio[]>("/api/user/portfolios", {
-          baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || "https://stocks-backend-cmjxc.ondigitalocean.app",
+          baseURL: "https://stocks-backend-cmjxc.ondigitalocean.app",
           headers: {
             accept: "application/json",
             Authorization: `Bearer ${authToken}`,
