@@ -71,6 +71,9 @@ jobs:
           mkdir -p htdocs/www.rangaone.finance &&
           cd htdocs/www.rangaone.finance &&
           git clone https://github.com/${{ github.repository }}.git . &&
+          echo "Checking port 80:" &&
+          sudo lsof -i:80 || true &&
+          echo "Checking port 3000:" &&
           sudo lsof -ti:3000 | xargs kill -9 || true &&
           docker compose -f docker-compose.prod.yml down --remove-orphans || true &&
           rm -rf .next node_modules/.cache &&
