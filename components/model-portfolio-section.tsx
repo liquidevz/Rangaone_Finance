@@ -81,15 +81,32 @@ export default function ModelPortfolioSection() {
     const loadPortfolios = async () => {
       try {
         setLoading(true)
+        console.log('Loading portfolios from API:', process.env.NEXT_PUBLIC_API_BASE_URL)
         const portfoliosData = await userPortfolioService.getAll()
-        setPortfolios(portfoliosData)
-      } catch (error) {
-        console.error("Failed to load portfolios:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load portfolios. Please try again later.",
-          variant: "destructive",
+        console.log('Loaded portfolios:', portfoliosData.length)
+        if (portfoliosData && portfoliosData.length > 0) {
+          setPortfolios(portfoliosData)
+        } else {
+          console.warn('No portfolios returned from API')
+          setPortfolios([])
+        }
+      } catch (error: any) {
+        console.error("Failed to load portfolios:", {
+          message: error.message,
+          status: error.response?.status,
+          url: error.config?.url
         })
+        console.error('API Base URL:', process.env.NEXT_PUBLIC_API_BASE_URL)
+        setPortfolios([])
+        
+        // Show toast for actual errors
+        if (typeof window !== 'undefined') {
+          toast({
+            title: "Connection Error",
+            description: `Failed to load portfolios: ${error.message}`,
+            variant: "destructive",
+          })
+        }
       } finally {
         setLoading(false)
       }
@@ -240,14 +257,26 @@ export default function ModelPortfolioSection() {
 
   if (loading) {
     return (
-      <section className="py-12 bg-white dark:bg-black">
-        <div className="container mx-auto px-4 text-center">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading portfolios...</p>
-        </div>
-      </section>
+      <div className="bg-[#fefcea] dark:bg-gray-900">
+        <section className="py-8 sm:py-12">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-8 sm:mb-12">
+              <h2 className="text-5xl lg:text-8xl sm:text-7xl font-bold font-serif text-gray-900 dark:text-[#FFFFF0]">MODEL PORTFOLIO</h2>
+              <p className="px-1 mt-2 text-[1.1rem] font-medium text-gray-600 dark:text-gray-300">
+                Model portfolios make investing simple, smart, and stress-free.
+              </p>
+            </div>
+            <div className="text-center">
+              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-400">Loading portfolios...</p>
+            </div>
+          </div>
+        </section>
+      </div>
     )
   }
+
+
 
   return (
     <div className="bg-[#fefcea] dark:bg-gray-900">

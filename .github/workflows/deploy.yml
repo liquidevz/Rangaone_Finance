@@ -75,8 +75,13 @@ jobs:
           sudo lsof -ti:3000 | xargs kill -9 || true &&
           docker compose -f docker-compose.prod.yml down --remove-orphans || true &&
           rm -rf .next node_modules/.cache &&
+          docker system prune -f &&
           docker compose -f docker-compose.prod.yml up -d --build --force-recreate &&
           sleep 30 &&
+          echo "Testing API connectivity..." &&
+          curl -v http://localhost:3000/api/health &&
+          echo "Testing backend API..." &&
+          curl -v https://stocks-backend-cmjxc.ondigitalocean.app/api/user/portfolios &&
           if ! curl -f http://localhost/api/health; then
             echo "Health check failed, rolling back..." &&
             docker compose down &&

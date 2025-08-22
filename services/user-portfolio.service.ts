@@ -73,18 +73,33 @@ export const userPortfolioService = {
       }
       
       // If not authenticated, use public API endpoint
-      console.log('Fetching portfolios from:', process.env.NEXT_PUBLIC_API_BASE_URL + '/api/user/portfolios');
+      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+      console.log('API Base URL:', apiUrl);
+      console.log('Fetching portfolios from:', apiUrl + '/api/user/portfolios');
+      
+      if (!apiUrl) {
+        throw new Error('NEXT_PUBLIC_API_BASE_URL is not configured');
+      }
+      
       const response = await publicApi.get<UserPortfolio[]>("/api/user/portfolios");
-      console.log('Portfolios response:', response.data);
+      console.log('Portfolios response status:', response.status);
+      console.log('Portfolios response data length:', response.data?.length || 0);
       return response.data;
     } catch (error: any) {
-      console.error("Failed to fetch portfolios:", error.response?.data || error.message);
+      console.error("Failed to fetch portfolios:", {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        url: error.config?.url,
+        baseURL: error.config?.baseURL
+      });
       console.error("API URL:", process.env.NEXT_PUBLIC_API_BASE_URL);
       if (error.response?.status === 401) {
         localStorage.removeItem("accessToken");
         sessionStorage.removeItem("accessToken");
       }
-      return [];
+      throw error; // Re-throw to handle in component
     }
   },
 
