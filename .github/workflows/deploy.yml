@@ -17,6 +17,7 @@ jobs:
   #     - run: npm install --legacy-peer-deps
   #     - run: npm run build
   #     - run: npm run lint
+  #     - run: npm test
 
   # docker-test:
   #   needs: test
@@ -59,7 +60,7 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.CLOUDPANEL_SSH_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.CLOUDPANEL_SSH_KEY }}" | tr ' ' '\n' | sed 's/BEGINRSAPRIVATEKEY/-----BEGIN RSA PRIVATE KEY-----/' | sed 's/ENDRSAPRIVATEKEY/-----END RSA PRIVATE KEY-----/' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan ${{ secrets.CLOUDPANEL_HOST }} >> ~/.ssh/known_hosts
       
