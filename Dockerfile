@@ -23,8 +23,11 @@ COPY . .
 # Uncomment the following line in case you want to disable telemetry during the build.
 # ENV NEXT_TELEMETRY_DISABLED 1
 
-# Copy environment file
+# Copy environment file before build
 COPY .env.production .env.production
+
+# Set environment variable for build
+ENV NEXT_PUBLIC_API_BASE_URL=https://stocks-backend-cmjxc.ondigitalocean.app
 
 # Build the application
 RUN npm run build
