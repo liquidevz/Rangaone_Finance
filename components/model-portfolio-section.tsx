@@ -14,6 +14,7 @@ import { useAuth } from "@/components/auth/auth-context";
 import { useCart } from "@/components/cart/cart-context";
 import { useRouter } from "next/navigation";
 import { userPortfolioService, UserPortfolio } from "@/services/user-portfolio.service";
+import { fetchPortfolios } from "@/components/portfolio-api";
 import { CheckoutModal } from "@/components/checkout-modal";
 import { SectionHeading } from "@/components/ui/section-heading";
 
@@ -82,14 +83,7 @@ export default function ModelPortfolioSection() {
       try {
         setLoading(true)
         console.log('Loading portfolios from API:', process.env.NEXT_PUBLIC_API_BASE_URL)
-        // Direct API call to bypass caching issues
-        const response = await fetch('https://stocks-backend-cmjxc.ondigitalocean.app/api/user/portfolios', {
-          headers: {
-            'Content-Type': 'application/json',
-            'accept': 'application/json',
-          },
-        })
-        const portfoliosData = await response.json()
+        const portfoliosData = await fetchPortfolios()
         console.log('Loaded portfolios:', portfoliosData.length)
         if (portfoliosData && portfoliosData.length > 0) {
           setPortfolios(portfoliosData)
