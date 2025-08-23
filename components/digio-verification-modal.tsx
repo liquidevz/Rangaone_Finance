@@ -44,12 +44,13 @@ export function DigioVerificationModal({
       setDocumentId(response.documentId)
       setStep("signing")
       
-      // Initialize Digio SDK signing
+      // Initialize Digio SDK signing with authentication URL
       await digioService.initializeDigioSigning(
         response.documentId,
         agreementData.customerEmail,
         handleSigningSuccess,
-        handleSigningError
+        handleSigningError,
+        response.authenticationUrl
       )
       
       toast({
@@ -262,10 +263,7 @@ export function DigioVerificationModal({
                       <span className="font-medium text-orange-800">Aadhaar eSign in Progress</span>
                     </div>
                     <p className="text-sm text-orange-700 mb-3">
-                      {process.env.NEXT_PUBLIC_DIGIO_API_KEY === 'your-digio-api-key' ? 
-                        'Demo mode: Simulating Aadhaar eSign verification process...' :
-                        'Please complete the Aadhaar-based digital signature with OTP verification.'
-                      }
+                      Please complete the Aadhaar-based digital signature with OTP verification in the popup window.
                     </p>
                     <div className="text-xs text-orange-600">
                       Document ID: {documentId}

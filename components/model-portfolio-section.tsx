@@ -82,7 +82,14 @@ export default function ModelPortfolioSection() {
       try {
         setLoading(true)
         console.log('Loading portfolios from API:', process.env.NEXT_PUBLIC_API_BASE_URL)
-        const portfoliosData = await userPortfolioService.getAll()
+        // Direct API call to bypass caching issues
+        const response = await fetch('https://stocks-backend-cmjxc.ondigitalocean.app/api/user/portfolios', {
+          headers: {
+            'Content-Type': 'application/json',
+            'accept': 'application/json',
+          },
+        })
+        const portfoliosData = await response.json()
         console.log('Loaded portfolios:', portfoliosData.length)
         if (portfoliosData && portfoliosData.length > 0) {
           setPortfolios(portfoliosData)
