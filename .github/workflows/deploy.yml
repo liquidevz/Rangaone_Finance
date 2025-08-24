@@ -75,12 +75,16 @@ jobs:
           docker rm $(docker ps -aq) || true &&
           docker rmi $(docker images -q) || true &&
           rm -rf .next node_modules/.cache &&
-          docker compose -f docker-compose.prod.yml up -d --build --force-recreate &&
+          docker compose -f docker-compose.prod.yml build --no-cache &&
+          docker compose -f docker-compose.prod.yml up -d --force-recreate &&
           docker system prune -af || true &&
           sleep 30 &&
           echo "Testing API connectivity..." &&
           curl -v http://localhost:3000/api/health &&
           echo "Testing backend API..." &&
           curl -v https://stocks-backend-cmjxc.ondigitalocean.app/api/user/portfolios &&
-          echo "Deployment successful - App running on port 3000"
+          echo "Deployment successful - App running on port 3000" &&
+          echo "Current time: $(date)" &&
+          echo "Container status:" &&
+          docker ps
           '
