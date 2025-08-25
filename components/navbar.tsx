@@ -21,6 +21,20 @@ const NavLinks = [
     sublinks: [],
   },
   {
+    title: "Policies",
+    href: "#",
+    sublinks: [
+      { title: "Privacy Policy", href: "/policies/privacy-policy" },
+      { title: "Terms & Conditions", href: "/policies/terms-conditions" },
+      { title: "Disclaimer", href: "/policies/disclaimer" },
+      { title: "Disclosure", href: "/policies/disclosure" },
+      { title: "Investor Charter", href: "/policies/investor-charter" },
+      { title: "Investor Complaints", href: "/policies/investor-complaints" },
+      { title: "Grievance Redressal", href: "/policies/grievance-redressal" },
+      { title: "PMLA AML Policy", href: "/policies/pmla-aml-policy" },
+    ],
+  },
+  {
     title: "About Us",
     href: "#",
     sublinks: [],

@@ -1,3 +1,4 @@
+"use client";
 import PolicyLayout from "@/components/policy-layout"
 
 export default function InvestorComplaintsPage() {
@@ -10,17 +11,30 @@ export default function InvestorComplaintsPage() {
 
         <section className="mb-8">
           <h2 className="text-2xl font-semibold mb-4 text-[#001633]">Step 1: Direct Contact</h2>
-          <div className="bg-blue-50 p-4 rounded-lg mb-4">
-            <h3 className="text-lg font-semibold mb-3">Primary Contact</h3>
-            <p className="mb-2"><strong>Grievance Officer:</strong> Ms. Sanika Karnik</p>
-            <p className="mb-2"><strong>Email:</strong> sanika.official11@gmail.com</p>
-            <p className="mb-2"><strong>Phone:</strong> +91-93261 99388</p>
-            <p className="mb-2"><strong>Timing:</strong> Monday - Friday (10am-6pm)</p>
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6 mb-4">
+            <div className="flex items-start gap-3 mb-6">
+              <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-sm font-bold">👤</span>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-blue-900 mb-3">Primary Contact</h3>
+                <div className="space-y-2">
+                  <p className="text-blue-800"><strong>Grievance Officer:</strong> Ms. Sanika Karnik</p>
+                  <p className="text-blue-800"><strong>Email:</strong> sanika.official11@gmail.com</p>
+                  <p className="text-blue-800"><strong>Phone:</strong> +91-93261 99388</p>
+                  <p className="text-blue-800"><strong>Timing:</strong> Monday - Friday (10am-6pm)</p>
+                </div>
+              </div>
+            </div>
             
-            <h3 className="text-lg font-semibold mb-3 mt-4">Alternative Contacts</h3>
-            <p className="mb-2"><strong>General Support:</strong> Support@rangaone.finance</p>
-            <p className="mb-2"><strong>Compliance:</strong> compliance@rangaone.finance</p>
-            <p className="mb-2"><strong>Customer Care:</strong> +91-91676 94966</p>
+            <div className="border-t border-blue-200 pt-4">
+              <h3 className="text-lg font-semibold text-blue-900 mb-3">Alternative Contacts</h3>
+              <div className="space-y-2">
+                <p className="text-blue-800"><strong>General Support:</strong> Support@rangaone.finance</p>
+                <p className="text-blue-800"><strong>Compliance:</strong> compliance@rangaone.finance</p>
+                <p className="text-blue-800"><strong>Customer Care:</strong> +91-91676 94966</p>
+              </div>
+            </div>
           </div>
         </section>
 
