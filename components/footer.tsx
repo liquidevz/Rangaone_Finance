@@ -225,7 +225,7 @@ export default function Footer() {
           <p className="text-gray-600 text-sm">RangaOne FINWALA ©{new Date().getFullYear()} All Rights Reserved.</p>
           <div className="flex items-center mt-4 md:mt-0">
             <span className="text-gray-600 text-sm mr-4">
-              SCORES:{" "}
+              SCORE:{" "}
               <a href="https://www.scores.gov.in" className="text-[#1e3a8a] hover:underline">
                 www.scores.gov.in
               </a>
