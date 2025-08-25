@@ -7,15 +7,18 @@ export default function Footer() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
         {/* Logo and Tagline */}
         <div className="mb-12">
-          <div className="flex items-center mb-4">
-            <div className="relative w-12 h-12 bg-[#001633] rounded-full flex items-center justify-center mr-3">
-              <span className="text-white text-2xl font-bold">R</span>
-            </div>
-            <div className="text-[#001633]">
-              <div className="font-bold text-xl leading-tight">RangaOne</div>
-              <div className="text-sm italic">Finance</div>
-            </div>
-          </div>
+          <Link href="/" className="flex items-center gap-2 mb-4">
+            <img 
+              src="/landing-page/rlogo.png" 
+              alt="RangaOne Logo" 
+              className="h-12 w-auto" 
+            />
+            <img 
+              src="/landing-page/namelogo.png" 
+              alt="RangaOne Name" 
+              className="h-12 w-auto" 
+            />
+          </Link>
           <p className="text-[#001633] italic text-sm">Your Growth Our Priority</p>
         </div>
 
