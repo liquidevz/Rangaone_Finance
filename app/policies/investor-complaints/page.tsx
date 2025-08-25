@@ -1,162 +1,475 @@
 "use client";
 import PolicyLayout from "@/components/policy-layout"
 
-export default function InvestorComplaintsPage() {
+export default function ComplaintDataPage() {
   return (
-    <PolicyLayout title="Investor Complaints">
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4 text-[#001633]">How to File a Complaint</h2>
-          <p className="mb-4">We are committed to resolving your concerns promptly and fairly. You can file a complaint through multiple channels:</p>
-        </section>
+    <PolicyLayout title="Complaint Data">
+      <section className="mb-8">
+<h2 className="text-2xl font-semibold mb-4 text-[#001633]">
+Complaint Data to be Displayed by RAs
+</h2>
 
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4 text-[#001633]">Step 1: Direct Contact</h2>
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6 mb-4">
-            <div className="flex items-start gap-3 mb-6">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-bold">👤</span>
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-blue-900 mb-3">Primary Contact</h3>
-                <div className="space-y-2">
-                  <p className="text-blue-800"><strong>Grievance Officer:</strong> Ms. Sanika Karnik</p>
-                  <p className="text-blue-800"><strong>Email:</strong> sanika.official11@gmail.com</p>
-                  <p className="text-blue-800"><strong>Phone:</strong> +91-93261 99388</p>
-                  <p className="text-blue-800"><strong>Timing:</strong> Monday - Friday (10am-6pm)</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="border-t border-blue-200 pt-4">
-              <h3 className="text-lg font-semibold text-blue-900 mb-3">Alternative Contacts</h3>
-              <div className="space-y-2">
-                <p className="text-blue-800"><strong>General Support:</strong> Support@rangaone.finance</p>
-                <p className="text-blue-800"><strong>Compliance:</strong> compliance@rangaone.finance</p>
-                <p className="text-blue-800"><strong>Customer Care:</strong> +91-91676 94966</p>
-              </div>
-            </div>
-          </div>
-        </section>
+    <p className="mb-4 text-sm text-gray-700">
+      <strong>Data for the month ending:</strong>{" "}
+      {new Date().toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      })}
+    </p>
 
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4 text-[#001633]">Step 2: Written Complaint</h2>
-          <p className="mb-4">You can send a written complaint to our registered office:</p>
-          <div className="bg-gray-50 p-4 rounded-lg mb-4">
-            <p className="mb-2"><strong>Address:</strong></p>
-            <p className="mb-1">RangaOne Finwala Pvt. Ltd.</p>
-            <p className="mb-1">004 Ambika Darshan, Shivaji Nagar</p>
-            <p className="mb-1">Sahargaon, Mumbai Suburban</p>
-            <p className="mb-1">Maharashtra, MUMBAI, MAHARASHTRA</p>
-            <p>400099</p>
-          </div>
-        </section>
+    <h3 className="text-xl font-semibold mb-3 text-[#001633]">
+      Monthly Complaints Data
+    </h3>
+    <div className="overflow-x-auto mb-6">
+      <table className="min-w-full border border-gray-300 text-sm">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
+              Sr. No.
+            </th>
+            <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
+              Received from
+            </th>
+            <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
+              Pending at the end of last month
+            </th>
+            <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
+              Received
+            </th>
+            <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
+              Resolved*
+            </th>
+            <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
+              Total Pending#
+            </th>
+            <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
+              Pending complaints 3months
+            </th>
+            <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
+              Average Resolution time^ (in days)
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td className="border border-gray-300 px-3 py-2">1</td>
+            <td className="border border-gray-300 px-3 py-2">
+              Directly from Investors
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              N/A
+            </td>
+          </tr>
+          <tr>
+            <td className="border border-gray-300 px-3 py-2">2</td>
+            <td className="border border-gray-300 px-3 py-2">
+              SEBI (SCORES)
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              N/A
+            </td>
+          </tr>
+          <tr>
+            <td className="border border-gray-300 px-3 py-2">3</td>
+            <td className="border border-gray-300 px-3 py-2">
+              Other Sources (if any)
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              N/A
+            </td>
+          </tr>
+          <tr className="bg-gray-100 font-semibold">
+            <td className="border border-gray-300 px-3 py-2" colSpan={2}>
+              Grand Total
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              N/A
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4 text-[#001633]">Information Required</h2>
-          <p className="mb-4">When filing a complaint, please provide the following information:</p>
-          <ul className="list-disc pl-6 mb-4">
-            <li><strong>Personal Details:</strong> Name, contact number, email address</li>
-            <li><strong>Account Information:</strong> Client ID or account number (if applicable)</li>
-            <li><strong>Complaint Details:</strong> Nature of complaint with specific details</li>
-            <li><strong>Timeline:</strong> When the issue occurred</li>
-            <li><strong>Supporting Documents:</strong> Any relevant documents or screenshots</li>
-            <li><strong>Expected Resolution:</strong> What outcome you are seeking</li>
-          </ul>
-        </section>
+    <div className="mb-6">
+      <p className="text-sm text-gray-700 mb-2">
+        <strong>
+          Number of complaints received during month against the RA due to
+          impersonation by some other entity:
+        </strong>{" "}
+        0
+      </p>
+      <p className="text-xs text-gray-600">
+        <strong>Note:</strong> In case of any complaints received against
+        the RA due to impersonation of the RA by some other entity, the RA
+        may adjust the number of such complaints from total number of
+        received/resolved complaints while preparing the above table.
+        Further, RA must close such impersonation related complaints after
+        following the due process as specified by SEBI/RAASB.
+      </p>
+    </div>
 
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4 text-[#001633]">Resolution Timeline</h2>
-          <div className="bg-green-50 p-4 rounded-lg mb-4">
-            <ul className="list-disc pl-6">
-              <li><strong>Acknowledgment:</strong> Within 24 hours of receipt</li>
-              <li><strong>Initial Response:</strong> Within 3 working days</li>
-              <li><strong>Resolution:</strong> Within 7 working days for standard complaints</li>
-              <li><strong>Complex Issues:</strong> Up to 30 days with regular updates</li>
-            </ul>
-          </div>
-        </section>
+    <div className="text-xs text-gray-600 mb-6">
+      <p className="mb-1">
+        * Inclusive of complaints of previous months resolved in the current
+        month.
+      </p>
+      <p className="mb-1">
+        # Inclusive of complaints pending as on the last day of the month.
+      </p>
+      <p>
+        ^ Average Resolution time is the sum total of time taken to resolve
+        each complaint, in days, in the current month divided by total
+        number of complaints resolved in the current month.
+      </p>
+    </div>
 
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4 text-[#001633]">Step 3: Regulatory Escalation</h2>
-          <p className="mb-4">If you are not satisfied with our resolution, you can escalate to regulatory authorities:</p>
-          
-          <div className="grid md:grid-cols-2 gap-4 mb-4">
-            <div className="bg-red-50 p-4 rounded-lg">
-              <h3 className="text-lg font-semibold mb-2">SEBI SCORES Portal</h3>
-              <p className="mb-2">Securities and Exchange Board of India</p>
-              <p className="mb-2"><strong>Website:</strong> <a href="https://www.scores.gov.in" className="text-[#1e3a8a] hover:underline">www.scores.gov.in</a></p>
-              <p className="text-sm">Online complaint registration and tracking system</p>
-            </div>
-            
-            <div className="bg-orange-50 p-4 rounded-lg">
-              <h3 className="text-lg font-semibold mb-2">ODR Portal</h3>
-              <p className="mb-2">Online Dispute Resolution</p>
-              <p className="mb-2"><strong>Website:</strong> <a href="https://www.smartodr.in" className="text-[#1e3a8a] hover:underline">www.smartodr.in</a></p>
-              <p className="text-sm">Alternative dispute resolution mechanism</p>
-            </div>
-          </div>
-        </section>
+    <h3 className="text-xl font-semibold mb-3 text-[#001633]">
+      Trend of Monthly Disposal of Complaints
+    </h3>
+    <div className="overflow-x-auto mb-6">
+      <table className="min-w-full border border-gray-300 text-sm">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
+              Sr. No.
+            </th>
+            <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
+              Month
+            </th>
+            <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
+              Carried forward from previous month
+            </th>
+            <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
+              Received
+            </th>
+            <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
+              Resolved*
+            </th>
+            <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
+              Total Pending#
+            </th>
+            <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
+              Average Resolution time^ (in days)
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td className="border border-gray-300 px-3 py-2">1</td>
+            <td className="border border-gray-300 px-3 py-2">
+              April, 2025
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              N/A
+            </td>
+          </tr>
+          <tr>
+            <td className="border border-gray-300 px-3 py-2">2</td>
+            <td className="border border-gray-300 px-3 py-2">May, 2025</td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              N/A
+            </td>
+          </tr>
+          <tr>
+            <td className="border border-gray-300 px-3 py-2">3</td>
+            <td className="border border-gray-300 px-3 py-2">June, 2025</td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              N/A
+            </td>
+          </tr>
+          <tr>
+            <td className="border border-gray-300 px-3 py-2">4</td>
+            <td className="border border-gray-300 px-3 py-2">July, 2025</td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              N/A
+            </td>
+          </tr>
+          <tr>
+            <td className="border border-gray-300 px-3 py-2">5</td>
+            <td className="border border-gray-300 px-3 py-2">
+              March, 2025
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              N/A
+            </td>
+          </tr>
+          <tr className="bg-gray-100 font-semibold">
+            <td className="border border-gray-300 px-3 py-2" colSpan={2}>
+              Grand Total
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              N/A
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4 text-[#001633]">Types of Complaints We Handle</h2>
-          <ul className="list-disc pl-6 mb-4">
-            <li><strong>Service Quality:</strong> Issues with research quality or delivery</li>
-            <li><strong>Communication:</strong> Delayed or inadequate communication</li>
-            <li><strong>Billing:</strong> Incorrect charges or billing disputes</li>
-            <li><strong>Technical Issues:</strong> Platform or system-related problems</li>
-            <li><strong>Recommendations:</strong> Concerns about investment advice</li>
-            <li><strong>Account Management:</strong> Account access or management issues</li>
-            <li><strong>Compliance:</strong> Regulatory or ethical concerns</li>
-          </ul>
-        </section>
+    <div className="text-xs text-gray-600 mb-6">
+      <p className="mb-1">
+        * Inclusive of complaints of previous months resolved in the current
+        month.
+      </p>
+      <p>
+        # Inclusive of complaints pending as on the last day of the month.
+      </p>
+    </div>
 
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4 text-[#001633]">Our Commitment</h2>
-          <div className="bg-blue-50 p-4 rounded-lg mb-4">
-            <ul className="list-disc pl-6">
-              <li>Fair and impartial handling of all complaints</li>
-              <li>Prompt acknowledgment and regular updates</li>
-              <li>Thorough investigation of issues</li>
-              <li>Transparent communication throughout the process</li>
-              <li>No retaliation against complainants</li>
-              <li>Continuous improvement based on feedback</li>
-            </ul>
-          </div>
-        </section>
+    <h3 className="text-xl font-semibold mb-3 text-[#001633]">
+      Trend of Annual Disposal of Complaints
+    </h3>
+    <div className="overflow-x-auto mb-6">
+      <table className="min-w-full border border-gray-300 text-sm">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
+              Sr. No.
+            </th>
+            <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
+              Year
+            </th>
+            <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
+              Carried forward from previous year
+            </th>
+            <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
+              Received
+            </th>
+            <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
+              Resolved*
+            </th>
+            <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
+              Pending#
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td className="border border-gray-300 px-3 py-2">1</td>
+            <td className="border border-gray-300 px-3 py-2">2021-22</td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+          </tr>
+          <tr>
+            <td className="border border-gray-300 px-3 py-2">2</td>
+            <td className="border border-gray-300 px-3 py-2">2022-23</td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+          </tr>
+          <tr>
+            <td className="border border-gray-300 px-3 py-2">3</td>
+            <td className="border border-gray-300 px-3 py-2">2023-24</td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+          </tr>
+          <tr>
+            <td className="border border-gray-300 px-3 py-2">4</td>
+            <td className="border border-gray-300 px-3 py-2">2024-25</td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+          </tr>
+          <tr className="bg-gray-100 font-semibold">
+            <td className="border border-gray-300 px-3 py-2" colSpan={2}>
+              Grand Total
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+            <td className="border border-gray-300 px-3 py-2 text-center">
+              0
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4 text-[#001633]">Complaint Tracking</h2>
-          <p className="mb-4">Once you file a complaint, you will receive:</p>
-          <ul className="list-disc pl-6 mb-4">
-            <li>Unique complaint reference number</li>
-            <li>Acknowledgment email/SMS</li>
-            <li>Regular status updates</li>
-            <li>Final resolution communication</li>
-          </ul>
-        </section>
-
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4 text-[#001633]">Prevention is Better</h2>
-          <p className="mb-4">To avoid issues, we recommend:</p>
-          <ul className="list-disc pl-6 mb-4">
-            <li>Read all terms and conditions carefully</li>
-            <li>Keep your contact information updated</li>
-            <li>Regularly review your account statements</li>
-            <li>Contact us immediately if you notice any discrepancies</li>
-            <li>Provide feedback to help us improve our services</li>
-          </ul>
-        </section>
-
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4 text-[#001633]">Contact Summary</h2>
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <p className="mb-2"><strong>Primary Contact:</strong> Ms. Sanika Karnik - sanika.official11@gmail.com</p>
-            <p className="mb-2"><strong>Phone:</strong> +91-93261 99388</p>
-            <p className="mb-2"><strong>Customer Care:</strong> +91-91676 94966</p>
-            <p className="mb-2"><strong>Email:</strong> Support@rangaone.finance</p>
-            <p><strong>Timing:</strong> Monday - Friday (10am-6pm)</p>
-          </div>
-        </section>
+    <div className="text-xs text-gray-600 mb-4">
+      <p className="mb-1">
+        *Inclusive of complaints of previous years resolved in the current
+        year.
+      </p>
+      <p>
+        #Inclusive of complaints pending as on the last day of the year.
+      </p>
+    </div>
+  </section>
     </PolicyLayout>
   )
 }

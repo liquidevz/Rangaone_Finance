@@ -81,6 +81,7 @@ export default function Footer() {
               <li><Link href="/policies/privacy-policy" className="hover:text-[#1e3a8a]">Privacy Policy</Link></li>
               <li><Link href="/policies/terms-conditions" className="hover:text-[#1e3a8a]">Terms & Conditions</Link></li>
               <li><Link href="/policies/investor-complaints" className="hover:text-[#1e3a8a]">Investor Complaints</Link></li>
+              <li><Link href="/policies/cancellation-refund-policy" className="hover:text-[#1e3a8a]">Cancellation & Refund Policy</Link></li>
             </ul>
           </div>
         </div>

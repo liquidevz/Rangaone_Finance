@@ -32,6 +32,8 @@ const NavLinks = [
       { title: "Investor Complaints", href: "/policies/investor-complaints" },
       { title: "Grievance Redressal", href: "/policies/grievance-redressal" },
       { title: "PMLA AML Policy", href: "/policies/pmla-aml-policy" },
+      { title: "Complaint Data", href: "/policies/investor-complaints" },
+      { title: "Cancellation & Refund Policy", href: "/policies/cancellation-refund-policy" },
     ],
   },
   {
