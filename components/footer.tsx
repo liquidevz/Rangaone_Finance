@@ -14,7 +14,7 @@ export default function Footer() {
               className="h-12 w-auto" 
             />
             <img 
-              src="/landing-page/namelogo.png" 
+              src="/landing-page/namelogodark.png" 
               alt="RangaOne Name" 
               className="h-12 w-auto" 
             />
