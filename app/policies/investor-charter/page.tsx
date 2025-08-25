@@ -108,37 +108,37 @@ export default function InvestorCharterPage() {
 
             <h3 className="text-lg font-semibold mb-2">Step 2: Escalation</h3>
             <p className="mb-2">If not satisfied, escalate to:</p>
-            <p className="mb-2"><strong>SEBI SCORES:</strong> <a href=\"https://www.scores.gov.in\" className=\"text-[#1e3a8a] hover:underline\">www.scores.gov.in</a></p>
-            <p className=\"mb-2\"><strong>ODR Portal:</strong> <a href=\"https://www.smartodr.in\" className=\"text-[#1e3a8a] hover:underline\">www.smartodr.in</a></p>
+            <p className="mb-2"><strong>SEBI SCORES:</strong> <a href="https://www.scores.gov.in" className="text-[#1e3a8a] hover:underline">www.scores.gov.in</a></p>
+            <p className="mb-2"><strong>ODR Portal:</strong> <a href="https://www.smartodr.in" className="text-[#1e3a8a] hover:underline">www.smartodr.in</a></p>
           </div>
         </section>
 
         <section className="mb-8">
-          <h2 className=\"text-2xl font-semibold mb-4 text-[#001633]\">Regulatory Information</h2>
-          <div className=\"bg-blue-50 p-4 rounded-lg mb-4\">
-            <p className=\"mb-2\"><strong>SEBI Registration No:</strong> INH000022552</p>
-            <p className=\"mb-2\"><strong>Registration Type:</strong> Non-Individual Research Analyst</p>
-            <p className=\"mb-2\"><strong>Validity:</strong> Aug 06, 2025 - Aug 05, 2030</p>
-            <p className=\"mb-2\"><strong>BSE Enlistment Number:</strong> 0000</p>
+          <h2 className="text-2xl font-semibold mb-4 text-[#001633]">Regulatory Information</h2>
+          <div className="bg-blue-50 p-4 rounded-lg mb-4">
+            <p className="mb-2"><strong>SEBI Registration No:</strong> INH000022552</p>
+            <p className="mb-2"><strong>Registration Type:</strong> Non-Individual Research Analyst</p>
+            <p className="mb-2"><strong>Validity:</strong> Aug 06, 2025 - Aug 05, 2030</p>
+            <p className="mb-2"><strong>BSE Enlistment Number:</strong> 0000</p>
           </div>
         </section>
 
-        <section className=\"mb-8\">
-          <h2 className=\"text-2xl font-semibold mb-4 text-[#001633]\">Important Disclaimers</h2>
-          <div className=\"bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4\">
-            <p className=\"mb-2\"><strong>Registration Disclaimer:</strong> \"Registration granted by SEBI and certification from NISM in no way guarantee performance of the intermediary or provide any assurance of returns to investors.\"</p>
-            <p><strong>Investment Warning:</strong> \"Investment in securities market are subject to market risks. Read all the related documents carefully before investing.\"</p>
+        <section className="mb-8">
+          <h2 className="text-2xl font-semibold mb-4 text-[#001633]">Important Disclaimers</h2>
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+            <p className="mb-2"><strong>Registration Disclaimer:</strong> "Registration granted by SEBI and certification from NISM in no way guarantee performance of the intermediary or provide any assurance of returns to investors."</p>
+            <p><strong>Investment Warning:</strong> "Investment in securities market are subject to market risks. Read all the related documents carefully before investing."</p>
           </div>
         </section>
 
-        <section className=\"mb-8\">
-          <h2 className=\"text-2xl font-semibold mb-4 text-[#001633]\">Contact Information</h2>
-          <div className=\"bg-gray-50 p-4 rounded-lg\">
-            <p className=\"mb-2\"><strong>Company:</strong> RangaOne Finwala Pvt. Ltd.</p>
-            <p className=\"mb-2\"><strong>Address:</strong> 004 Ambika Darshan, Shivaji Nagar, Sahargaon, Mumbai Suburban, Maharashtra, 400099</p>
-            <p className=\"mb-2\"><strong>Email:</strong> Support@rangaone.finance</p>
-            <p className=\"mb-2\"><strong>Phone:</strong> +91-93261 99388</p>
-            <p className=\"mb-2\"><strong>Customer Care:</strong> +91-91676 94966</p>
+        <section className="mb-8">
+          <h2 className="text-2xl font-semibold mb-4 text-[#001633]">Contact Information</h2>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <p className="mb-2"><strong>Company:</strong> RangaOne Finwala Pvt. Ltd.</p>
+            <p className="mb-2"><strong>Address:</strong> 004 Ambika Darshan, Shivaji Nagar, Sahargaon, Mumbai Suburban, Maharashtra, 400099</p>
+            <p className="mb-2"><strong>Email:</strong> Support@rangaone.finance</p>
+            <p className="mb-2"><strong>Phone:</strong> +91-93261 99388</p>
+            <p className="mb-2"><strong>Customer Care:</strong> +91-91676 94966</p>
             <p><strong>Timing:</strong> Monday - Friday (10am-6pm)</p>
           </div>
         </section>
