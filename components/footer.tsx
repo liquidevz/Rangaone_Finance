@@ -45,7 +45,7 @@ export default function Footer() {
             <h3 className="text-[#001633] font-bold mb-4">Quick Links</h3>
             <ul className="space-y-2 text-sm">
               <li><Link href="/about-us" className="hover:text-[#1e3a8a]">About Us</Link></li>
-              <li><Link href="/plans-pricing" className="hover:text-[#1e3a8a]">Plans & Pricing</Link></li>
+              <li><Link href="#pricing" className="hover:text-[#1e3a8a]">Plans & Pricing</Link></li>
               <li><Link href="/contact-us" className="hover:text-[#1e3a8a]">Contact Us</Link></li>
             </ul>
           </div>
@@ -54,8 +54,8 @@ export default function Footer() {
           <div>
             <h3 className="text-[#001633] font-bold mb-4">Services</h3>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/rangaone-wealth-basic" className="hover:text-[#1e3a8a]">Rangaone Wealth Basic</Link></li>
-              <li><Link href="/rangaone-wealth-premium" className="hover:text-[#1e3a8a]">Rangaone Wealth Premium</Link></li>
+              <li><Link href="/basic-subscription" className="hover:text-[#1e3a8a]">Rangaone Wealth Basic</Link></li>
+              <li><Link href="/premium-subscription" className="hover:text-[#1e3a8a]">Rangaone Wealth Premium</Link></li>
               <li><Link href="/model-portfolios" className="hover:text-[#1e3a8a]">Model Portfolios</Link></li>
             </ul>
           </div>

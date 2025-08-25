@@ -26,14 +26,9 @@ const NavLinks = [
     sublinks: [],
   },
   {
-    title: "Policies",
-    href: "/Policies",
-    sublinks: [
-      { title: "Terms & Conditions", href: "/Policies/terms-and-conditions" },
-      { title: "Privacy Policy", href: "/Policies/privacy-policy" },
-      { title: "Cancellations & Refunds", href: "/Policies/cancellations-refunds" },
-      { title: "Contact Us", href: "/Policies/contact-us" }
-    ],
+    title: "Contact Us",
+    href: "/contact-us",
+    sublinks: [],
   },
 ];
 
