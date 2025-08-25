@@ -42,11 +42,38 @@ export default function Footer() {
 
           {/* Quick Links */}
           <div>
-            <h3 className="text-[#001633] font-bold mb-4">Quick Links</h3>
-            <ul className="space-y-2 text-sm">
-              <li><Link href="/about-us" className="hover:text-[#1e3a8a]">About Us</Link></li>
-              <li><Link href="/plans-pricing" className="hover:text-[#1e3a8a]">Plans & Pricing</Link></li>
-              <li><Link href="/contact-us" className="hover:text-[#1e3a8a]">Contact Us</Link></li>
+            <h3 className="text-lg font-bold mb-6 text-[#001633]">Quick Links</h3>
+            <ul className="space-y-3">
+              <li>
+                <Link href="/about" className="text-gray-600 hover:text-[#1e3a8a] transition-colors">
+                  About Us
+                </Link>
+              </li>
+              <li>
+                <Link href="/investor-charter" className="text-gray-600 hover:text-[#1e3a8a] transition-colors">
+                  Investor Charter
+                </Link>
+              </li>
+              <li>
+                <Link href="/complaints" className="text-gray-600 hover:text-[#1e3a8a] transition-colors">
+                  Complaints
+                </Link>
+              </li>
+              <li>
+                <Link href="/pricing" className="text-gray-600 hover:text-[#1e3a8a] transition-colors">
+                  Plan & Pricing
+                </Link>
+              </li>
+              <li>
+                <Link href="/blog" className="text-gray-600 hover:text-[#1e3a8a] transition-colors">
+                  Latest Blogs
+                </Link>
+              </li>
+              <li>
+                <Link href="/contact" className="text-gray-600 hover:text-[#1e3a8a] transition-colors">
+                  Contact us
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -71,83 +98,70 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Additional Terms */}
-          <div>
-            <ul className="space-y-2 text-sm mt-8">
-              <li><Link href="/policies/pmla-aml-policy" className="hover:text-[#1e3a8a]">PMLA (AML) Policy</Link></li>
-              <li><Link href="/policies/privacy-policy" className="hover:text-[#1e3a8a]">Privacy Policy</Link></li>
-              <li><Link href="/policies/terms-conditions" className="hover:text-[#1e3a8a]">Terms & Conditions</Link></li>
-              <li><Link href="/policies/investor-complaints" className="hover:text-[#1e3a8a]">Investor Complaints</Link></li>
-            </ul>
-          </div>
-        </div>
-
-        <hr className="border-gray-300 mb-8" />
-
-        {/* Company Details Section */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8 text-sm">
-          {/* SEBI Details */}
-          <div>
-            <h4 className="text-[#001633] font-bold mb-3">SEBI Registered Research Analyst Details</h4>
-            <div className="space-y-1">
-              <p><span className="font-semibold">Registered Name</span></p>
-              <p>RangaOne Finwala Pvt. Ltd.</p>
-              <p><span className="font-semibold">Type of Registration</span></p>
-              <p>Non-Individual</p>
-              <p><span className="font-semibold">Registration Number</span></p>
-              <p>INH000022552</p>
-              <p><span className="font-semibold">Registration Validity</span></p>
-              <p>Aug 06,2025 - Aug 05,2030</p>
-              <p><span className="font-semibold">SEBI Office Address</span></p>
-              <p>SEBI Bhavan BKC</p>
-              <p>Plot No.C4-A, 'G' Block</p>
-              <p>Bandra-Kurla Complex, Bandra (East),</p>
-              <p>Mumbai – 400051, Maharashtra</p>
+          {/* Terms & Social Media */}
+          <div className="grid grid-cols-1 gap-8">
+            <div>
+              <h3 className="text-lg font-bold mb-6 text-[#001633]">Terms</h3>
+              <ul className="space-y-3">
+                <li>
+                  <Link href="/disclaimer" className="text-gray-600 hover:text-[#1e3a8a] transition-colors">
+                    Disclaimer
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/disclosure" className="text-gray-600 hover:text-[#1e3a8a] transition-colors">
+                    Disclosure
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/grievance" className="text-gray-600 hover:text-[#1e3a8a] transition-colors">
+                    Grievance Redressal
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/aml-policy" className="text-gray-600 hover:text-[#1e3a8a] transition-colors">
+                    AML Policy
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/privacy-policy" className="text-gray-600 hover:text-[#1e3a8a] transition-colors">
+                    Privacy Policy
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/terms" className="text-gray-600 hover:text-[#1e3a8a] transition-colors">
+                    Terms and Condition
+                  </Link>
+                </li>
+              </ul>
             </div>
-          </div>
-
-          {/* Company Details */}
-          <div>
-            <h4 className="text-[#001633] font-bold mb-3">RangaOne Finwala Pvt. Ltd.</h4>
-            <div className="space-y-1">
-              <p><span className="font-semibold">Registered Office Address</span></p>
-              <p>004 Ambika Darshan, Shivaji Nagar, Sahargaon, Mumbai</p>
-              <p>Suburban, Maharashtra., MUMBAI, MAHARASHTRA,</p>
-              <p>400099</p>
-              <p><span className="font-semibold">Email</span></p>
-              <p>Support@rangaone.finance</p>
-              <p><span className="font-semibold">Phone</span></p>
-              <p>+91-93261 99388</p>
-              <p><span className="font-semibold">BSE Enlistment Number</span></p>
-              <p>0000</p>
-              <p><span className="font-semibold">CIN</span></p>
-              <p>U85499MH2024PTC430892</p>
-              <p><span className="font-semibold">GST</span></p>
-              <p>27AANCR9959F1ZM</p>
-            </div>
-          </div>
-
-          {/* Officers Contact */}
-          <div>
-            <h4 className="text-[#001633] font-bold mb-3">Officers Contact</h4>
-            <div className="space-y-3">
-              <div>
-                <p><span className="font-semibold">Grievance Officer</span></p>
-                <p>Ms. Sanika Karnik</p>
-                <p>Email: sanika.official11@gmail.com</p>
-                <p>Phone: +91-93261 99388</p>
-              </div>
-              <div>
-                <p><span className="font-semibold">Principal Officer</span></p>
-                <p>Mr. Vibhanshu Gupta</p>
-                <p>Email: guptavibhanshu2002@gmail.com</p>
-                <p>Phone: +91-93512 00235</p>
-              </div>
-              <div>
-                <p><span className="font-semibold">Compliance Officer</span></p>
-                <p>Ms. Sanika Karnik</p>
-                <p>Email: compliance@rangaone.finance</p>
-                <p>Phone: +91-93261 99388</p>
+            <div>
+              <h3 className="text-lg font-bold mb-6 text-[#001633]">Social Media</h3>
+              <div className="flex space-x-4">
+                <Link
+                  href="https://t.me/RangaOnefinwala"
+                  className="text-[#1e3a8a] hover:text-[#3b82f6] transition-colors"
+                >
+                  <FaTelegram size={24} />
+                </Link>
+                <Link
+                  href="https://instagram.com/RangaOnefinwala"
+                  className="text-[#1e3a8a] hover:text-[#3b82f6] transition-colors"
+                >
+                  <FaInstagram size={24} />
+                </Link>
+                <Link
+                  href="https://linkedin.com/company/RangaOnefinwala"
+                  className="text-[#1e3a8a] hover:text-[#3b82f6] transition-colors"
+                >
+                  <FaLinkedin size={24} />
+                </Link>
+                <Link
+                  href="https://twitter.com/RangaOnefinwala"
+                  className="text-[#1e3a8a] hover:text-[#3b82f6] transition-colors"
+                >
+                  <FaTwitter size={24} />
+                </Link>
               </div>
             </div>
           </div>
@@ -180,14 +194,37 @@ export default function Footer() {
           </p>
         </div>
 
-        {/* Copyright and Links */}
-        <div className="flex flex-col md:flex-row justify-between items-center text-xs">
-          <p className="text-[#001633] font-semibold mb-2 md:mb-0">
-            RangaOne Finwala ©2025 All Rights Reserved.
-          </p>
-          <div className="flex items-center space-x-6">
-            <span className="font-semibold">
-              SCORES: <a href="https://www.scores.gov.in" className="text-[#1e3a8a] hover:underline">www.scores.gov.in</a>
+        {/* Registration Info */}
+        <div className="grid md:grid-cols-3 gap-6 py-6 border-t border-gray-200 text-sm text-gray-600">
+          <div>
+            <h4 className="font-bold mb-2">SEBI Registered Research Analyst</h4>
+            <p>Name: RangaOne FINWALA</p>
+            <p>Type of Registration: Individual</p>
+            <p>SEBI Registration No: INH000013350</p>
+            <p>BSE Enlistment number: 5886</p>
+            <p>Validity of Registration: Oct 12, 2023 – Perpetual</p>
+          </div>
+          <div>
+            <h4 className="font-bold mb-2">SEBI office address:</h4>
+            <p>
+              SEBI Bhavan BKC, Plot No.C4-A, 'G' Block Bandra-Kurla Complex, Bandra (East), Mumbai – 400051, Maharashtra
+            </p>
+          </div>
+          <div>
+            <h4 className="font-bold mb-2">Registered Office address:</h4>
+            <p>Office no.3, Ward No.11, Managanj, Jaithari, Post Jaithari, Anuppur, Madhya Pradesh, 484330</p>
+          </div>
+        </div>
+
+        {/* Copyright */}
+        <div className="border-t border-gray-200 pt-6 flex flex-col md:flex-row justify-between items-center">
+          <p className="text-gray-600 text-sm">RangaOne FINWALA ©{new Date().getFullYear()} All Rights Reserved.</p>
+          <div className="flex items-center mt-4 md:mt-0">
+            <span className="text-gray-600 text-sm mr-4">
+              SCORES:{" "}
+              <a href="https://www.scores.gov.in" className="text-[#1e3a8a] hover:underline">
+                www.scores.gov.in
+              </a>
             </span>
             <span className="font-semibold">
               ODR PORTAL: <a href="https://www.smartodr.in" className="text-[#1e3a8a] hover:underline">www.smartodr.in</a>

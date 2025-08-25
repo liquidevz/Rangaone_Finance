@@ -96,7 +96,7 @@ export function GlobalSearch() {
       description: `${res.item.category || 'Basic'} recommendation`,
       category: res.item.category,
       createdAt: res.item.createdAt,
-      highlight: res.matches?.[0]?.value
+      highlight: typeof res.matches?.[0]?.value === 'string' ? res.matches[0].value : ''
     }))
     const portfolioResults = fusePortfolios.search(searchQuery).slice(0, 3).map((res: any) => ({
       id: res.item._id,
@@ -104,12 +104,16 @@ export function GlobalSearch() {
       type: 'portfolio' as const,
       url: `/model-portfolios/${res.item._id}`,
       description: res.item.description || `Investment portfolio`,
-      highlight: res.matches?.[0]?.value
+      highlight: typeof res.matches?.[0]?.value === 'string' ? res.matches[0].value : ''
     }))
 
     const pageResults = fusePages.search(searchQuery).slice(0, 2).map((res: any) => ({
-      ...res.item,
-      highlight: res.matches?.[0]?.value
+      id: res.item.id,
+      title: res.item.title,
+      type: res.item.type,
+      url: res.item.url,
+      description: res.item.description,
+      highlight: typeof res.matches?.[0]?.value === 'string' ? res.matches[0].value : ''
     }))
 
     setLoading(false)
@@ -212,13 +216,13 @@ export function GlobalSearch() {
     const idx = text.toLowerCase().indexOf(query.toLowerCase())
     if (idx === -1) return text
     return (
-      <>
+      <span>
         {text.slice(0, idx)}
         <span className="bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-900 px-1 rounded font-medium">
           {text.slice(idx, idx + query.length)}
         </span>
         {text.slice(idx + query.length)}
-      </>
+      </span>
     )
   }
 
@@ -331,13 +335,13 @@ export function GlobalSearch() {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
                                   <div className="font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors duration-200">
-                                    {highlightMatch(result.title, query)}
+                                    {highlightMatch(String(result.title || ''), query)}
                                   </div>
                                   {getResultBadge(result.type, result.category)}
                                 </div>
                                 {result.description && (
                                   <div className="text-sm text-gray-600 truncate group-hover:text-gray-700 transition-colors duration-200">
-                                    {highlightMatch(result.description, query)}
+                                    {highlightMatch(String(result.description), query)}
                                   </div>
                                 )}
                                 {result.createdAt && (

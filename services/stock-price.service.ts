@@ -5,6 +5,7 @@ export interface StockPriceData {
   symbol: string;
   currentPrice: number;
   previousPrice: number;
+  todayClosingPrice: number;
   change: number;
   changePercent: number;
   name?: string;
@@ -258,6 +259,7 @@ class StockPriceService {
       // Extract price information with exact precision
       const currentPrice = this.parseExactPrice(stockData.currentPrice);
       const previousPrice = this.parseExactPrice(stockData.previousPrice);
+      const todayClosingPrice = this.parseExactPrice(stockData.todayClosingPrice || stockData.previousPrice);
 
       if (isNaN(currentPrice) || currentPrice <= 0) {
         console.warn(`⚠️ Invalid current price for ID ${id}:`, currentPrice);
@@ -265,13 +267,14 @@ class StockPriceService {
       }
 
       // Calculate change and change percentage with exact precision
-      const change = currentPrice - previousPrice;
-      const changePercent = previousPrice > 0 ? (change / previousPrice) * 100 : 0;
+      const change = currentPrice - todayClosingPrice;
+      const changePercent = todayClosingPrice > 0 ? (change / todayClosingPrice) * 100 : 0;
 
       const result: StockPriceData = {
         symbol: stockData.symbol,
         currentPrice,
         previousPrice,
+        todayClosingPrice,
         change,
         changePercent,
         name: stockData.name,
@@ -338,19 +341,28 @@ class StockPriceService {
         currentPrice
       );
 
+      const todayClosingPrice = this.parsePrice(
+        stockData.todayClosingPrice ||
+        stockData.previousPrice || 
+        stockData.prevPrice || 
+        stockData.previousClose ||
+        previousPrice
+      );
+
       if (isNaN(currentPrice) || currentPrice <= 0) {
         console.warn(`⚠️ Invalid current price for ${symbol}:`, currentPrice);
         return null;
       }
 
       // Calculate change and change percentage
-      const change = currentPrice - previousPrice;
-      const changePercent = previousPrice > 0 ? (change / previousPrice) * 100 : 0;
+      const change = currentPrice - todayClosingPrice;
+      const changePercent = todayClosingPrice > 0 ? (change / todayClosingPrice) * 100 : 0;
 
       const result: StockPriceData = {
         symbol: stockData.symbol || symbol,
         currentPrice,
         previousPrice,
+        todayClosingPrice,
         change,
         changePercent,
         name: stockData.name || stockData.companyName,

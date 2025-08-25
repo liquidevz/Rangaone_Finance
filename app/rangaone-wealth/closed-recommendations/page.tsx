@@ -35,7 +35,7 @@ const closedRecommendations = [
     change: -8.4,
     changePercent: -0.67,
     target: 22,
-    timeHorizon: "Medium Term",
+    timeHorizon: "Swing",
     closed: true,
     returnPercentage: 18.3,
     category: "Closed",
@@ -69,7 +69,7 @@ const closedRecommendations = [
     change: 156.2,
     changePercent: 1.5,
     target: 30,
-    timeHorizon: "Medium Term",
+    timeHorizon: "Swing",
     closed: true,
     returnPercentage: 27.8,
     category: "Closed",
@@ -103,7 +103,7 @@ const closedRecommendations = [
     change: 32.5,
     changePercent: 1.97,
     target: 18,
-    timeHorizon: "Medium Term",
+    timeHorizon: "Swing",
     closed: true,
     returnPercentage: 14.8,
     category: "Closed",
@@ -121,7 +121,7 @@ export default function ClosedRecommendations() {
   const filteredStocks = closedRecommendations.filter((stock) => {
     if (filter === "all") return true
     if (filter === "short" && stock.timeHorizon === "Short Term") return true
-    if (filter === "medium" && stock.timeHorizon === "Medium Term") return true
+    if (filter === "medium" && stock.timeHorizon === "Swing") return true
     if (filter === "long" && stock.timeHorizon === "Long Term") return true
     return false
   })
@@ -176,7 +176,7 @@ export default function ClosedRecommendations() {
               onClick={() => setFilter("medium")}
               className={filter === "medium" ? "bg-blue-600 hover:bg-blue-700" : ""}
             >
-              Medium Term
+              Swing
             </Button>
             <Button
               variant={filter === "long" ? "default" : "outline"}

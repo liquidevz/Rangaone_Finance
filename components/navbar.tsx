@@ -26,16 +26,21 @@ const NavLinks = [
     sublinks: [],
   },
   {
-    title: "Contact Us",
-    href: "/#contact",
-    sublinks: [],
+    title: "Policies",
+    href: "/Policies",
+    sublinks: [
+      { title: "Terms & Conditions", href: "/Policies/terms-and-conditions" },
+      { title: "Privacy Policy", href: "/Policies/privacy-policy" },
+      { title: "Cancellations & Refunds", href: "/Policies/cancellations-refunds" },
+      { title: "Contact Us", href: "/Policies/contact-us" }
+    ],
   },
 ];
 
 interface NavLink {
   title: string;
   href: string;
-  sublinks: never[];
+  sublinks: { title: string; href: string; }[];
 }
 
 interface NavbarProps {
@@ -74,6 +79,7 @@ export const RoundedDrawerNav = ({
 }: RoundedDrawerNavProps) => {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
   const router = useRouter();
   const { user, isAuthenticated, logout, isLoading } = useAuth();
   const { cartItemCount } = useCart();
@@ -155,13 +161,52 @@ export const RoundedDrawerNav = ({
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">
             {links.map((link, index) => (
-              <Link
-                key={index}
-                href={link.href}
-                className={`${textColor} hover:opacity-75 transition-opacity cursor-pointer`}
-              >
-                {link.title}
-              </Link>
+              <div key={index} className="relative">
+                {link.sublinks.length > 0 ? (
+                  <div
+                    onMouseEnter={() => setDropdownOpen(link.title)}
+                    onMouseLeave={() => setDropdownOpen(null)}
+                    className="relative"
+                  >
+                    <button
+                      className={`${textColor} hover:opacity-75 transition-opacity cursor-pointer flex items-center gap-1`}
+                    >
+                      {link.title}
+                      <FiChevronDown className={`w-4 h-4 transition-transform duration-200 ${dropdownOpen === link.title ? 'rotate-180' : ''}`} />
+                    </button>
+                    
+                    <AnimatePresence>
+                      {dropdownOpen === link.title && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                          transition={{ duration: 0.2, ease: "easeOut" }}
+                          className="absolute top-full left-0 mt-2 w-56 bg-white/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50"
+                        >
+                          {link.sublinks.map((sublink, subIndex) => (
+                            <Link
+                              key={subIndex}
+                              href={sublink.href}
+                              className="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                              onClick={() => setDropdownOpen(null)}
+                            >
+                              {sublink.title}
+                            </Link>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                ) : (
+                  <Link
+                    href={link.href}
+                    className={`${textColor} hover:opacity-75 transition-opacity cursor-pointer`}
+                  >
+                    {link.title}
+                  </Link>
+                )}
+              </div>
             ))}
           </div>
 
@@ -343,14 +388,41 @@ export const RoundedDrawerNav = ({
             <div className="px-6 py-4 space-y-4">
               {/* Mobile Navigation Links */}
               {links.map((link, index) => (
-                <Link
-                  key={index}
-                  href={link.href}
-                  onClick={() => setMobileNavOpen(false)}
-                  className={`block ${textColor} text-lg font-medium hover:opacity-75 transition-opacity`}
-                >
-                  {link.title}
-                </Link>
+                <div key={index}>
+                  {link.sublinks.length > 0 ? (
+                    <div>
+                      <button
+                        onClick={() => setDropdownOpen(dropdownOpen === link.title ? null : link.title)}
+                        className={`flex items-center justify-between w-full ${textColor} text-lg font-medium hover:opacity-75 transition-opacity`}
+                      >
+                        {link.title}
+                        <FiChevronDown className={`w-4 h-4 transition-transform duration-200 ${dropdownOpen === link.title ? 'rotate-180' : ''}`} />
+                      </button>
+                      {dropdownOpen === link.title && (
+                        <div className="ml-4 mt-2 space-y-2">
+                          {link.sublinks.map((sublink, subIndex) => (
+                            <Link
+                              key={subIndex}
+                              href={sublink.href}
+                              onClick={() => setMobileNavOpen(false)}
+                              className={`block ${textColor} text-base hover:opacity-75 transition-opacity`}
+                            >
+                              {sublink.title}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <Link
+                      href={link.href}
+                      onClick={() => setMobileNavOpen(false)}
+                      className={`block ${textColor} text-lg font-medium hover:opacity-75 transition-opacity`}
+                    >
+                      {link.title}
+                    </Link>
+                  )}
+                </div>
               ))}
 
               {/* Mobile User Menu */}

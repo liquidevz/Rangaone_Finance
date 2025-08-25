@@ -12,6 +12,7 @@ import { tipsService, Tip } from "@/services/tip.service"
 import { portfolioService } from "@/services/portfolio.service"
 import { subscriptionService, SubscriptionAccess } from "@/services/subscription.service"
 import { stockSymbolCacheService } from "@/services/stock-symbol-cache.service"
+import { stockPriceService, StockPriceData } from "@/services/stock-price.service"
 import { Portfolio } from "@/lib/types"
 import { useAuth } from "@/components/auth/auth-context"
 import { useRouter } from "next/navigation"
@@ -19,6 +20,7 @@ import { MethodologyModal } from "@/components/methodology-modal"
 import { authService } from "@/services/auth.service"
 import axiosApi from "@/lib/axios"
 import { cache } from "@/lib/cache"
+import MarketIndices from "@/components/market-indices"
 
 // Mobile Global Search Component
 function MobileGlobalSearch() {
@@ -29,6 +31,40 @@ function MobileGlobalSearch() {
   )
 }
 
+// Stock Symbol Display Component
+function StockSymbolDisplay({ stockId }: { stockId?: string }) {
+  const [symbol, setSymbol] = useState("STOCK")
+  
+  useEffect(() => {
+    if (stockId) {
+      console.log('🔍 Fetching symbol for stockId:', stockId)
+      const cachedSymbol = stockSymbolCacheService.getCachedSymbol(stockId)
+      if (cachedSymbol) {
+        console.log('✅ Found cached symbol:', cachedSymbol)
+        setSymbol(cachedSymbol)
+      } else {
+        console.log('📡 Making API call for stockId:', stockId)
+        axiosApi.get(`/api/stock-symbols/${stockId}`)
+          .then(response => {
+            console.log('📊 API response:', response.data)
+            if (response.data?.symbol) {
+              setSymbol(response.data.symbol)
+              stockSymbolCacheService.setCachedSymbol(stockId, response.data.symbol)
+            } else if (response.data?.name) {
+              setSymbol(response.data.name)
+              stockSymbolCacheService.setCachedSymbol(stockId, response.data.name)
+            }
+          })
+          .catch(error => {
+            console.error('❌ API call failed:', error)
+          })
+      }
+    }
+  }, [stockId])
+  
+  return <>{symbol}</>
+}
+
 // Market Indices Component
 export function MarketIndicesSection() {
   const [isExpanded, setIsExpanded] = useState(true)
@@ -37,35 +73,7 @@ export function MarketIndicesSection() {
   const [touchEnd, setTouchEnd] = useState(0)
   const [isAnimating, setIsAnimating] = useState(false)
   const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null)
-  const [indices, setIndices] = useState([
-    {
-      name: "NIFTY 50",
-      value: "₹0",
-      change: "0",
-      changePercent: "(0.00%)",
-      isNegative: false,
-      isSelected: true,
-      symbol: "NIFTY"
-    },
-    {
-      name: "NIFTY MIDCAP 150",
-      value: "₹0",
-      change: "0",
-      changePercent: "(0.00%)",
-      isNegative: false,
-      isSelected: false,
-      symbol: "MIDCAP150"
-    },
-    {
-      name: "NIFTY SMALL CAP 250",
-      value: "₹0",
-      change: "0",
-      changePercent: "(0.00%)",
-      isNegative: false,
-      isSelected: false,
-      symbol: "SMCP250"
-    },
-  ])
+  const [indices, setIndices] = useState<StockPriceData[]>([])
   const [loading, setLoading] = useState(true)
   
   useEffect(() => {
@@ -78,55 +86,28 @@ export function MarketIndicesSection() {
     return () => clearTimeout(timer)
   }, [])
 
-  // Fetch real-time market indices data
   useEffect(() => {
     const fetchIndicesData = async () => {
       try {
         setLoading(true)
         
-        // Check cache first
-        const cachedIndices = cache.get<typeof indices>('market_indices')
+        const cachedIndices = cache.get<StockPriceData[]>('market_indices')
         if (cachedIndices) {
           setIndices(cachedIndices)
           setLoading(false)
           return
         }
         
-        const indicesToFetch = ['NIFTY', 'MIDCAP150', 'NIFTYSMLCAP250']
-        const promises = indicesToFetch.map(async (symbol) => {
-          try {
-            const response = await fetch(`https://stocks-backend-cmjxc.ondigitalocean.app/api/stock-symbols/search?keyword=${symbol}`)
-            const data = await response.json()
-            
-            if (data.success && data.data.length > 0) {
-              const stockData = data.data[0] // Get the first match
-              const priceChange = parseFloat(stockData.priceChange || '0')
-              const priceChangePercent = parseFloat(stockData.priceChangePercent || '0')
-              
-              return {
-                name: stockData.name,
-                value: `₹${parseFloat(stockData.currentPrice || '0').toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-                change: priceChange >= 0 ? `+₹${priceChange.toFixed(2)}` : `-₹${Math.abs(priceChange).toFixed(2)}`,
-                changePercent: `(${priceChangePercent >= 0 ? '+' : ''}${priceChangePercent.toFixed(2)}%)`,
-                isNegative: priceChange < 0,
-                isSelected: symbol === 'NIFTY',
-                symbol: stockData.symbol
-              }
-            }
-            return null
-          } catch (error) {
-            console.error(`Failed to fetch data for ${symbol}:`, error)
-            return null
-          }
-        })
+        const indexSymbols = ['NIFTY50', 'MIDCAP150', 'NIFTYSMLCAP250']
+        const results = await stockPriceService.getMultipleStockPrices(indexSymbols)
         
-        const results = await Promise.all(promises)
-        const validResults = results.filter(result => result !== null)
+        const validIndices = Array.from(results.values())
+          .filter(result => result.success && result.data)
+          .map(result => result.data!)
         
-        if (validResults.length > 0) {
-          setIndices(validResults)
-          // Cache for 1 minute
-          cache.set('market_indices', validResults, 1)
+        if (validIndices.length > 0) {
+          setIndices(validIndices)
+          cache.set('market_indices', validIndices, 1)
         }
       } catch (error) {
         console.error('Failed to fetch indices data:', error)
@@ -136,14 +117,10 @@ export function MarketIndicesSection() {
     }
 
     fetchIndicesData()
-    
-    // Refresh data every 30 seconds
     const interval = setInterval(fetchIndicesData, 30000)
-    
     return () => clearInterval(interval)
   }, [])
 
-  // Touch handlers for swipe functionality with smooth animations
   const onTouchStart = (e: React.TouchEvent) => {
     setTouchEnd(0)
     setTouchStart(e.targetTouches[0].clientX)
@@ -198,7 +175,6 @@ export function MarketIndicesSection() {
         isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
       } overflow-hidden`}>
         <div className="px-4 pb-2">
-          {/* Desktop: 3-column grid layout */}
           <div className="hidden md:grid md:grid-cols-3 gap-4">
             {loading ? (
               [...Array(3)].map((_, i) => (
@@ -220,7 +196,7 @@ export function MarketIndicesSection() {
             ) : (
               indices.map((index) => (
                 <div 
-                  key={index.name} 
+                  key={index.symbol} 
                   className="bg-white rounded-xl p-5 transition-all duration-300"
                   style={{ 
                     boxShadow: '0 8px 25px rgba(0, 0, 0, 0.12)',
@@ -230,34 +206,34 @@ export function MarketIndicesSection() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                        {index.name}
+                        {index.name || index.symbol}
                       </h3>
                       <div className={`w-2 h-2 rounded-full ${
-                        index.isNegative ? 'bg-red-400' : 'bg-green-400'
+                        index.change < 0 ? 'bg-red-400' : 'bg-green-400'
                       }`}></div>
                     </div>
                     
                     <div className="text-3xl font-bold text-gray-900 leading-none">
-                      {index.value}
+                      ₹{index.currentPrice.toLocaleString()}
                     </div>
                     
                     <div className="flex items-center justify-between">
                       <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm font-semibold ${
-                        index.isNegative 
+                        index.change < 0 
                           ? 'bg-red-100 text-red-700' 
                           : 'bg-green-100 text-green-700'
                       }`}>
-                        {index.isNegative ? (
+                        {index.change < 0 ? (
                           <ArrowDown className="h-3.5 w-3.5" />
                         ) : (
                           <ArrowUp className="h-3.5 w-3.5" />
                         )}
-                        <span>{index.change}</span>
+                        <span>{index.change < 0 ? '' : '+'}₹{index.change.toFixed(2)}</span>
                       </div>
                       <div className={`text-sm font-medium ${
-                        index.isNegative ? 'text-red-600' : 'text-green-600'
+                        index.change < 0 ? 'text-red-600' : 'text-green-600'
                       }`}>
-                        ₹ {index.changePercent}
+                        ₹ ({index.change < 0 ? '' : '+'}{index.changePercent.toFixed(2)}%)
                       </div>
                     </div>
                   </div>
@@ -266,7 +242,6 @@ export function MarketIndicesSection() {
             )}
           </div>
 
-          {/* Mobile: Swipeable slider */}
           <div className="md:hidden relative">
             {loading ? (
               <div className="flex justify-center">
@@ -286,7 +261,6 @@ export function MarketIndicesSection() {
               </div>
             ) : (
               <>
-                {/* Single card display with touch handlers and smooth animations */}
                 <div 
                   className="flex justify-center overflow-hidden"
                   onTouchStart={onTouchStart}
@@ -319,41 +293,40 @@ export function MarketIndicesSection() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <h3 className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                          {indices[currentIndex]?.name}
+                          {indices[currentIndex]?.name || indices[currentIndex]?.symbol}
                         </h3>
                         <div className={`w-2 h-2 rounded-full ${
-                          indices[currentIndex]?.isNegative ? 'bg-red-400' : 'bg-green-400'
+                          indices[currentIndex]?.change < 0 ? 'bg-red-400' : 'bg-green-400'
                         }`}></div>
                       </div>
                       
                       <div className="text-3xl font-bold text-gray-900 leading-none">
-                        {indices[currentIndex]?.value}
+                        ₹{indices[currentIndex]?.currentPrice.toLocaleString()}
                       </div>
                       
                       <div className="flex items-center justify-between">
                         <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm font-semibold ${
-                          indices[currentIndex]?.isNegative 
+                          indices[currentIndex]?.change < 0 
                             ? 'bg-red-100 text-red-700' 
                             : 'bg-green-100 text-green-700'
                         }`}>
-                          {indices[currentIndex]?.isNegative ? (
+                          {indices[currentIndex]?.change < 0 ? (
                             <ArrowDown className="h-3.5 w-3.5" />
                           ) : (
                             <ArrowUp className="h-3.5 w-3.5" />
                           )}
-                          <span>{indices[currentIndex]?.change}</span>
+                          <span>{indices[currentIndex]?.change < 0 ? '' : '+'}₹{indices[currentIndex]?.change.toFixed(2)}</span>
                         </div>
                         <div className={`text-sm font-medium ${
-                          indices[currentIndex]?.isNegative ? 'text-red-600' : 'text-green-600'
+                          indices[currentIndex]?.change < 0 ? 'text-red-600' : 'text-green-600'
                         }`}>
-                          ₹ {indices[currentIndex]?.changePercent}
+                          ₹ ({indices[currentIndex]?.change < 0 ? '' : '+'}{indices[currentIndex]?.changePercent.toFixed(2)}%)
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Swipe indicator dots */}
                 <div className="flex justify-center mt-4">
                   <div className="flex space-x-1">
                     {indices.map((_, index) => (
@@ -961,19 +934,6 @@ function GeneralTipCard({ tip, subscriptionAccess }: { tip: Tip; subscriptionAcc
 function ModelPortfolioTipCard({ tip, subscriptionAccess }: { tip: Tip; subscriptionAccess: SubscriptionAccess | null }) {
   const router = useRouter()
   
-  // Extract stock symbol - prioritize stockId, then extract from title
-  let stockSymbol = tip.stockId || undefined;
-  
-  if (!stockSymbol && tip.title) {
-    const titleParts = tip.title.split(/[:\-\s]/);
-    const potentialName = titleParts[0]?.trim().toUpperCase();
-    if (potentialName && potentialName.length > 1 && /^[A-Z0-9&\-\.]+$/i.test(potentialName)) {
-      stockSymbol = potentialName;
-    }
-  }
-  
-  stockSymbol = stockSymbol || "STOCK";
-  
   // Check access for model portfolio tips
   const hasAccess = () => {
     if (!subscriptionAccess) {
@@ -1045,33 +1005,7 @@ function ModelPortfolioTipCard({ tip, subscriptionAccess }: { tip: Tip; subscrip
                   </div>
                 </div>
                 <h3 className="text-lg font-bold" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>
-                  {(() => {
-                    const [symbol, setSymbol] = useState(tip.stockId || "STOCK");
-                    
-                    useEffect(() => {
-                      if (tip.stockId) {
-                        const cachedSymbol = stockSymbolCacheService.getCachedSymbol(tip.stockId);
-                        if (!cachedSymbol) {
-                          const cachedSymbol = stockSymbolCacheService.getCachedSymbol(tip.stockId);
-                        if (!cachedSymbol) {
-                          axiosApi.get(`/api/stock-symbols/${tip.stockId}`)
-                            .then(response => {
-                              if (response.data?.symbol) {
-                                setSymbol(response.data.symbol);
-                              }
-                            })
-                            .catch(() => {});
-                        } else {
-                          setSymbol(cachedSymbol);
-                        }
-                        } else {
-                          setSymbol(cachedSymbol);
-                        }
-                      }
-                    }, [tip.stockId]);
-                    
-                    return symbol;
-                  })()}
+                  <StockSymbolDisplay stockId={tip.stockId} />
                 </h3>
                 <p className="text-sm font-light text-gray-600" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>NSE</p>
               </div>
