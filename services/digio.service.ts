@@ -223,29 +223,6 @@ export const digioService = {
     }, 1000);
   },
 
-  // Check document status
-  checkDocumentStatus: async (documentId: string): Promise<DigioSignResponse> => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/digio/status/${documentId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')}`,
-        }
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Failed to check document status');
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error checking document status:', error);
-      throw error;
-    }
-  },
-
   validateSignatureForPayment: async (documentId: string): Promise<boolean> => {
     try {
       const response = await digioService.checkDocumentStatus(documentId);
