@@ -38,8 +38,16 @@ export function DigioVerificationModal({
   const createSignRequest = async () => {
     try {
       setError(null)
-      console.log("Creating Digio sign request...")
       
+      // Check if user is authenticated
+      const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
+      if (!token) {
+        setError('Please login first to proceed with verification')
+        setStep('error')
+        return
+      }
+      
+      console.log("Creating Digio sign request...")
       const response = await digioService.createPaymentSignRequest(agreementData)
       setDocumentId(response.documentId)
       setStep("signing")

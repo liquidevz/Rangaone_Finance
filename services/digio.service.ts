@@ -110,52 +110,20 @@ export const digioService = {
     return btoa(unescape(encodeURIComponent(agreementContent)));
   },
 
-  // Create sign request using real Digio API
+  // Mock Digio API - completely fake
   createPaymentSignRequest: async (
     agreementData: PaymentAgreementData
   ): Promise<{ documentId: string; authenticationUrl?: string; accessToken?: any }> => {
-    try {
-      const response = await fetch('/api/digio/create-sign-request', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          agreementData,
-          signRequest: {
-            file_name: `Payment_Agreement_${Date.now()}.pdf`,
-            signers: [{
-              identifier: agreementData.customerEmail,
-              name: agreementData.customerName,
-              sign_type: "aadhaar",
-              signature_mode: "otp",
-              reason: "Payment authorization for subscription services"
-            }],
-            expire_in_days: 7,
-            display_on_page: "last",
-            notify_signers: true,
-            send_sign_link: false,
-            generate_access_token: true,
-            include_authentication_url: true
-          }
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create sign request');
-      }
-
-      const data = await response.json();
-      return { 
-        documentId: data.documentId,
-        authenticationUrl: data.authenticationUrl,
-        accessToken: data.accessToken
-      };
-    } catch (error) {
-      console.error('Error creating sign request:', error);
-      throw error;
-    }
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const mockDocumentId = `DOC_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    return {
+      documentId: mockDocumentId,
+      authenticationUrl: undefined, // Will use demo interface
+      accessToken: `mock_token_${Date.now()}`
+    };
   },
 
   // Initialize Digio SDK and handle signing
@@ -203,45 +171,26 @@ export const digioService = {
       return;
     }
 
-    // Fallback to SDK integration
-    const isLoaded = await digioService.loadDigioSDK();
+    // Use demo interface for mock
+    digioService.showDemoESignInterface(documentId, customerEmail, onSuccess, onError);
+  },
+
+  // Mock document status check
+  checkDocumentStatus: async (documentId: string): Promise<DigioSignResponse> => {
+    await new Promise(resolve => setTimeout(resolve, 500));
     
-    if (!isLoaded) {
-      onError(new Error("Failed to load Digio SDK"));
-      return;
-    }
-
-    const options = {
-      environment: DIGIO_ENVIRONMENT,
-      callback: function(response: any) {
-        if (response.hasOwnProperty("error_code")) {
-          console.error("Digio signing error:", response);
-          onError(new Error(response.message || "Signing failed"));
-          return;
-        }
-        console.log("Signing completed successfully:", response);
-        onSuccess(response);
-      },
-      logo: "/logo.png",
-      theme: {
-        primaryColor: "#2563eb",
-        secondaryColor: "#1e40af"
-      },
-      is_iframe: true,
-      iframe_config: {
-        allow: "camera; microphone; geolocation",
-        sandbox: "allow-scripts allow-same-origin allow-forms allow-popups"
-      }
+    return {
+      id: documentId,
+      agreement_status: "completed",
+      file_name: "mock_agreement.pdf",
+      created_at: new Date().toISOString(),
+      signing_parties: [{
+        name: "Mock Signer",
+        identifier: "mock@example.com",
+        status: "signed",
+        signature_type: "aadhaar"
+      }]
     };
-
-    try {
-      const digio = new window.Digio(options);
-      digio.init();
-      digio.submit(documentId, customerEmail);
-    } catch (error) {
-      console.error("Error initializing Digio:", error);
-      onError(error);
-    }
   },
 
   showDemoESignInterface: (
@@ -277,17 +226,17 @@ export const digioService = {
   // Check document status
   checkDocumentStatus: async (documentId: string): Promise<DigioSignResponse> => {
     try {
-      const response = await fetch('/api/digio/check-status', {
-        method: 'POST',
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/digio/status/${documentId}`, {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ documentId })
+          'Authorization': `Bearer ${localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')}`,
+        }
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to check document status');
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to check document status');
       }
 
       return await response.json();
