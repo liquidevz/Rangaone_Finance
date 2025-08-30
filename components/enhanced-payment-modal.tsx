@@ -7,59 +7,44 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/components/auth/auth-context"
 import { useRouter } from "next/navigation"
-import { Bundle } from "@/services/bundle.service"
 import { paymentService } from "@/services/payment.service"
 import CartAuthForm from "@/components/cart-auth-form"
 import { DigioVerificationModal } from "@/components/digio-verification-modal"
+import { usePaymentState } from "@/components/payment/payment-state-context"
 import type { PaymentAgreementData } from "@/services/digio.service"
 
-interface PaymentModalProps {
-  isOpen: boolean
-  onClose: () => void
-  bundle: Bundle | null
-  isEmandateFlow?: boolean
-}
-
-export const PaymentModal: React.FC<PaymentModalProps> = ({
-  isOpen,
-  onClose,
-  bundle,
-  isEmandateFlow = false
-}) => {
-  // Use isEmandateFlow to determine which options to show
-  console.log('isEmandateFlow:', isEmandateFlow);
-  const [step, setStep] = useState<"plan" | "auth" | "digio" | "processing" | "success" | "error">("plan")
+export function EnhancedPaymentModal() {
   const [subscriptionType, setSubscriptionType] = useState<"monthly" | "yearly">("monthly")
-  const [processing, setProcessing] = useState(false)
-  const [processingMsg, setProcessingMsg] = useState("Preparing secure payment…")
   const [showDigio, setShowDigio] = useState(false)
   const [agreementData, setAgreementData] = useState<PaymentAgreementData | null>(null)
-  const [telegramLinks, setTelegramLinks] = useState<Array<{ invite_link: string }> | null>(null)
   const cancelRequested = useRef(false)
   const continuedAfterAuthRef = useRef(false)
   
   const { isAuthenticated, user } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
+  const {
+    state,
+    closeModal,
+    setStep,
+    setProcessingMessage,
+    setError,
+    setTelegramLinks,
+    getPrice
+  } = usePaymentState()
 
+  const { selectedBundle: bundle, isEmandateFlow, modalStep: step } = state
   const isPremium = bundle?.category === "premium"
-
-  // When modal opens, always start with plan selection
-  useEffect(() => {
-    if (!isOpen) return
-    setStep("plan")
-    continuedAfterAuthRef.current = false
-  }, [isOpen])
 
   // If user authenticates while viewing the auth step, automatically continue to Digio
   useEffect(() => {
-    if (!isOpen) return
+    if (!state.isModalOpen) return
     if (step !== "auth") return
     if (isAuthenticated && bundle && !continuedAfterAuthRef.current) {
       continuedAfterAuthRef.current = true
       startDigioFlow()
     }
-  }, [isOpen, step, isAuthenticated, bundle])
+  }, [state.isModalOpen, step, isAuthenticated, bundle])
 
   const computeMonthlyEmandateDiscount = () => {
     if (!bundle) return 0
@@ -80,43 +65,28 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     return Math.max(0, pct)
   }
 
-  const getPrice = () => {
-    if (!bundle) return 0
-    if (isEmandateFlow) {
-      return subscriptionType === "yearly"
-        ? ((bundle as any).yearlyemandateprice || bundle.yearlyPrice || 0)
-        : ((bundle as any).monthlyemandateprice || bundle.monthlyPrice || 0)
-    }
-    // normal one-time monthly purchase
-    return bundle.monthlyPrice || 0
-  }
-
   const handleClose = () => {
-    setStep("plan")
-    setProcessing(false)
     setShowDigio(false)
-    setTelegramLinks(null)
-    onClose()
+    closeModal()
   }
 
   const handleProceed = async () => {
     if (!bundle) return
 
-    // Check authentication only when proceeding to payment
+    // Step 1: Check authentication
     if (!isAuthenticated) {
       setStep("auth")
       return
     }
 
-    // Start Digio verification
+    // Step 2: Start Digio verification (5-step flow for both paths)
     startDigioFlow()
   }
 
   const handleAuthSuccess = async () => {
+    // Immediately continue the flow after successful login
     continuedAfterAuthRef.current = true
-    // The post-login state will be handled by the pricing section
-    // Just close this modal and let the parent handle the flow
-    handleClose()
+    startDigioFlow()
   }
 
   const startDigioFlow = () => {
@@ -152,10 +122,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     try {
       cancelRequested.current = false
       setStep("processing")
-      setProcessing(true)
 
       if (isEmandateFlow) {
-        setProcessingMsg("Creating eMandate…")
+        setProcessingMessage("Creating eMandate…")
         const emandateAmount =
           subscriptionType === "yearly"
             ? (((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0)
@@ -178,12 +147,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         })
 
         if (cancelRequested.current) {
-          setProcessing(false)
           setStep("plan")
           return
         }
 
-        setProcessingMsg("Opening payment gateway…")
+        setProcessingMessage("Opening payment gateway…")
         await paymentService.openCheckout(
           emandate,
           {
@@ -191,34 +159,30 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             email: user?.email || "user@example.com",
           },
           async () => {
-            setProcessingMsg("Verifying payment…")
+            setProcessingMessage("Verifying payment…")
             const verify = await paymentService.verifyEmandateWithRetry(emandate.subscriptionId)
             
             if (verify.success || ["active", "authenticated"].includes((verify as any).subscriptionStatus || "")) {
               const links = (verify as any)?.telegramInviteLinks as Array<{ invite_link: string }> | undefined
-              console.log('Telegram links received:', links)
               if (links && links.length) {
                 setTelegramLinks(links)
               }
               
               setStep("success")
-              setProcessing(false)
               toast({ title: "Payment Successful", description: "Subscription activated" })
             } else {
               setStep("error")
-              setProcessing(false)
               toast({ title: "Verification Failed", description: verify.message || "Please try again", variant: "destructive" })
             }
           },
           (err) => {
             setStep("error")
-            setProcessing(false)
             toast({ title: "Payment Cancelled", description: err?.message || "Payment was cancelled", variant: "destructive" })
           }
         )
       } else {
         // One-time order flow (still uses Digio as part of 5-step UX)
-        setProcessingMsg("Creating order…")
+        setProcessingMessage("Creating order…")
         const order = await paymentService.createOrder({
           productType: "Bundle",
           productId: bundle._id,
@@ -227,12 +191,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         })
 
         if (cancelRequested.current) {
-          setProcessing(false)
           setStep("plan")
           return
         }
 
-        setProcessingMsg("Opening payment gateway…")
+        setProcessingMessage("Opening payment gateway…")
         await paymentService.openCheckout(
           order,
           {
@@ -240,7 +203,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             email: user?.email || "user@example.com",
           },
           async (rp) => {
-            setProcessingMsg("Verifying payment…")
+            setProcessingMessage("Verifying payment…")
             const verify = await paymentService.verifyPayment({
               orderId: order.orderId,
               paymentId: rp?.razorpay_payment_id,
@@ -249,35 +212,30 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
             if (verify.success) {
               const links = (verify as any)?.telegramInviteLinks as Array<{ invite_link: string }> | undefined
-              console.log('Telegram links received:', links)
               if (links && links.length) {
                 setTelegramLinks(links)
               }
               
               setStep("success")
-              setProcessing(false)
               toast({ title: "Payment Successful", description: "Subscription activated" })
             } else {
               setStep("error")
-              setProcessing(false)
               toast({ title: "Verification Failed", description: verify.message || "Please try again", variant: "destructive" })
             }
           },
           (err) => {
             setStep("error")
-            setProcessing(false)
             toast({ title: "Payment Cancelled", description: err?.message || "Payment was cancelled", variant: "destructive" })
           }
         )
       }
     } catch (error: any) {
       setStep("error")
-      setProcessing(false)
       toast({ title: "Checkout Error", description: error?.message || "Could not start checkout", variant: "destructive" })
     }
   }
 
-  if (!isOpen || !bundle) return null
+  if (!state.isModalOpen || !bundle) return null
 
   return (
     <>
@@ -429,7 +387,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       <span className="text-blue-600">₹{getPrice()}</span>
                     </div>
                     <p className="text-sm text-gray-500 mt-1">
-                      Billed {subscriptionType === "yearly" ? "annually" : "every 3 months"}
+                      Billed {subscriptionType === "yearly" ? "annually" : "monthly"}
                     </p>
                   </div>
 
@@ -462,13 +420,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 <div className="text-center py-8">
                   <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                   <h3 className="text-lg font-semibold mb-2">Processing Payment</h3>
-                  <p className="text-gray-600 mb-4">{processingMsg}</p>
+                  <p className="text-gray-600 mb-4">{state.processingMessage}</p>
                   <p className="text-xs text-gray-500 mb-4">If the Razorpay window is open, you can close it to cancel.</p>
                   <Button
                     variant="outline"
                     onClick={() => {
                       cancelRequested.current = true
-                      setProcessing(false)
                       setStep("plan")
                     }}
                   >
@@ -499,40 +456,27 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   </Button>
                   
                   {/* Telegram Links Section */}
-                  {telegramLinks && telegramLinks.length > 0 && (
+                  {state.telegramLinks && state.telegramLinks.length > 0 && (
                     <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
                       <h4 className="text-sm font-semibold text-blue-800 mb-3">
-                        🎉 Join Your Exclusive Telegram Groups:
+                        Join Your Telegram Groups:
                       </h4>
                       <div className="space-y-2">
-                        {telegramLinks.map((link, index) => (
+                        {state.telegramLinks.map((link, index) => (
                           <a
                             key={index}
                             href={link.invite_link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center justify-center gap-2 w-full px-4 py-3 text-sm bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
+                            className="block w-full px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-center"
                           >
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M12 0C5.374 0 0 5.373 0 12s5.374 12 12 12 12-5.373 12-12S18.626 0 12 0zm5.568 8.16c-.169 1.858-.896 6.728-.896 6.728-.377 2.655-.377 2.655-1.377 2.655-.896 0-1.377-1.377-1.377-2.655 0-1.858.896-6.728.896-6.728C15.186 6.302 16.582 6.302 17.568 8.16zM8.432 8.16c.169 1.858.896 6.728.896 6.728.377 2.655.377 2.655 1.377 2.655.896 0 1.377-1.377 1.377-2.655 0-1.858-.896-6.728-.896-6.728C8.814 6.302 7.418 6.302 8.432 8.16z"/>
-                            </svg>
                             Join Telegram Group {index + 1}
                           </a>
                         ))}
                       </div>
-                      <p className="text-xs text-blue-600 mt-3 text-center">
-                        💡 Click the buttons above to join your exclusive investment groups
+                      <p className="text-xs text-blue-600 mt-2">
+                        Click the links above to join your exclusive Telegram groups
                       </p>
-                    </div>
-                  )}
-                  
-                  {/* Debug info - remove in production */}
-                  {process.env.NODE_ENV === 'development' && (
-                    <div className="mt-4 p-2 bg-gray-100 rounded text-xs">
-                      <p>Debug: Telegram links count: {telegramLinks?.length || 0}</p>
-                      {telegramLinks && telegramLinks.map((link, i) => (
-                        <p key={i}>Link {i + 1}: {link.invite_link ? '✓' : '✗'}</p>
-                      ))}
                     </div>
                   )}
                 </div>

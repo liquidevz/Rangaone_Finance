@@ -1,0 +1,244 @@
+"use client";
+
+import { authService, UserProfile } from "@/services/auth.service";
+import { useRouter } from "next/navigation";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { setRedirectHandler } from "@/lib/axios";
+
+interface AuthContextType {
+  user: UserProfile | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  profileComplete: boolean;
+  missingFields: string[];
+  login: (username: string, password: string, rememberMe?: boolean) => Promise<void>;
+  logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
+  // Enhanced methods for payment flow
+  loginForPayment: (username: string, password: string, onSuccess?: () => void) => Promise<void>;
+  isAuthenticatedForPayment: () => boolean;
+}
+
+const EnhancedAuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const useEnhancedAuth = () => {
+  const context = useContext(EnhancedAuthContext);
+  if (context === undefined) {
+    throw new Error("useEnhancedAuth must be used within an EnhancedAuthProvider");
+  }
+  return context;
+};
+
+interface EnhancedAuthProviderProps {
+  children: React.ReactNode;
+}
+
+export function EnhancedAuthProvider({ children }: EnhancedAuthProviderProps) {
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [profileComplete, setProfileComplete] = useState(false);
+  const [missingFields, setMissingFields] = useState<string[]>([]);
+  const router = useRouter();
+
+  // Set up redirect handler for axios
+  useEffect(() => {
+    setRedirectHandler((path) => {
+      router.replace(path);
+    });
+  }, [router]);
+
+  // Initialize authentication state
+  useEffect(() => {
+    const initializeAuth = async () => {
+      setIsLoading(true);
+      
+      try {
+        // Initialize axios headers
+        authService.initializeAuth();
+
+        // Check if user is authenticated
+        if (authService.isAuthenticated()) {
+          const accessToken = authService.getAccessToken();
+          
+          // Check if token is expired
+          if (accessToken && authService.isTokenExpired(accessToken)) {
+            // Try to refresh token
+            const refreshed = await authService.refreshTokens();
+            if (!refreshed) {
+              // Refresh failed, clear tokens
+              authService.clearTokens();
+              setIsAuthenticated(false);
+              setUser(null);
+              setIsLoading(false);
+              return;
+            }
+          }
+
+          // Fetch user profile
+          try {
+            const userProfile = await authService.getCurrentUser();
+            setUser(userProfile);
+            setIsAuthenticated(true);
+            setProfileComplete(userProfile.profileComplete || false);
+            setMissingFields(userProfile.missingFields || []);
+          } catch (error) {
+            console.error("Failed to fetch user profile:", error);
+            // If profile fetch fails, user might be invalid
+            authService.clearTokens();
+            setIsAuthenticated(false);
+            setUser(null);
+            setProfileComplete(false);
+            setMissingFields([]);
+          }
+        } else {
+          setIsAuthenticated(false);
+          setUser(null);
+        }
+      } catch (error) {
+        console.error("Auth initialization failed:", error);
+        setIsAuthenticated(false);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeAuth();
+  }, []);
+
+  const updateAuthState = useCallback((userProfile: UserProfile) => {
+    setUser(userProfile);
+    setIsAuthenticated(true);
+    setProfileComplete(userProfile.profileComplete || false);
+    setMissingFields(userProfile.missingFields || []);
+  }, []);
+
+  const clearAuthState = useCallback(() => {
+    setUser(null);
+    setIsAuthenticated(false);
+    setProfileComplete(false);
+    setMissingFields([]);
+  }, []);
+
+  const login = async (username: string, password: string, rememberMe: boolean = false) => {
+    try {
+      setIsLoading(true);
+      
+      // Call login API
+      const response = await authService.login({ username, password });
+      
+      // Store tokens
+      authService.setTokens(response.accessToken, response.refreshToken, rememberMe);
+      
+      // Fetch user profile
+      const userProfile = await authService.getCurrentUser();
+      
+      // Update state atomically to avoid race conditions
+      updateAuthState(userProfile);
+    } catch (error: any) {
+      console.error("Login failed:", error);
+      
+      // Clear any existing tokens on login failure
+      authService.clearTokens();
+      clearAuthState();
+      
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loginForPayment = async (username: string, password: string, onSuccess?: () => void) => {
+    try {
+      setIsLoading(true);
+      
+      // Call login API
+      const response = await authService.login({ username, password });
+      
+      // Store tokens
+      authService.setTokens(response.accessToken, response.refreshToken, false);
+      
+      // Fetch user profile
+      const userProfile = await authService.getCurrentUser();
+      
+      // Update state atomically
+      updateAuthState(userProfile);
+      
+      // Call success callback if provided
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (error: any) {
+      console.error("Login for payment failed:", error);
+      
+      // Clear any existing tokens on login failure
+      authService.clearTokens();
+      clearAuthState();
+      
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Call logout API and clear tokens
+      await authService.logout();
+      
+      // Clear state
+      clearAuthState();
+      
+      // Redirect to home page
+      router.replace("/");
+    } catch (error) {
+      console.error("Logout failed:", error);
+      
+      // Still clear state even if API call fails
+      clearAuthState();
+      router.replace("/");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const refreshUser = async () => {
+    try {
+      if (authService.isAuthenticated()) {
+        const userProfile = await authService.getCurrentUser();
+        updateAuthState(userProfile);
+      }
+    } catch (error) {
+      console.error("Failed to refresh user:", error);
+      // If refresh fails, clear authentication
+      authService.clearTokens();
+      clearAuthState();
+    }
+  };
+
+  const isAuthenticatedForPayment = (): boolean => {
+    return isAuthenticated && !!user && !isLoading;
+  };
+
+  const value: AuthContextType = {
+    user,
+    isAuthenticated,
+    isLoading,
+    profileComplete,
+    missingFields,
+    login,
+    logout,
+    refreshUser,
+    loginForPayment,
+    isAuthenticatedForPayment,
+  };
+
+  return (
+    <EnhancedAuthContext.Provider value={value}>
+      {children}
+    </EnhancedAuthContext.Provider>
+  );
+}

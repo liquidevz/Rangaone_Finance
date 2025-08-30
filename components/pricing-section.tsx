@@ -6,12 +6,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Check, X, ShoppingCart, ChevronRight, Star, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { useAuth } from "@/components/auth/auth-context";
-import { useCart } from "@/components/cart/cart-context";
 import { useRouter } from "next/navigation";
 import { bundleService, Bundle } from "@/services/bundle.service";
 import { PaymentModal } from "./payment-modal";
 import FeatureComparison from "./feature-comparison";
+import { useAuth } from "@/components/auth/auth-context";
+import { useCart } from "@/components/cart/cart-context";
+import { postLoginState } from "@/lib/post-login-state";
 import Link from "next/link";
 
 type SubscriptionType = "monthly" | "monthlyEmandate" | "quarterly" | "yearly";
@@ -22,20 +23,15 @@ export default function PricingSection() {
   const [bundles, setBundles] = useState<Bundle[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<"M" | "A">("M");
+
   const [checkoutModal, setCheckoutModal] = useState<{
     isOpen: boolean;
-    type: "single" | "cart";
     bundle?: Bundle;
-    isBasicPlan?: boolean;
     pricingType: SubscriptionType | "monthlyEmandate";
-  }>({
-    isOpen: false,
-    type: "single",
-    pricingType: "monthly",
-  });
+  }>({ isOpen: false, pricingType: "monthly" });
 
   const { isAuthenticated } = useAuth();
-  const { addBundleToCart, hasBundle } = useCart();
+  const { addBundleToCart } = useCart();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -43,27 +39,18 @@ export default function PricingSection() {
     loadBundles();
   }, []);
 
-  // Resume modal state after a login-triggered refresh/navigation
   useEffect(() => {
-    if (loading) return;
-    try {
-      const raw = sessionStorage.getItem("pendingCheckout");
-      if (!raw) return;
-      const pending = JSON.parse(raw) as { bundleId: string; pricingType: SubscriptionType | "monthlyEmandate" } | null;
-      if (!pending) return;
-      const bundle = bundles.find(b => b._id === pending.bundleId);
-      if (!bundle) return;
-      // Open modal and then clear the flag
-      setCheckoutModal({
-        isOpen: true,
-        type: "single",
-        bundle,
-        isBasicPlan: bundle.category === "basic",
-        pricingType: pending.pricingType,
+    if (isAuthenticated && bundles.length > 0) {
+      postLoginState.execute((bundleId, pricingType) => {
+        const bundle = bundles.find(b => b._id === bundleId);
+        if (bundle) {
+          setCheckoutModal({ isOpen: true, bundle, pricingType: pricingType as SubscriptionType | "monthlyEmandate" });
+        }
       });
-      sessionStorage.removeItem("pendingCheckout");
-    } catch {}
-  }, [loading, bundles]);
+    }
+  }, [isAuthenticated, bundles]);
+
+
 
   const loadBundles = async () => {
     try {
@@ -83,17 +70,14 @@ export default function PricingSection() {
   };
 
   const handleBundlePurchase = async (bundle: Bundle, pricingType: SubscriptionType | "monthlyEmandate") => {
-    try {
-      sessionStorage.setItem("pendingCheckout", JSON.stringify({ bundleId: bundle._id, pricingType }));
-    } catch {}
-    // Always open modal; if not authenticated, modal starts at login step and continues
-    setCheckoutModal({
-      isOpen: true,
-      type: "single",
-      bundle,
-      isBasicPlan: bundle.category === "basic",
-      pricingType,
-    });
+    if (!isAuthenticated) {
+      postLoginState.save({
+        action: "purchase",
+        bundleId: bundle._id,
+        pricingType: pricingType
+      });
+    }
+    setCheckoutModal({ isOpen: true, bundle, pricingType });
   };
 
   const handleAddToCart = async (bundle: Bundle, pricingType: SubscriptionType | "monthlyEmandate") => {
@@ -191,7 +175,7 @@ export default function PricingSection() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -30 }}
                 transition={{ duration: 0.4 }}
-                onClick={() => handleBundlePurchase(bundle, "yearly")}
+                onClick={() => handleBundlePurchase(bundle, "monthlyEmandate")}
                 className={`w-full p-3 sm:p-6 border-[3px] rounded-xl transition-transform duration-300 ease-in-out hover:scale-105 cursor-pointer ${
                   selected === "A"
                     ? "bg-[linear-gradient(270deg,_#D4AF37_0%,_#FFC107_50%,_#FFD700_100%)] text-[#333333] border-[#333333] shadow-[0px_4px_21.5px_8px_#AD9000]"
@@ -210,14 +194,14 @@ export default function PricingSection() {
                     transition={{ ease: "linear", duration: 0.25 }}
                     className="text-2xl sm:text-6xl font-semibold"
                   >
-                    <span>&#8377;{(bundle as any).yearlyemandateprice || 0}</span>
-                    <span className="font-normal text-xs sm:text-xl">/year</span>
+                    <span>&#8377;{(bundle as any).monthlyemandateprice || 0}</span>
+                    <span className="font-normal text-xs sm:text-xl">/month</span>
                   </motion.p>
                 </div>
 
                 <div className="flex items-center gap-2 mb-2">
                 <span className="text-[0.6rem] sm:text-lg">
-                    (Annual, billed <br></br>yearly)
+                    (Annual, but billed <br></br>monthly)
                   </span>
                 </div>
 
@@ -226,7 +210,7 @@ export default function PricingSection() {
                   whileTap={{ scale: 0.985 }}
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleBundlePurchase(bundle, "yearly");
+                    handleBundlePurchase(bundle, "monthly");
                   }}
                   className={`w-full py-2 sm:py-4 text-sm sm:text-base font-semibold rounded-2xl uppercase ${
                     selected === "A"
@@ -246,7 +230,7 @@ export default function PricingSection() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -30 }}
                 transition={{ duration: 0.4 }}
-                onClick={() => handleBundlePurchase(bundle, "monthlyEmandate")}
+                onClick={() => handleBundlePurchase(bundle, "monthly")}
                 className={`w-full p-3 sm:p-6 border-0 rounded-xl transition-transform duration-300 ease-in-out hover:scale-105 cursor-pointer ${
                   selected === "A"
                     ? "bg-[#333333]"
@@ -269,7 +253,7 @@ export default function PricingSection() {
                       selected === "A" ? "text-transparent bg-clip-text bg-[linear-gradient(270deg,_#D4AF37_0%,_#FFC107_50%,_#FFD700_100%)]" : ""
                     }`}
                   >
-                    <span>&#8377;{(bundle as any).monthlyemandateprice || 0}</span>
+                    <span>&#8377;{bundle.monthlyPrice || 0}</span>
                     <span className="font-normal text-xs sm:text-xl">/month</span>
                   </motion.p>
                 </div>
@@ -313,7 +297,7 @@ export default function PricingSection() {
       {/* Payment Modal */}
       <PaymentModal
         isOpen={checkoutModal.isOpen}
-        onClose={() => setCheckoutModal({ isOpen: false, type: "single", pricingType: "monthly" })}
+        onClose={() => setCheckoutModal({ isOpen: false, pricingType: "monthly" })}
         bundle={checkoutModal.bundle || null}
         isEmandateFlow={checkoutModal.pricingType === "monthlyEmandate"}
       />

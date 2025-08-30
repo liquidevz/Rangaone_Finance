@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-context";
 import { CartProvider } from "@/components/cart/cart-context";
+
 import AuthGuard from "@/components/auth/auth-guard";
 import ProfileCompletionGuard from "@/components/auth/profile-completion-guard";
 import { Toaster } from "@/components/ui/toaster";
