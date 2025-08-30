@@ -210,7 +210,7 @@ export default function PricingSection() {
                   whileTap={{ scale: 0.985 }}
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleBundlePurchase(bundle, "monthly");
+                    handleBundlePurchase(bundle, "monthlyEmandate");
                   }}
                   className={`w-full py-2 sm:py-4 text-sm sm:text-base font-semibold rounded-2xl uppercase ${
                     selected === "A"

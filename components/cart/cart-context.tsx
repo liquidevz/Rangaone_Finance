@@ -10,6 +10,8 @@ interface CartContextType {
   cart: Cart | null;
   cartItemCount: number;
   loading: boolean;
+  couponCode: string;
+  setCouponCode: (code: string) => void;
   refreshCart: () => Promise<void>;
   addToCart: (portfolioId: string, quantity?: number) => Promise<void>;
   updateQuantity: (portfolioId: string, newQuantity: number) => Promise<void>;
@@ -45,6 +47,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [couponCode, setCouponCode] = useState("");
   const { isAuthenticated, user } = useAuth();
 
   const cartItemCount = (() => {
@@ -349,6 +352,8 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     cart,
     cartItemCount,
     loading,
+    couponCode,
+    setCouponCode,
     refreshCart,
     addToCart,
     updateQuantity,

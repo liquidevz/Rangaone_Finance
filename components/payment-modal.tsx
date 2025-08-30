@@ -30,6 +30,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   console.log('isEmandateFlow:', isEmandateFlow);
   const [step, setStep] = useState<"plan" | "auth" | "digio" | "processing" | "success" | "error">("plan")
   const [subscriptionType, setSubscriptionType] = useState<"monthly" | "yearly">("monthly")
+  const [couponCode, setCouponCode] = useState("")
+  const [appliedCoupon, setAppliedCoupon] = useState<{code: string, discount: number} | null>(null)
   const [processing, setProcessing] = useState(false)
   const [processingMsg, setProcessingMsg] = useState("Preparing secure payment…")
   const [showDigio, setShowDigio] = useState(false)
@@ -82,13 +84,45 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
   const getPrice = () => {
     if (!bundle) return 0
+    let basePrice = 0
+    if (isEmandateFlow) {
+      basePrice = subscriptionType === "yearly"
+        ? ((bundle as any).yearlyemandateprice || bundle.yearlyPrice || 0)
+        : ((bundle as any).monthlyemandateprice || bundle.monthlyPrice || 0)
+    } else {
+      basePrice = bundle.monthlyPrice || 0
+    }
+    
+    if (appliedCoupon) {
+      return Math.round(basePrice * (1 - appliedCoupon.discount / 100))
+    }
+    return basePrice
+  }
+
+  const getOriginalPrice = () => {
+    if (!bundle) return 0
     if (isEmandateFlow) {
       return subscriptionType === "yearly"
         ? ((bundle as any).yearlyemandateprice || bundle.yearlyPrice || 0)
         : ((bundle as any).monthlyemandateprice || bundle.monthlyPrice || 0)
     }
-    // normal one-time monthly purchase
     return bundle.monthlyPrice || 0
+  }
+
+  const applyCoupon = () => {
+    const code = couponCode.toUpperCase()
+    if (code === "WELCOME10") {
+      setAppliedCoupon({code, discount: 10})
+    } else if (code === "SAVE20") {
+      setAppliedCoupon({code, discount: 20})
+    } else {
+      toast({ title: "Invalid Coupon", description: "Coupon code not found", variant: "destructive" })
+    }
+  }
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponCode("")
   }
 
   const handleClose = () => {
@@ -103,7 +137,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     if (!bundle) return
 
     // Check authentication only when proceeding to payment
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !user) {
+      setStep("auth")
+      return
+    }
+
+    // Verify token is still valid
+    const token = (user as any)?.accessToken || localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
+    if (!token) {
       setStep("auth")
       return
     }
@@ -167,6 +208,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           planType: subscriptionType,
           subscriptionType: (bundle.category as any) || "premium",
           amount: emandateAmount,
+          couponCode: appliedCoupon?.code || undefined,
           items: [
             {
               productType: "Bundle",
@@ -224,6 +266,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           productId: bundle._id,
           planType: "monthly",
           subscriptionType: (bundle.category as any) || "premium",
+          couponCode: appliedCoupon?.code || undefined,
         })
 
         if (cancelRequested.current) {
@@ -424,13 +467,60 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
                   {/* Total */}
                   <div className="border-t pt-4">
+                    {appliedCoupon && (
+                      <div className="flex justify-between items-center text-sm text-gray-500 mb-2">
+                        <span>Original Price</span>
+                        <span className="line-through">₹{getOriginalPrice()}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center text-lg font-bold">
                       <span>Total Amount</span>
                       <span className="text-blue-600">₹{getPrice()}</span>
                     </div>
+                    {appliedCoupon && (
+                      <p className="text-sm text-green-600 mt-1">
+                        You save ₹{getOriginalPrice() - getPrice()} with {appliedCoupon.code}
+                      </p>
+                    )}
                     <p className="text-sm text-gray-500 mt-1">
-                      Billed {subscriptionType === "yearly" ? "annually" : "every 3 months"}
+                      Billed {subscriptionType === "yearly" ? "annually" : "monthly"}
                     </p>
+                  </div>
+
+                  {/* Coupon Code Input */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Coupon Code (Optional)</label>
+                    {appliedCoupon ? (
+                      <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-md">
+                        <div className="flex items-center gap-2">
+                          <span className="text-green-600 font-medium">{appliedCoupon.code}</span>
+                          <span className="text-green-600 text-sm">({appliedCoupon.discount}% off)</span>
+                        </div>
+                        <button
+                          onClick={removeCoupon}
+                          className="text-red-500 hover:text-red-700 text-sm"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={couponCode}
+                          onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                          placeholder="Enter coupon code"
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        <button
+                          onClick={applyCoupon}
+                          disabled={!couponCode.trim()}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <Button

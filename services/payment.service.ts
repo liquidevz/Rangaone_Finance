@@ -16,12 +16,14 @@ export interface CreateOrderPayload {
   subscriptionType?: "basic" | "premium" | "individual"; // Added for subscription type tracking
   amount?: number; // optional explicit amount for some flows
   items?: any[]; // optional breakdown payload (cart-like)
+  couponCode?: string;
 }
 
 // Updated interface for cart checkout
 export interface CartCheckoutPayload {
   planType: "monthly" | "quarterly" | "yearly";
   subscriptionType?: "basic" | "premium" | "individual"; // Added for subscription type tracking
+  couponCode?: string;
 }
 
 export interface CreateOrderResponse {
@@ -118,19 +120,30 @@ export const paymentService = {
   ): Promise<CreateOrderResponse> => {
     const token = authService.getAccessToken();
 
+    if (!token) {
+      throw new Error("Authentication required. Please login first.");
+    }
+
     console.log("Payment service - cart checkout with payload:", payload);
 
-    return await post<CreateOrderResponse>(
-      "/api/subscriptions/checkout",
-      payload,
-      {
-        headers: {
-          accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+    try {
+      return await post<CreateOrderResponse>(
+        "/api/subscriptions/checkout",
+        payload,
+        {
+          headers: {
+            accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+    } catch (error: any) {
+      if (error?.response?.status === 403) {
+        throw new Error("Authentication failed. Please login again.");
       }
-    );
+      throw error;
+    }
   },
 
   // Cart checkout with eMandate for yearly and quarterly subscriptions
@@ -437,7 +450,8 @@ export const paymentService = {
       productType: payload.productType,
       productId: payload.productId,
       emandateType: payload.planType || "monthly",
-      ...(payload.amount && { amount: payload.amount })
+      ...(payload.amount && { amount: payload.amount }),
+      ...(payload.couponCode && { couponCode: payload.couponCode })
     };
 
     console.log("🔍 EMANDATE PAYLOAD BEING SENT:", JSON.stringify(emandatePayload, null, 2));
