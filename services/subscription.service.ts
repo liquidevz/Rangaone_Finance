@@ -113,14 +113,14 @@ export const subscriptionService = {
     }
   },
 
-  async createEmandate(productType: string, productId: string): Promise<CreateEmandateResponse> {
+  async createEmandate(productType: string, productId: string, emandateType: 'monthly' | 'quarterly' | 'yearly' = 'monthly', couponCode?: string): Promise<CreateEmandateResponse> {
     const token = authService.getAccessToken();
     if (!token) throw new Error("Authentication required");
     this.clearCurrentEmandateId();
 
     try {
       const response = await post<CreateEmandateResponse>("/api/subscriptions/emandate", {
-        productType, productId
+        productType, productId, emandateType, couponCode
       }, { headers: { Authorization: `Bearer ${token}` } });
 
       if (response.subscriptionId) {

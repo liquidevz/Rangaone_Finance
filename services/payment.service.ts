@@ -432,14 +432,22 @@ export const paymentService = {
   ): Promise<CreateEMandateResponse> => {
     const token = authService.getAccessToken();
 
-    console.log("🔍 EMANDATE PAYLOAD BEING SENT:", JSON.stringify(payload, null, 2));
-    console.log("🔍 EMANDATE PAYLOAD KEYS:", Object.keys(payload));
-    console.log("🔍 EMANDATE PAYLOAD VALUES:", Object.values(payload));
+    // Transform payload to match backend API expectations
+    const emandatePayload = {
+      productType: payload.productType,
+      productId: payload.productId,
+      emandateType: payload.planType || "monthly",
+      ...(payload.amount && { amount: payload.amount })
+    };
+
+    console.log("🔍 EMANDATE PAYLOAD BEING SENT:", JSON.stringify(emandatePayload, null, 2));
+    console.log("🔍 EMANDATE PAYLOAD KEYS:", Object.keys(emandatePayload));
+    console.log("🔍 EMANDATE PAYLOAD VALUES:", Object.values(emandatePayload));
 
     try {
       const response = await post<CreateEMandateResponse>(
         "/api/subscriptions/emandate",
-        payload,
+        emandatePayload,
         {
           headers: {
             accept: "application/json",

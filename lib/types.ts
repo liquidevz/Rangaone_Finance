@@ -137,3 +137,46 @@ export interface LocalCartItem {
   itemData: any; // To store essential product details for display without fetching again
   planCategory?: "basic" | "premium" | "individual"; // Added to track basic/premium status
 }
+
+// eMandate API Types
+export interface EmandateRequest {
+  productType: 'Bundle' | 'Portfolio';
+  productId: string;
+  emandateType: 'monthly' | 'quarterly' | 'yearly';
+  couponCode?: string;
+}
+
+export interface EmandateSuccessResponse {
+  success: true;
+  subscriptionId: string;
+  setupUrl: string;
+  amount: number;
+  emandateType: 'monthly' | 'quarterly' | 'yearly';
+  interval: number;
+  status: string;
+}
+
+export interface EmandateErrorResponse {
+  success: false;
+  error: string;
+  message: string;
+}
+
+// eMandate Verification Types
+export interface VerifyEmandateRequest {
+  subscription_id: string;
+}
+
+export interface VerifyEmandateSuccessResponse {
+  success: true;
+  message: string;
+  subscriptionStatus: 'pending' | 'created' | 'active' | 'authenticated' | 'failed' | 'cancelled';
+  activatedSubscriptions?: number;
+  nextSteps?: string;
+}
+
+export interface VerifyEmandateErrorResponse {
+  success: false;
+  message: string;
+  subscriptionStatus?: 'pending' | 'created' | 'active' | 'authenticated' | 'failed' | 'cancelled' | 'timeout';
+}

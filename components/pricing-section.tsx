@@ -191,7 +191,7 @@ export default function PricingSection() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -30 }}
                 transition={{ duration: 0.4 }}
-                onClick={() => handleBundlePurchase(bundle, "monthlyEmandate")}
+                onClick={() => handleBundlePurchase(bundle, "yearly")}
                 className={`w-full p-3 sm:p-6 border-[3px] rounded-xl transition-transform duration-300 ease-in-out hover:scale-105 cursor-pointer ${
                   selected === "A"
                     ? "bg-[linear-gradient(270deg,_#D4AF37_0%,_#FFC107_50%,_#FFD700_100%)] text-[#333333] border-[#333333] shadow-[0px_4px_21.5px_8px_#AD9000]"
@@ -210,14 +210,14 @@ export default function PricingSection() {
                     transition={{ ease: "linear", duration: 0.25 }}
                     className="text-2xl sm:text-6xl font-semibold"
                   >
-                    <span>&#8377;{(bundle as any).monthlyemandateprice || 0}</span>
-                    <span className="font-normal text-xs sm:text-xl">/month</span>
+                    <span>&#8377;{(bundle as any).yearlyemandateprice || 0}</span>
+                    <span className="font-normal text-xs sm:text-xl">/year</span>
                   </motion.p>
                 </div>
 
                 <div className="flex items-center gap-2 mb-2">
                 <span className="text-[0.6rem] sm:text-lg">
-                    (Annual, but billed <br></br>monthly)
+                    (Annual, billed <br></br>yearly)
                   </span>
                 </div>
 
@@ -226,7 +226,7 @@ export default function PricingSection() {
                   whileTap={{ scale: 0.985 }}
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleBundlePurchase(bundle, "monthlyEmandate");
+                    handleBundlePurchase(bundle, "yearly");
                   }}
                   className={`w-full py-2 sm:py-4 text-sm sm:text-base font-semibold rounded-2xl uppercase ${
                     selected === "A"
@@ -246,7 +246,7 @@ export default function PricingSection() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -30 }}
                 transition={{ duration: 0.4 }}
-                onClick={() => handleBundlePurchase(bundle, "monthly")}
+                onClick={() => handleBundlePurchase(bundle, "monthlyEmandate")}
                 className={`w-full p-3 sm:p-6 border-0 rounded-xl transition-transform duration-300 ease-in-out hover:scale-105 cursor-pointer ${
                   selected === "A"
                     ? "bg-[#333333]"
@@ -269,7 +269,7 @@ export default function PricingSection() {
                       selected === "A" ? "text-transparent bg-clip-text bg-[linear-gradient(270deg,_#D4AF37_0%,_#FFC107_50%,_#FFD700_100%)]" : ""
                     }`}
                   >
-                    <span>&#8377;{bundle.monthlyPrice || 0}</span>
+                    <span>&#8377;{(bundle as any).monthlyemandateprice || 0}</span>
                     <span className="font-normal text-xs sm:text-xl">/month</span>
                   </motion.p>
                 </div>

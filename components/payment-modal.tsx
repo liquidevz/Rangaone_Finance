@@ -88,7 +88,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     if (!bundle) return 0
     if (isEmandateFlow) {
       return subscriptionType === "yearly"
-        ? (bundle.yearlyPrice || bundle.quarterlyPrice || bundle.monthlyPrice || 0)
+        ? ((bundle as any).yearlyemandateprice || bundle.yearlyPrice || 0)
         : ((bundle as any).monthlyemandateprice || bundle.monthlyPrice || 0)
     }
     // normal one-time monthly purchase
@@ -161,7 +161,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         setProcessingMsg("Creating eMandate…")
         const emandateAmount =
           subscriptionType === "yearly"
-            ? (bundle.yearlyPrice || bundle.quarterlyPrice || bundle.monthlyPrice || 0)
+            ? (((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0)
             : (((bundle as any).monthlyemandateprice as number) || bundle.monthlyPrice || 0)
 
         const emandate = await paymentService.createEmandate({
@@ -384,7 +384,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                           <div className="text-xs sm:text-sm text-gray-600 line-through">
                             ₹{(bundle as any).strikeYear || Math.round((bundle.yearlyPrice || 0) * 1.3)} /yr
                           </div>
-                          <div className="mt-1 text-2xl sm:text-3xl md:text-4xl font-bold text-blue-700">₹{bundle.yearlyPrice || 0}<span className="text-base font-medium">/yr</span></div>
+                          <div className="mt-1 text-2xl sm:text-3xl md:text-4xl font-bold text-blue-700">₹{(bundle as any).yearlyemandateprice || 0}<span className="text-base font-medium">/yr</span></div>
                           <div className="text-[11px] sm:text-xs text-gray-500 mt-1">No refund if you cancel after payment</div>
                         </button>
                       </div>

@@ -10,6 +10,9 @@ export interface Bundle {
   monthlyPrice: number;
   quarterlyPrice: number;
   yearlyPrice: number;
+  monthlyemandateprice?: number;
+  quarterlyemandateprice?: number;
+  yearlyemandateprice?: number;
   createdAt: string;
   updatedAt: string;
   category: string;
@@ -73,6 +76,22 @@ export const bundleService = {
         return portfolio.quarterlyPrice || 0;
       default:
         return portfolio.monthlyPrice || 0;
+    }
+  },
+
+  // Get eMandate price for a specific subscription type
+  getEmandatePrice: (bundle: any, emandateType: "monthly" | "quarterly" | "yearly"): number => {
+    if (!bundle) return 0;
+    
+    switch (emandateType) {
+      case "monthly":
+        return bundle.monthlyemandateprice || 0;
+      case "quarterly":
+        return bundle.quarterlyemandateprice || 0;
+      case "yearly":
+        return bundle.yearlyemandateprice || 0;
+      default:
+        return 0;
     }
   },
 };
