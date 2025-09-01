@@ -120,6 +120,16 @@ export function EnhancedPaymentModal() {
     if (!bundle) return
 
     try {
+      // Check for pending transactions
+      if (paymentService.hasPendingTransactions()) {
+        toast({ 
+          title: "Transaction in Progress", 
+          description: "Please wait for the current transaction to complete or refresh the page.", 
+          variant: "destructive" 
+        })
+        return
+      }
+
       cancelRequested.current = false
       setStep("processing")
 
@@ -159,7 +169,7 @@ export function EnhancedPaymentModal() {
             email: user?.email || "user@example.com",
           },
           async () => {
-            setProcessingMessage("Verifying payment…")
+            setProcessingMessage("Verifying payment (max 1 minute)…")
             const verify = await paymentService.verifyEmandateWithRetry(emandate.subscriptionId)
             
             if (verify.success || ["active", "authenticated"].includes((verify as any).subscriptionStatus || "")) {
@@ -172,11 +182,13 @@ export function EnhancedPaymentModal() {
               toast({ title: "Payment Successful", description: "Subscription activated" })
             } else {
               setStep("error")
-              toast({ title: "Verification Failed", description: verify.message || "Please try again", variant: "destructive" })
+              setError(verify.message || "Verification failed. Please check your subscription status in settings.")
+              toast({ title: "Verification Issue", description: verify.message || "Please check your subscription status", variant: "destructive" })
             }
           },
           (err) => {
             setStep("error")
+            setError(err?.message || "Payment was cancelled")
             toast({ title: "Payment Cancelled", description: err?.message || "Payment was cancelled", variant: "destructive" })
           }
         )
@@ -203,7 +215,7 @@ export function EnhancedPaymentModal() {
             email: user?.email || "user@example.com",
           },
           async (rp) => {
-            setProcessingMessage("Verifying payment…")
+            setProcessingMessage("Verifying payment (max 30 seconds)…")
             const verify = await paymentService.verifyPayment({
               orderId: order.orderId,
               paymentId: rp?.razorpay_payment_id,
@@ -220,18 +232,31 @@ export function EnhancedPaymentModal() {
               toast({ title: "Payment Successful", description: "Subscription activated" })
             } else {
               setStep("error")
+              setError(verify.message || "Verification failed")
               toast({ title: "Verification Failed", description: verify.message || "Please try again", variant: "destructive" })
             }
           },
           (err) => {
             setStep("error")
+            setError(err?.message || "Payment was cancelled")
             toast({ title: "Payment Cancelled", description: err?.message || "Payment was cancelled", variant: "destructive" })
           }
         )
       }
     } catch (error: any) {
       setStep("error")
-      toast({ title: "Checkout Error", description: error?.message || "Could not start checkout", variant: "destructive" })
+      setError(error?.message || "Could not start checkout")
+      
+      // Handle specific duplicate prevention errors
+      if (error?.message?.includes("already in progress")) {
+        toast({ 
+          title: "Transaction in Progress", 
+          description: "Please wait for the current transaction to complete.", 
+          variant: "destructive" 
+        })
+      } else {
+        toast({ title: "Checkout Error", description: error?.message || "Could not start checkout", variant: "destructive" })
+      }
     }
   }
 
@@ -488,17 +513,31 @@ export function EnhancedPaymentModal() {
                     <AlertCircle className="h-8 w-8 text-red-600" />
                   </div>
                   <h3 className="text-lg font-semibold mb-2 text-red-800">
-                    Payment Failed
+                    Payment Issue
                   </h3>
                   <p className="text-gray-600 mb-6">
-                    Something went wrong with your payment. Please try again.
+                    {state.error || "Something went wrong with your payment. Please try again."}
                   </p>
                   <div className="space-y-2">
                     <Button
-                      onClick={() => setStep("plan")}
+                      onClick={() => {
+                        // Clear caches before retry
+                        paymentService.clearDuplicatePreventionCaches()
+                        setStep("plan")
+                      }}
                       className="w-full bg-[#001633] hover:bg-[#002244]"
                     >
                       Try Again
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        router.push('/settings')
+                        handleClose()
+                      }}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      Check Subscription Status
                     </Button>
                     <Button
                       onClick={handleClose}

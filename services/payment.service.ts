@@ -93,25 +93,50 @@ export interface UserSubscription {
 }
 
 export const paymentService = {
-  // Create order for single product
+  // Create order for single product with duplicate prevention
   createOrder: async (
     payload: CreateOrderPayload
   ): Promise<CreateOrderResponse> => {
     const token = authService.getAccessToken();
 
+    // Check for duplicate order creation
+    const orderKey = `order_${payload.productId}_${payload.planType}`;
+    const existingOrder = localStorage.getItem(orderKey);
+    if (existingOrder) {
+      const cached = JSON.parse(existingOrder);
+      if (Date.now() - cached.timestamp < 300000) { // 5 minutes
+        console.log("Preventing duplicate order creation");
+        throw new Error("Order already in progress. Please wait or refresh the page.");
+      }
+    }
+
     console.log("Payment service - creating order with payload:", payload);
 
-    return await post<CreateOrderResponse>(
-      "/api/subscriptions/order",
-      payload,
-      {
-        headers: {
-          accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    try {
+      const response = await post<CreateOrderResponse>(
+        "/api/subscriptions/order",
+        payload,
+        {
+          headers: {
+            accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      
+      // Cache order creation to prevent duplicates
+      localStorage.setItem(orderKey, JSON.stringify({
+        orderId: response.orderId,
+        timestamp: Date.now()
+      }));
+      
+      return response;
+    } catch (error: any) {
+      // Clear cache on error to allow retry
+      localStorage.removeItem(orderKey);
+      throw error;
+    }
   },
 
   // Updated cart checkout to include planType and subscriptionType
@@ -165,11 +190,22 @@ export const paymentService = {
     );
   },
 
-  // Verify payment
+  // Verify payment with timeout and duplicate prevention
   verifyPayment: async (
     payload: VerifyPaymentPayload
   ): Promise<VerifyPaymentResponse> => {
     const token = authService.getAccessToken();
+    
+    // Check for duplicate verification attempts
+    const verificationKey = `verification_${payload.orderId}_${payload.paymentId}`;
+    const existingVerification = localStorage.getItem(verificationKey);
+    if (existingVerification) {
+      const cached = JSON.parse(existingVerification);
+      if (Date.now() - cached.timestamp < 300000) { // 5 minutes
+        console.log("Using cached verification result");
+        return cached.result;
+      }
+    }
     
     console.log("Verifying payment with payload:", {
       orderId: payload.orderId,
@@ -178,6 +214,10 @@ export const paymentService = {
     });
 
     try {
+      // Add timeout to verification request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
       const response = await post<VerifyPaymentResponse>(
         "/api/subscriptions/verify",
         payload,
@@ -187,17 +227,25 @@ export const paymentService = {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
+          signal: controller.signal
         }
       );
-
+      
+      clearTimeout(timeoutId);
       console.log("Verification response:", response);
 
       // Handle different response formats
       if (response && typeof response === 'object') {
         // If response has success field, use it
         if (typeof response.success !== 'undefined') {
-          // On success, post purchased subscriptions to external subscribe API
+          // Cache successful verification
           if (response.success) {
+            localStorage.setItem(verificationKey, JSON.stringify({
+              result: response,
+              timestamp: Date.now()
+            }));
+            
+            // On success, post purchased subscriptions to external subscribe API with timeout
             try {
               const { subscriptionService } = await import('./subscription.service');
               await subscriptionService.refreshAfterPayment();
@@ -216,10 +264,16 @@ export const paymentService = {
                 };
               });
               if (externalSubscribeService.isConfigured() && payloads.length) {
-                await externalSubscribeService.subscribeMany(payloads);
+                // Add timeout to external subscribe calls
+                const subscribePromise = externalSubscribeService.subscribeMany(payloads);
+                const timeoutPromise = new Promise((_, reject) => 
+                  setTimeout(() => reject(new Error('Telegram link timeout')), 15000)
+                );
+                await Promise.race([subscribePromise, timeoutPromise]);
               }
             } catch (e) {
-              console.error('External subscribe chaining after verifyPayment failed:', e);
+              console.error('External subscribe chaining failed (continuing anyway):', e);
+              // Don't fail the entire verification for telegram link issues
             }
           }
           return response;
@@ -227,10 +281,15 @@ export const paymentService = {
         
         // If response doesn't have success field but has data, assume success
         if (Object.keys(response).length > 0) {
-          return {
+          const successResponse = {
             success: true,
             message: "Payment verified successfully"
           };
+          localStorage.setItem(verificationKey, JSON.stringify({
+            result: successResponse,
+            timestamp: Date.now()
+          }));
+          return successResponse;
         }
       }
       
@@ -243,6 +302,13 @@ export const paymentService = {
       
     } catch (error: any) {
       console.error("Payment verification request failed:", error);
+      
+      if (error.name === 'AbortError') {
+        return {
+          success: false,
+          message: "Verification timed out. Please try again."
+        };
+      }
       
       return {
         success: false,
@@ -440,10 +506,53 @@ export const paymentService = {
     }
   },
 
+  // Clear duplicate prevention caches
+  clearDuplicatePreventionCaches: (): void => {
+    const keys = Object.keys(localStorage);
+    const cacheKeys = keys.filter(key => 
+      key.startsWith('order_') || 
+      key.startsWith('emandate_') || 
+      key.startsWith('verification_') || 
+      key.startsWith('emandate_verification_')
+    );
+    
+    cacheKeys.forEach(key => localStorage.removeItem(key));
+    console.log(`Cleared ${cacheKeys.length} duplicate prevention cache entries`);
+  },
+
+  // Check if user has active pending transactions
+  hasPendingTransactions: (): boolean => {
+    const keys = Object.keys(localStorage);
+    const pendingKeys = keys.filter(key => 
+      (key.startsWith('order_') || key.startsWith('emandate_')) &&
+      !key.includes('verification_')
+    );
+    
+    return pendingKeys.some(key => {
+      try {
+        const cached = JSON.parse(localStorage.getItem(key) || '{}');
+        return Date.now() - cached.timestamp < 300000; // 5 minutes
+      } catch {
+        return false;
+      }
+    });
+  },
+
   createEmandate: async (
     payload: CreateOrderPayload
   ): Promise<CreateEMandateResponse> => {
     const token = authService.getAccessToken();
+
+    // Check for duplicate eMandate creation
+    const emandateKey = `emandate_${payload.productId}_${payload.planType}`;
+    const existingEmandate = localStorage.getItem(emandateKey);
+    if (existingEmandate) {
+      const cached = JSON.parse(existingEmandate);
+      if (Date.now() - cached.timestamp < 300000) { // 5 minutes
+        console.log("Preventing duplicate eMandate creation");
+        throw new Error("eMandate already in progress. Please wait or refresh the page.");
+      }
+    }
 
     // Transform payload to match backend API expectations
     const emandatePayload = {
@@ -455,8 +564,6 @@ export const paymentService = {
     };
 
     console.log("🔍 EMANDATE PAYLOAD BEING SENT:", JSON.stringify(emandatePayload, null, 2));
-    console.log("🔍 EMANDATE PAYLOAD KEYS:", Object.keys(emandatePayload));
-    console.log("🔍 EMANDATE PAYLOAD VALUES:", Object.values(emandatePayload));
 
     try {
       const response = await post<CreateEMandateResponse>(
@@ -472,18 +579,18 @@ export const paymentService = {
       );
 
       console.log("eMandate creation response:", response);
-      console.log("🔍 Full eMandate response:", JSON.stringify(response, null, 2));
-      console.log("🔍 subscriptionId type:", typeof response?.subscriptionId);
-      console.log("🔍 subscriptionId value:", response?.subscriptionId);
+      
+      // Cache eMandate creation to prevent duplicates
+      localStorage.setItem(emandateKey, JSON.stringify({
+        subscriptionId: response?.subscriptionId,
+        timestamp: Date.now()
+      }));
+      
       return response;
     } catch (error: any) {
-      console.error("🚨 EMANDATE ERROR DETAILS:", {
-        status: error?.response?.status,
-        statusText: error?.response?.statusText,
-        data: error?.response?.data,
-        message: error?.message
-      });
-      console.error("🚨 BACKEND ERROR MESSAGE:", error?.response?.data?.message || error?.response?.data?.error);
+      // Clear cache on error to allow retry
+      localStorage.removeItem(emandateKey);
+      console.error("🚨 EMANDATE ERROR:", error?.response?.data?.message || error?.message);
       throw error;
     }
   },
@@ -583,41 +690,72 @@ export const paymentService = {
     }
   },
 
-  // Verify eMandate with automatic retry logic for database sync delays
-  verifyEmandateWithRetry: async (subscriptionId: string, maxRetries: number = 5): Promise<VerifyPaymentResponse> => {
+  // Verify eMandate with timeout and duplicate prevention
+  verifyEmandateWithRetry: async (subscriptionId: string, maxRetries: number = 3): Promise<VerifyPaymentResponse> => {
     console.log(`Starting eMandate verification with retry for subscription: ${subscriptionId}`);
     
-    let retryCount = 0;
-    let retryDelay = 1000; // Start with 1 second
+    // Check for duplicate verification attempts
+    const verificationKey = `emandate_verification_${subscriptionId}`;
+    const existingVerification = localStorage.getItem(verificationKey);
+    if (existingVerification) {
+      const cached = JSON.parse(existingVerification);
+      if (Date.now() - cached.timestamp < 300000) { // 5 minutes
+        console.log("Using cached eMandate verification result");
+        return cached.result;
+      }
+    }
     
-    while (retryCount < maxRetries) {
+    let retryCount = 0;
+    let retryDelay = 2000; // Start with 2 seconds
+    const maxTotalTime = 60000; // Maximum 1 minute total
+    const startTime = Date.now();
+    
+    while (retryCount < maxRetries && (Date.now() - startTime) < maxTotalTime) {
       retryCount++;
       console.log(`eMandate verification attempt ${retryCount}/${maxRetries}`);
       
-      const response = await paymentService.verifyEmandate(subscriptionId);
-      
-      if (response.success) {
-        console.log(`✅ eMandate verification successful on attempt ${retryCount}`);
+      try {
+        const response = await paymentService.verifyEmandate(subscriptionId);
+        
+        if (response.success) {
+          console.log(`✅ eMandate verification successful on attempt ${retryCount}`);
+          // Cache successful verification
+          localStorage.setItem(verificationKey, JSON.stringify({
+            result: response,
+            timestamp: Date.now()
+          }));
+          return response;
+        }
+        
+        // If it's a "No matching subscriptions found" error and we have retries left
+        if (response.message.includes("No matching subscriptions found") && retryCount < maxRetries) {
+          console.log(`Retry ${retryCount} failed, waiting ${retryDelay}ms before next attempt`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          retryDelay = Math.min(retryDelay * 1.5, 5000); // Cap at 5 seconds
+          continue;
+        }
+        
+        // For other errors, return immediately
+        console.log(`❌ eMandate verification failed after ${retryCount} attempts`);
         return response;
-      }
-      
-      // If it's a "No matching subscriptions found" error and we have retries left
-      if (response.message.includes("No matching subscriptions found") && retryCount < maxRetries) {
-        console.log(`Retry ${retryCount} failed, waiting ${retryDelay}ms before next attempt`);
+        
+      } catch (error: any) {
+        console.error(`Attempt ${retryCount} failed with error:`, error);
+        if (retryCount >= maxRetries) {
+          return {
+            success: false,
+            message: "eMandate verification failed due to network issues. Please try again."
+          };
+        }
         await new Promise(resolve => setTimeout(resolve, retryDelay));
-        retryDelay *= 2; // Exponential backoff
-        continue;
+        retryDelay = Math.min(retryDelay * 1.5, 5000);
       }
-      
-      // For other errors or if we've exhausted retries, return the error
-      console.log(`❌ eMandate verification failed after ${retryCount} attempts`);
-      return response;
     }
     
-    // This should never be reached, but just in case
+    // Timeout reached
     return {
       success: false,
-      message: "eMandate verification failed after maximum retries. Please contact support."
+      message: "eMandate verification timed out. Please contact support if payment was deducted."
     };
   },
 };

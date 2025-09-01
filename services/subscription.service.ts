@@ -116,6 +116,17 @@ export const subscriptionService = {
   async createEmandate(productType: string, productId: string, emandateType: 'monthly' | 'quarterly' | 'yearly' = 'monthly', couponCode?: string): Promise<CreateEmandateResponse> {
     const token = authService.getAccessToken();
     if (!token) throw new Error("Authentication required");
+    
+    // Check for duplicate eMandate creation
+    const emandateKey = `emandate_${productId}_${emandateType}`;
+    const existingEmandate = localStorage.getItem(emandateKey);
+    if (existingEmandate) {
+      const cached = JSON.parse(existingEmandate);
+      if (Date.now() - cached.timestamp < 300000) { // 5 minutes
+        throw new Error("eMandate creation already in progress. Please wait or refresh the page.");
+      }
+    }
+    
     this.clearCurrentEmandateId();
 
     try {
@@ -125,11 +136,18 @@ export const subscriptionService = {
 
       if (response.subscriptionId) {
         this.setCurrentEmandateId(response.subscriptionId);
+        // Cache eMandate creation to prevent duplicates
+        localStorage.setItem(emandateKey, JSON.stringify({
+          subscriptionId: response.subscriptionId,
+          timestamp: Date.now()
+        }));
       }
 
       this.clearCache();
       return response;
     } catch (error) {
+      // Clear cache on error to allow retry
+      localStorage.removeItem(emandateKey);
       console.error("eMandate creation failed", error);
       throw error;
     }
@@ -146,28 +164,42 @@ export const subscriptionService = {
       const idToVerify = subscriptionId || subscriptionService.getCurrentEmandateId();
       if (!idToVerify) throw new Error("No subscription ID available for verification");
 
-      // Configuration
-      const POLL_INTERVAL = 5000; // 5 seconds
-      const MAX_POLL_DURATION = 300000; // 5 minutes
+      // Configuration - Reduced timeouts
+      const POLL_INTERVAL = 3000; // 3 seconds
+      const MAX_POLL_DURATION = 60000; // 1 minute max
       const MAX_ATTEMPTS = MAX_POLL_DURATION / POLL_INTERVAL;
 
       let attempts = 0;
       let response: VerifyEmandateResponse;
 
       const makeVerificationRequest = async (): Promise<VerifyEmandateResponse> => {
-        return await post<VerifyEmandateResponse>("/api/subscriptions/emandate/verify", {
-          subscription_id: idToVerify
-        }, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout per request
+        
+        try {
+          const result = await post<VerifyEmandateResponse>("/api/subscriptions/emandate/verify", {
+            subscription_id: idToVerify
+          }, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+          return result;
+        } catch (error: any) {
+          clearTimeout(timeoutId);
+          if (error.name === 'AbortError') {
+            throw new Error('Request timed out');
+          }
+          throw error;
+        }
       };
 
       // Initial request
       response = await makeVerificationRequest();
 
-      // Polling logic
-      if (polling && response.subscriptionStatus === "pending" || 
-          response.subscriptionStatus === "created") {
+      // Polling logic with reduced duration
+      if (polling && (response.subscriptionStatus === "pending" || 
+          response.subscriptionStatus === "created")) {
         
         const poll = async (): Promise<VerifyEmandateResponse> => {
           while (attempts < MAX_ATTEMPTS) {
@@ -184,19 +216,20 @@ export const subscriptionService = {
               }
             } catch (error) {
               console.warn(`Polling attempt ${attempts} failed, retrying...`, error);
+              // Continue polling even if individual requests fail
             }
           }
           
           // Timeout handling
           return {
             success: false,
-            message: "Verification timed out",
+            message: "Verification timed out after 1 minute. Please check your subscription status in settings.",
             subscriptionStatus: "timeout"
           };
         };
 
         const finalResponse = await poll();
-        // On success, chain external subscribe calls
+        // On success, chain external subscribe calls with timeout
         if (finalResponse.success || ["active", "authenticated"].includes(finalResponse.subscriptionStatus || "")) {
           try {
             const { subscriptions } = await subscriptionService.getUserSubscriptions(true);
@@ -214,10 +247,16 @@ export const subscriptionService = {
               };
             });
             if (externalSubscribeService.isConfigured() && payloads.length) {
-              await externalSubscribeService.subscribeMany(payloads);
+              // Add timeout to external subscribe calls
+              const subscribePromise = externalSubscribeService.subscribeMany(payloads);
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Telegram link timeout')), 10000)
+              );
+              await Promise.race([subscribePromise, timeoutPromise]);
             }
           } catch (subscribeError) {
-            console.error("External subscribe chaining after emandate verification failed:", subscribeError);
+            console.error("External subscribe chaining failed (continuing anyway):", subscribeError);
+            // Don't fail the entire verification for telegram link issues
           }
         }
         return finalResponse;
@@ -241,10 +280,16 @@ export const subscriptionService = {
             };
           });
           if (externalSubscribeService.isConfigured() && payloads.length) {
-            await externalSubscribeService.subscribeMany(payloads);
+            // Add timeout to external subscribe calls
+            const subscribePromise = externalSubscribeService.subscribeMany(payloads);
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Telegram link timeout')), 10000)
+            );
+            await Promise.race([subscribePromise, timeoutPromise]);
           }
         } catch (subscribeError) {
-          console.error("External subscribe chaining after emandate verification (non-poll) failed:", subscribeError);
+          console.error("External subscribe chaining failed (continuing anyway):", subscribeError);
+          // Don't fail the entire verification for telegram link issues
         }
       }
       return response;
