@@ -173,6 +173,7 @@ export const subscriptionService = {
       let response: VerifyEmandateResponse;
 
       const makeVerificationRequest = async (): Promise<VerifyEmandateResponse> => {
+        attempts++;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout per request
         
@@ -180,7 +181,10 @@ export const subscriptionService = {
           const result = await post<VerifyEmandateResponse>("/api/subscriptions/emandate/verify", {
             subscription_id: idToVerify
           }, {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: { 
+              Authorization: `Bearer ${token}`,
+              'x-attempt': attempts.toString()
+            },
             signal: controller.signal
           });
           clearTimeout(timeoutId);
