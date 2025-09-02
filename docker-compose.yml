@@ -30,19 +30,9 @@ services:
           memory: 1G
         reservations:
           memory: 512M
-    # Security
+    # Security (relaxed for VPS compatibility)
     security_opt:
-      - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /tmp
-      - /app/.next/cache
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
+      - no-new-privileges:false
     networks:
       - rangaone-network
 
