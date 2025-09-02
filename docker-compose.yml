@@ -6,7 +6,7 @@ services:
       args:
         - NODE_ENV=production
     image: rangaone-fe:latest
-    container_name: rangaone-fe
+    container_name: Rangaone_Finance
     ports:
       - "3000:3000"
     env_file:
