@@ -149,7 +149,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             userInfo,
             async () => {
               const verify = await paymentService.verifyEmandateWithRetry(emandate.subscriptionId);
-              if (verify.success || ["active", "authenticated"].includes(verify.subscriptionStatus || "")) {
+              if (verify.success || ["active", "authenticated"].includes((verify as any).subscriptionStatus || "")) {
                 finishSuccess(verify);
               } else {
                 finishError(verify.message || "eMandate verification failed");
@@ -164,11 +164,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             order,
             userInfo,
             async (resp) => {
-              const verify = await paymentService.verifyPayment(
-                resp.razorpay_payment_id,
-                resp.razorpay_order_id,
-                resp.razorpay_signature
-              );
+              const verify = await paymentService.verifyPayment({
+                orderId: resp.razorpay_order_id,
+                paymentId: resp.razorpay_payment_id,
+                signature: resp.razorpay_signature
+              });
               if (verify.success) finishSuccess(verify); else finishError(verify.message);
             },
             (err) => finishError(err?.message || "Payment cancelled")
@@ -249,8 +249,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       const emandate = await paymentService.createEmandate({ 
         productType, 
         productId, 
-        planType: subscriptionType,
-        timestamp: Date.now(),
+        planType: subscriptionType
       });
       setPendingEmandateId(emandate.subscriptionId);
       
@@ -280,13 +279,30 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             toast({ title: "Payment Successful", description: "Your subscription has been activated" });
             setLoading(false);
           } else {
-            finishError((verify as any)?.message || "eMandate verification failed");
+            const handleError = (message: string) => {
+              setPaymentStep("error");
+              toast({ title: "Payment Failed", description: message || "Something went wrong. Please try again.", variant: "destructive" });
+              setLoading(false);
+            };
+            handleError((verify as any)?.message || "eMandate verification failed");
           }
         },
-        (err) => finishError(err?.message || "Payment cancelled")
+        (err) => {
+          const handleError = (message: string) => {
+            setPaymentStep("error");
+            toast({ title: "Payment Failed", description: message || "Something went wrong. Please try again.", variant: "destructive" });
+            setLoading(false);
+          };
+          handleError(err?.message || "Payment cancelled");
+        }
       );
     } catch (error: any) {
-      finishError(error?.message || "Failed to create eMandate");
+      const handleError = (message: string) => {
+        setPaymentStep("error");
+        toast({ title: "Payment Failed", description: message || "Something went wrong. Please try again.", variant: "destructive" });
+        setLoading(false);
+      };
+      handleError(error?.message || "Failed to create eMandate");
     }
   };
 
