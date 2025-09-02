@@ -1,0 +1,12 @@
+# Development overrides - rename to docker-compose.override.yml to use
+# This file is disabled by default to prevent conflicts with production builds
+
+# services:
+#   rangaone-fe:
+#     volumes:
+#       - .:/app
+#       - /app/node_modules
+#       - /app/.next
+#     environment:
+#       - NODE_ENV=development
+#     command: npm run dev

@@ -3,13 +3,19 @@ const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
   
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': new URL('.', import.meta.url).pathname,
+    }
+    return config
+  },
+  
   generateBuildId: async () => {
     return 'build-' + Date.now()
   },
   
-  // Optimize for production
-  swcMinify: true,
-  compress: true,
+
   
   // Image configuration
   images: {
@@ -39,13 +45,15 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   
-  // Experimental features for better performance
+  // Output file tracing
+  outputFileTracingIncludes: {
+    '/': ['./public/**/*'],
+  },
+  
+  // Experimental features
   experimental: {
     optimizeCss: true,
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
-    outputFileTracingIncludes: {
-      '/': ['./public/**/*'],
-    },
   },
   
   // Headers for security and caching

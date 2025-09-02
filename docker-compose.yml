@@ -1,18 +1,51 @@
-version: '3.8'
-
 services:
   rangaone-fe:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=production
+    image: rangaone-fe:latest
+    container_name: rangaone-fe
     ports:
       - "3000:3000"
+    env_file:
+      - .env.production
     environment:
       - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+      - VERCEL=1
+      - CI=true
     restart: unless-stopped
-    volumes:
-      - ./.env.production:/app/.env.production:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    # Performance optimizations
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+    # Security
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/.next/cache
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    networks:
+      - rangaone-network
+
+networks:
+  rangaone-network:
+    driver: bridge
