@@ -386,11 +386,17 @@ export const paymentService = {
     // Get the Razorpay key with proper fallback and validation
     const razorpayKey =
       process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ||
-      process.env.NEXT_PUBLIC_RAZORPAY_KEY ||
-      "rzp_test_fxQtWo40gGB277";
+      "rzp_test_R8mMgpEVSQghdI";
+
+    if (!razorpayKey || !razorpayKey.startsWith('rzp_')) {
+      console.error("Invalid or missing Razorpay key:", razorpayKey);
+      onFailure(new Error("Payment configuration error. Please contact support."));
+      return;
+    }
 
     console.log("Using Razorpay Key:", razorpayKey?.substring(0, 8) + "...");
     console.log("Order data for Razorpay:", orderData);
+    console.log("Environment check - NEXT_PUBLIC_RAZORPAY_KEY_ID:", process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID?.substring(0, 8) + "...");
 
     // Validate required data
     const orderId =
@@ -403,6 +409,14 @@ export const paymentService = {
       return;
     }
 
+    // Validate subscription ID format if it's an eMandate
+    if ("subscriptionId" in orderData) {
+      if (!orderData.subscriptionId || !orderData.subscriptionId.startsWith('sub_')) {
+        onFailure(new Error(`Invalid subscription ID format: ${orderData.subscriptionId}`));
+        return;
+      }
+    }
+
     const options = {
       key: razorpayKey,
       name: "RangaOne Finwala",
@@ -412,12 +426,13 @@ export const paymentService = {
       ...("subscriptionId" in orderData
         ? { 
             subscription_id: orderData.subscriptionId,
-            recurring: 1
+            recurring: 1,
+            currency: "INR"
           }
         : {
             order_id: orderData.orderId,
             amount: orderData.amount,
-            currency: orderData.currency,
+            currency: orderData.currency || "INR",
           }),
       prefill: {
         name: userInfo.name,
@@ -487,8 +502,7 @@ export const paymentService = {
 
       const razorpayKey =
         process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ||
-        process.env.NEXT_PUBLIC_RAZORPAY_KEY ||
-        "rzp_test_fxQtWo40gGB277";
+        "rzp_test_izVlVyFpbhakIT";
 
       if (!razorpayKey || !razorpayKey.startsWith("rzp_")) {
         console.error(
