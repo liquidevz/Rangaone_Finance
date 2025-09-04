@@ -42,6 +42,7 @@ export interface UserProfile {
   emailVerified: boolean;
   createdAt: string;
   updatedAt: string;
+  phone?: string;
 }
 
 export const authService = {

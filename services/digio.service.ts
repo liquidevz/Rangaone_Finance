@@ -1,4 +1,4 @@
-import { post } from "@/lib/axios";
+import { post, get } from "@/lib/axios";
 import { authService } from "./auth.service";
 
 // Digio Web SDK types
@@ -110,20 +110,40 @@ export const digioService = {
     return btoa(unescape(encodeURIComponent(agreementContent)));
   },
 
-  // Mock Digio API - completely fake
+  // Create Digio document for signing
   createPaymentSignRequest: async (
     agreementData: PaymentAgreementData
-  ): Promise<{ documentId: string; authenticationUrl?: string; accessToken?: any }> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const mockDocumentId = `DOC_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    return {
-      documentId: mockDocumentId,
-      authenticationUrl: undefined, // Will use demo interface
-      accessToken: `mock_token_${Date.now()}`
-    };
+  ): Promise<{ documentId: string; authenticationUrl?: string; }> => {
+    try {
+      const response = await post('/digio/document/create', {
+        signerEmail: agreementData.customerEmail,
+        signerName: agreementData.customerName,
+        signerPhone: agreementData.customerMobile || "",
+        reason: "Document Agreement",
+        expireInDays: 1,
+        displayOnPage: "all",
+        notifySigners: true,
+        sendSignLink: true,
+      }) as any;
+
+      if (response.success) {
+        const { documentId } = response.data;
+        const authenticationUrl = response.data.digioResponse.signing_parties[0].authentication_url;
+        console.log("Digio document created:", {
+          documentId,
+          authenticationUrl,
+        });
+        return {
+          documentId,
+          authenticationUrl: authenticationUrl || undefined,
+        };
+      } else {
+        throw new Error(response.message || 'Failed to create document');
+      }
+    } catch (error: any) {
+      console.error('Error creating Digio document:', error);
+      throw new Error(error.response?.message || error.message || 'Failed to create document');
+    }
   },
 
   // Initialize Digio SDK and handle signing
@@ -136,6 +156,7 @@ export const digioService = {
   ): Promise<void> => {
     // If authentication URL is provided, open it directly
     if (authenticationUrl) {
+      console.log("Opening authentication URL:", authenticationUrl);
       const popup = window.open(authenticationUrl, 'digio-sign', 'width=800,height=600,scrollbars=yes,resizable=yes');
       if (!popup) {
         onError(new Error('Popup blocked. Please allow popups for this site.'));
@@ -177,20 +198,70 @@ export const digioService = {
 
   // Mock document status check
   checkDocumentStatus: async (documentId: string): Promise<DigioSignResponse> => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    return {
-      id: documentId,
-      agreement_status: "completed",
-      file_name: "mock_agreement.pdf",
-      created_at: new Date().toISOString(),
-      signing_parties: [{
-        name: "Mock Signer",
-        identifier: "mock@example.com",
-        status: "signed",
-        signature_type: "aadhaar"
-      }]
-    };
+    // Get access token from localStorage or sessionStorage
+    const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+
+    // Fetch user profile from API
+    const { latestEsign, fullName, email } = await get<{ latestEsign: { documentId: string; status: string, createdAt: string, signerName: string, signerEmail: string }; fullName: string; email: string }>('/api/user/profile');
+
+    // Check if latestEsign exists and documentId matches
+    if (
+      latestEsign &&
+      latestEsign.documentId &&
+      latestEsign.documentId === documentId
+    ) {
+      // Map status to allowed DigioSignResponse types
+      // agreement_status: "draft" | "requested" | "completed" | "expired" | "failed"
+      let agreement_status: "draft" | "requested" | "completed" | "expired" | "failed";
+      switch (latestEsign.status) {
+        case 'document_created':
+        case 'unsigned':
+          // agreement_status = 'requested';
+          // break;
+        case 'signed':
+        case 'completed':
+          agreement_status = 'completed';
+          break;
+        case 'expired':
+          agreement_status = 'expired';
+          break;
+        case 'failed':
+          agreement_status = 'failed';
+          break;
+        default:
+          agreement_status = 'requested';
+      }
+
+      // signing_parties.status: "signed" | "requested" | "expired"
+      let party_status: "signed" | "requested" | "expired";
+      if (agreement_status === "completed") {
+        party_status = "signed";
+      } else if (agreement_status === "expired") {
+        party_status = "expired";
+      } else {
+        party_status = "requested";
+      }
+
+      return {
+        id: documentId,
+        agreement_status,
+        file_name: "agreement.pdf",
+        created_at: latestEsign.createdAt || new Date().toISOString(),
+        signing_parties: [
+          {
+            name: latestEsign.signerName || fullName || "Unknown",
+            identifier: latestEsign.signerEmail || email || "unknown@example.com",
+            status: party_status,
+            signature_type: "aadhaar"
+          }
+        ]
+      };
+    } else {
+      throw new Error('Document not found or does not match latest eSign');
+    }
   },
 
   showDemoESignInterface: (
