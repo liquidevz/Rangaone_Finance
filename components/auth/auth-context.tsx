@@ -12,7 +12,7 @@ interface AuthContextType {
   isLoading: boolean;
   profileComplete: boolean;
   missingFields: string[];
-  login: (username: string, password: string, rememberMe?: boolean) => Promise<void>;
+  login: (identifier: string, password: string, rememberMe?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -105,12 +105,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initializeAuth();
   }, []);
 
-  const login = async (username: string, password: string, rememberMe: boolean = false) => {
+  const login = async (identifier: string, password: string, rememberMe: boolean = false) => {
     try {
       setIsLoading(true);
       
       // Call login API
-      const response = await authService.login({ username, password });
+      const response = await authService.login({ identifier, password });
       
       // Store tokens
       authService.setTokens(response.accessToken, response.refreshToken, rememberMe);

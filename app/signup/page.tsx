@@ -21,6 +21,7 @@ export default function SignupPage() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    phone: "",
     password: "",
     confirmPassword: "",
     agreeTerms: false,
@@ -64,6 +65,15 @@ export default function SignupPage() {
       return;
     }
 
+    if (!formData.phone.trim()) {
+      toast({
+        title: "Phone required",
+        description: "Please enter your phone number.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (formData.password.length < 6) {
       toast({
         title: "Password too short",
@@ -98,6 +108,7 @@ export default function SignupPage() {
       const response = await authService.signup({
         username: formData.name.trim(),
         email: formData.email.trim(),
+        phone: formData.phone.trim(),
         password: formData.password,
       });
 
@@ -220,6 +231,23 @@ export default function SignupPage() {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="Enter your email address"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#001633] focus:border-transparent"
+                disabled={formLoading}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                Phone Number
+              </label>
+              <Input
+                id="phone"
+                name="phone"
+                type="tel"
+                required
+                value={formData.phone}
+                onChange={handleChange}
+                placeholder="Enter your phone number (e.g., +91-9876543210)"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#001633] focus:border-transparent"
                 disabled={formLoading}
               />

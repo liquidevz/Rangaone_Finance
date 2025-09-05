@@ -164,17 +164,17 @@ export const AuthPromptModal: React.FC<AuthPromptModalProps> = ({
             )}
 
             <div>
-              <Label htmlFor="email">Email Address</Label>
+              <Label htmlFor="email">{isLogin ? "Email, Phone, or Username" : "Email Address"}</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
                   id="email"
-                  type="email"
+                  type={isLogin ? "text" : "email"}
                   value={formData.email}
                   onChange={(e) => handleInputChange("email", e.target.value)}
                   required
                   className="pl-10"
-                  placeholder="your@email.com"
+                  placeholder={isLogin ? "Enter email, phone, or username" : "your@email.com"}
                 />
               </div>
             </div>

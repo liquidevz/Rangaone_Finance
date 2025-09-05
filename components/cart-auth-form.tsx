@@ -32,6 +32,7 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
   const [formData, setFormData] = useState({
     username: "",
     email: "",
+    phone: "",
     password: "",
     confirmPassword: "",
     rememberMe: false
@@ -79,6 +80,9 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
         } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
           newErrors.email = "Please enter a valid email";
         }
+        if (!formData.phone.trim()) {
+          newErrors.phone = "Phone is required";
+        }
         if (!formData.password) {
           newErrors.password = "Password is required";
         } else if (formData.password.length < 6) {
@@ -89,7 +93,7 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
         }
       } else {
         if (!formData.username.trim()) {
-          newErrors.username = "Email or username is required";
+          newErrors.username = "Email, phone, or username is required";
         }
         if (!formData.password) {
           newErrors.password = "Password is required";
@@ -127,6 +131,7 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
           await authService.signup({
             username: formData.username,
             email: formData.email,
+            phone: formData.phone,
             password: formData.password
           });
           await login(formData.username, formData.password, formData.rememberMe);
@@ -151,6 +156,7 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
               setFormData({ 
                 username: "", 
                 email: email, 
+                phone: "",
                 password: formData.password, 
                 confirmPassword: formData.password, 
                 rememberMe: false 
@@ -249,6 +255,7 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
       setFormData({
         username: "",
         email: preserveEmail ? formData.username : "",
+        phone: "",
         password: "",
         confirmPassword: "",
         rememberMe: false
@@ -258,6 +265,7 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
       setFormData({
         username: "",
         email: "",
+        phone: "",
         password: "",
         confirmPassword: "",
         rememberMe: false
@@ -316,6 +324,22 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
                     className="pl-10"
                   />
                 </div>
+                {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+              </div>
+              <div>
+                <Label htmlFor="phone" className="text-sm font-medium">Phone</Label>
+                <div className="relative mt-1">
+                  <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="Enter your phone number"
+                    value={formData.phone}
+                    onChange={(e) => handleInputChange("phone", e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
               </div>
               <div>
                 <Label htmlFor="password" className="text-sm font-medium">Password</Label>
@@ -367,13 +391,13 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
           return (
             <div className="space-y-4">
               <div>
-                <Label htmlFor="username" className="text-sm font-medium">Email or Username</Label>
+                <Label htmlFor="username" className="text-sm font-medium">Email, Phone, or Username</Label>
                 <div className="relative mt-1">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
                     id="username"
                     type="text"
-                    placeholder="Enter your email or username"
+                    placeholder="Enter your email, phone, or username"
                     value={formData.username}
                     onChange={(e) => handleInputChange("username", e.target.value)}
                     className="pl-10"

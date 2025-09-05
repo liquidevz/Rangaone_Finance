@@ -21,7 +21,7 @@ export default function LoginPage() {
   const [formLoading, setFormLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [formData, setFormData] = useState({
-    username: "",
+    identifier: "",
     password: "",
     rememberMe: false,
   });
@@ -47,10 +47,10 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.username || !formData.password) {
+    if (!formData.identifier || !formData.password) {
       toast({
         title: "Missing fields",
-        description: "Please enter both username/email and password.",
+        description: "Please enter both email/phone/username and password.",
         variant: "destructive",
       });
       return;
@@ -59,7 +59,7 @@ export default function LoginPage() {
     setFormLoading(true);
 
     try {
-      await login(formData.username, formData.password, formData.rememberMe);
+      await login(formData.identifier, formData.password, formData.rememberMe);
 
       toast({
         title: "Welcome back!",
@@ -80,7 +80,7 @@ export default function LoginPage() {
       let errorMessage = "Invalid username/email or password. Please try again.";
       
       if (error?.response?.status === 401) {
-        errorMessage = "Invalid username/email or password. Please try again.";
+        errorMessage = "Invalid email/phone/username or password. Please try again.";
       } else if (error?.response?.status === 403) {
         errorMessage = "Your account is banned or blocked. Please contact support.";
       } else if (error?.response?.data?.error) {
@@ -137,17 +137,17 @@ export default function LoginPage() {
           {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-                Email or Username
+              <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-2">
+                Email, Phone, or Username
               </label>
               <Input
-                id="username"
-                name="username"
+                id="identifier"
+                name="identifier"
                 type="text"
                 required
-                value={formData.username}
+                value={formData.identifier}
                 onChange={handleChange}
-                placeholder="Enter your email or username"
+                placeholder="Enter your email, phone, or username"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#001633] focus:border-transparent"
                 disabled={formLoading}
               />

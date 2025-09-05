@@ -5,11 +5,12 @@ interface SignupPayload {
   username: string;
   email: string;
   password: string;
+  phone: string;
   mainUserId?: string;
 }
 
 interface LoginPayload {
-  username: string;
+  identifier: string; // Can be email, phone, or username
   password: string;
 }
 
@@ -79,7 +80,7 @@ export const authService = {
     } catch (error: any) {
       // Handle specific error cases
       if (error?.response?.status === 401) {
-        throw new Error("Invalid username/email or password");
+        throw new Error("Invalid email/phone/username or password");
       } else if (error?.response?.status === 403) {
         throw new Error("Your account is banned or blocked");
       }
