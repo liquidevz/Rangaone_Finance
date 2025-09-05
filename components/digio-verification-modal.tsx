@@ -39,20 +39,10 @@ export function DigioVerificationModal({
     try {
       setError(null)
       
-      // Check if user is authenticated
-      const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
-      if (!token) {
-        setError('Please login first to proceed with verification')
-        setStep('error')
-        return
-      }
-      
-      console.log("Creating Digio sign request...")
       const response = await digioService.createPaymentSignRequest(agreementData)
       setDocumentId(response.documentId)
       setStep("signing")
       
-      // Initialize Digio SDK signing with authentication URL
       await digioService.initializeDigioSigning(
         response.documentId,
         agreementData.customerEmail,
@@ -61,19 +51,13 @@ export function DigioVerificationModal({
         response.authenticationUrl
       )
       
-      toast({
-        title: "Signature Request Created",
-        description: "Please complete the signing process in the popup",
-      })
     } catch (err: any) {
-      console.error("Failed to create sign request:", err)
       setError(err.message || "Failed to create signature request")
       setStep("error")
     }
   }
 
   const handleSigningSuccess = (response: any) => {
-    console.log("Digio signing successful:", response)
     setStep("completed")
     
     toast({
@@ -81,10 +65,8 @@ export function DigioVerificationModal({
       description: "Your payment authorization is complete",
     })
     
-    // Wait a moment then trigger completion
-    setTimeout(() => {
-      onVerificationComplete()
-    }, 2000)
+    // Don't auto-close, let user click to proceed
+    // onVerificationComplete()
   }
 
   const handleSigningError = (error: any) => {
@@ -289,9 +271,15 @@ export function DigioVerificationModal({
                       <CheckCircle className="w-5 h-5 text-green-600" />
                       <span className="font-medium text-green-800">Verification Complete</span>
                     </div>
-                    <p className="text-sm text-green-700">
-                      Your payment authorization has been successfully verified. Proceeding to payment...
+                    <p className="text-sm text-green-700 mb-3">
+                      Your payment authorization has been successfully verified.
                     </p>
+                    <Button
+                      onClick={() => onVerificationComplete()}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      Proceed to Payment
+                    </Button>
                   </motion.div>
                 )}
 

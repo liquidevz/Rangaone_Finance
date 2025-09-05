@@ -44,7 +44,10 @@ export default function PricingSection() {
       postLoginState.execute((bundleId, pricingType) => {
         const bundle = bundles.find(b => b._id === bundleId);
         if (bundle) {
-          setCheckoutModal({ isOpen: true, bundle, pricingType: pricingType as SubscriptionType | "monthlyEmandate" });
+          // Only open modal if it's not already open to prevent duplicate selection
+          if (!checkoutModal.isOpen) {
+            setCheckoutModal({ isOpen: true, bundle, pricingType: pricingType as SubscriptionType | "monthlyEmandate" });
+          }
         }
       });
     }
@@ -71,13 +74,18 @@ export default function PricingSection() {
 
   const handleBundlePurchase = async (bundle: Bundle, pricingType: SubscriptionType | "monthlyEmandate") => {
     if (!isAuthenticated) {
+      // Save state for post-login execution
       postLoginState.save({
         action: "purchase",
         bundleId: bundle._id,
         pricingType: pricingType
       });
+      // Open modal to show auth step
+      setCheckoutModal({ isOpen: true, bundle, pricingType });
+    } else {
+      // User is already authenticated, proceed directly
+      setCheckoutModal({ isOpen: true, bundle, pricingType });
     }
-    setCheckoutModal({ isOpen: true, bundle, pricingType });
   };
 
   const handleAddToCart = async (bundle: Bundle, pricingType: SubscriptionType | "monthlyEmandate") => {

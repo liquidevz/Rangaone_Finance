@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 import { userService, UserProfile } from "@/services/user.service"
 import { useAuth } from "@/components/auth/auth-context"
-import { User, Phone, FileText, ArrowRight, Shield, CheckCircle } from "lucide-react"
+import { User, Phone, FileText, ArrowRight, Shield, CheckCircle, Calendar } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
+import { digioPanService } from "@/services/digio-pan.service"
 
 interface ProfileCompletionModalProps {
   open: boolean
@@ -24,7 +25,8 @@ export function ProfileCompletionModal({ open, onOpenChange, onProfileComplete, 
   const [formData, setFormData] = useState({
     fullName: "",
     phone: "",
-    pandetails: ""
+    pandetails: "",
+    dateofBirth: ""
   })
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -51,7 +53,8 @@ export function ProfileCompletionModal({ open, onOpenChange, onProfileComplete, 
       setFormData({
         fullName: profileData.fullName || "",
         phone: profileData.phone || "",
-        pandetails: profileData.pandetails || ""
+        pandetails: profileData.pandetails || "",
+        dateofBirth: profileData.dateofBirth || ""
       })
       console.log("ProfileCompletionModal - form data set:", {
         fullName: profileData.fullName || "",
@@ -72,8 +75,60 @@ export function ProfileCompletionModal({ open, onOpenChange, onProfileComplete, 
   }
 
   const validatePAN = (pan: string): boolean => {
-    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-    return panRegex.test(pan);
+    return digioPanService.validatePanFormat(pan);
+  };
+
+  const verifyPanWithDigio = async () => {
+    if (!formData.pandetails || !formData.fullName || !formData.dateofBirth) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in PAN, full name, and date of birth for verification",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!validatePAN(formData.pandetails)) {
+      toast({
+        title: "Invalid PAN Format",
+        description: "Please enter a valid PAN number",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setVerifyingPan(true);
+      const dobFormatted = digioPanService.formatDateForApi(new Date(formData.dateofBirth));
+      
+      const response = await digioPanService.verifyPan({
+        id_no: formData.pandetails,
+        name: formData.fullName,
+        dob: dobFormatted
+      });
+
+      if (response.success) {
+        setPanVerified(true);
+        toast({
+          title: "PAN Verified",
+          description: "Your PAN details have been successfully verified"
+        });
+      } else {
+        toast({
+          title: "Verification Failed",
+          description: response.message || "PAN verification failed",
+          variant: "destructive"
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Verification Error",
+        description: error.message || "Failed to verify PAN. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setVerifyingPan(false);
+    }
   };
 
   const handleSave = async () => {
@@ -96,10 +151,28 @@ export function ProfileCompletionModal({ open, onOpenChange, onProfileComplete, 
       return;
     }
 
+    if (!formData.dateofBirth.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter your date of birth",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!validatePAN(formData.pandetails)) {
       toast({
         title: "Invalid PAN Format",
         description: "PAN must be in format: AAAAA0578L (5 letters, 4 numbers, 1 letter)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!panVerified) {
+      toast({
+        title: "PAN Verification Required",
+        description: "Please verify your PAN card details before proceeding",
         variant: "destructive"
       });
       return;
@@ -284,6 +357,23 @@ export function ProfileCompletionModal({ open, onOpenChange, onProfileComplete, 
         </div>
         )}
         
+        {(!formData.dateofBirth || missingFields.includes('dateofBirth')) && (
+        <div>
+          <Label htmlFor="dateofBirth" className="flex items-center gap-2 text-sm font-medium text-gray-700 pb-1">
+            <Calendar className="w-4 h-4" />
+            Date of Birth *
+          </Label>
+          <Input
+            id="dateofBirth"
+            type="date"
+            value={formData.dateofBirth}
+            onChange={(e) => setFormData(prev => ({ ...prev, dateofBirth: e.target.value }))}
+            className="focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-indigo-600 focus:bg-indigo-50 transition-colors"
+          />
+          <p className="text-xs text-gray-500 mt-1">Required for PAN verification</p>
+        </div>
+        )}
+        
         {(!formData.pandetails || missingFields.includes('pandetails')) && (
         <div>
           <Label htmlFor="pandetails" className="flex items-center gap-2 text-sm font-medium text-gray-700 pb-1">
@@ -306,6 +396,21 @@ export function ProfileCompletionModal({ open, onOpenChange, onProfileComplete, 
               className={`focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-indigo-600 focus:bg-indigo-50 transition-colors ${panVerified ? 'border-green-600 bg-green-50' : ''}`}
               disabled={panVerified}
             />
+            {!panVerified && validatePAN(formData.pandetails) && formData.fullName && formData.dateofBirth && (
+              <Button
+                type="button"
+                onClick={verifyPanWithDigio}
+                disabled={verifyingPan}
+                size="sm"
+                className="whitespace-nowrap"
+              >
+                {verifyingPan ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  "Verify"
+                )}
+              </Button>
+            )}
             {panVerified && (
               <div className="flex items-center text-green-600 text-sm">
                 <CheckCircle className="w-4 h-4 mr-1" />
@@ -317,7 +422,7 @@ export function ProfileCompletionModal({ open, onOpenChange, onProfileComplete, 
           {panVerified && (
             <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
               <CheckCircle className="w-3 h-3" />
-              PAN verified successfully
+              PAN verified successfully with government records
             </p>
           )}
         </div>

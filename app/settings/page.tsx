@@ -9,6 +9,7 @@ import PortfolioSettings from "@/components/settings/portfolio-settings"
 import SubscriptionSettings from "@/components/settings/subscription-settings"
 import PaymentSettings from "@/components/settings/payment-settings"
 import { User, Settings, Briefcase, CreditCard } from "lucide-react"
+import { PageHeader } from "@/components/page-header"
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("profile")
@@ -16,10 +17,11 @@ export default function SettingsPage() {
   return (
     <DashboardLayout>
       <div className="flex flex-col w-full gap-6 max-w-6xl mx-auto">
-        <div className="bg-indigo-900 text-[#FFFFF0] py-6 px-8 rounded-lg shadow-md mb-6">
-          <h1 className="text-3xl font-bold text-center">Account Settings</h1>
-          <p className="text-center mt-2">Manage your account preferences and information</p>
-        </div>
+        <PageHeader 
+          title="Account Settings" 
+          subtitle="Manage your account preferences and information"
+          size="lg"
+        />
 
         <Card className="overflow-hidden">
           <Tabs defaultValue="profile" value={activeTab} onValueChange={setActiveTab} className="w-full">

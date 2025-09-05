@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation"
 import { paymentService } from "@/services/payment.service"
 import CartAuthForm from "@/components/cart-auth-form"
 import { usePayment } from "@/components/payment/simple-payment-context"
+import { profileCompletionState } from "@/lib/profile-completion-state"
 
 export function SimplePaymentModal() {
   const [subscriptionType, setSubscriptionType] = useState<"monthly" | "yearly">("monthly")
@@ -55,6 +56,7 @@ export function SimplePaymentModal() {
   }
 
   const handleAuthSuccess = async () => {
+    // Continue the flow immediately after successful authentication
     await handlePaymentFlow()
   }
 
@@ -104,6 +106,7 @@ export function SimplePaymentModal() {
             if (verify.success || ["active", "authenticated"].includes((verify as any).subscriptionStatus || "")) {
               setStep("success")
               setProcessing(false)
+              profileCompletionState.markFirstPaymentComplete()
               toast({ title: "Payment Successful", description: "Subscription activated" })
             } else {
               setStep("error")
@@ -150,6 +153,7 @@ export function SimplePaymentModal() {
             if (verify.success) {
               setStep("success")
               setProcessing(false)
+              profileCompletionState.markFirstPaymentComplete()
               toast({ title: "Payment Successful", description: "Subscription activated" })
             } else {
               setStep("error")

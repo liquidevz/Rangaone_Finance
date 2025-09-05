@@ -69,7 +69,17 @@ export const authService = {
 
   login: async (payload: LoginPayload): Promise<LoginResponse> => {
     try {
-      const response = await post<LoginResponse>("/auth/login", payload, {
+      // Transform identifier to email or mobile based on format
+      const loginData: any = { password: payload.password };
+      
+      // Check if identifier is email or mobile
+      if (payload.identifier.includes('@')) {
+        loginData.email = payload.identifier;
+      } else {
+        loginData.mobile = payload.identifier;
+      }
+
+      const response = await post<LoginResponse>("/auth/login", loginData, {
         headers: {
           accept: "application/json",
           "Content-Type": "application/json",

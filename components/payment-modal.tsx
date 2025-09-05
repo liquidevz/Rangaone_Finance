@@ -11,6 +11,8 @@ import { Bundle } from "@/services/bundle.service";
 import { paymentService } from "@/services/payment.service";
 import CartAuthForm from "@/components/cart-auth-form";
 import { DigioVerificationModal } from "@/components/digio-verification-modal";
+import { paymentFlowState } from "@/lib/payment-flow-state";
+import { profileCompletionState } from "@/lib/profile-completion-state";
 import type { PaymentAgreementData } from "@/services/digio.service";
 
 interface PaymentModalProps {
@@ -49,7 +51,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [telegramLinks, setTelegramLinks] = useState<Array<{
     invite_link: string;
   }> | null>(null);
-  const [consentGiven, setConsentGiven] = useState(false);
   const cancelRequested = useRef(false);
   const continuedAfterAuthRef = useRef(false);
 
@@ -95,13 +96,33 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     setShowDigio(true);
   }, [bundle, user, subscriptionType, getPrice]);
 
-  // When modal opens, always start with plan selection
+  // When modal opens, restore or start with plan selection
   useEffect(() => {
-    if (!isOpen) return;
-    setStep("plan");
-    setConsentGiven(false);
+    if (!isOpen || !bundle) return;
+    
+    // Check if we should continue an existing flow
+    const continueStep = paymentFlowState.shouldContinueFlow(bundle._id, isAuthenticated);
+    if (continueStep) {
+      if (continueStep === "digio") {
+        startDigioFlow();
+      } else {
+        setStep(continueStep as any);
+        if (continueStep === "consent") {
+        }
+      }
+    } else {
+      setStep("plan");
+      // Save initial flow state
+      paymentFlowState.save({
+        bundleId: bundle._id,
+        pricingType: isEmandateFlow ? "monthlyEmandate" : "monthly",
+        currentStep: "plan",
+        isAuthenticated
+      });
+    }
+    
     continuedAfterAuthRef.current = false;
-  }, [isOpen]);
+  }, [isOpen, isAuthenticated, bundle, isEmandateFlow]);
 
   // If user authenticates while viewing the auth step, automatically continue to Digio
   useEffect(() => {
@@ -109,6 +130,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     if (step !== "auth") return;
     if (isAuthenticated && bundle && !continuedAfterAuthRef.current) {
       continuedAfterAuthRef.current = true;
+      paymentFlowState.update({ 
+        currentStep: "digio", 
+        isAuthenticated: true 
+      });
       startDigioFlow();
     }
   }, [isOpen, step, isAuthenticated, bundle, startDigioFlow]);
@@ -170,12 +195,17 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     setProcessing(false);
     setShowDigio(false);
     setTelegramLinks(null);
+    // Clear payment flow state when modal is closed
+    paymentFlowState.clear();
     onClose();
   };
 
   const handleProceed = async () => {
     if (!bundle) return;
 
+    // Update flow state
+    paymentFlowState.update({ currentStep: "consent" });
+    
     // First show consent step
     setStep("consent");
   };
@@ -185,6 +215,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
     // Check authentication only when proceeding to payment
     if (!isAuthenticated || !user) {
+      paymentFlowState.update({ currentStep: "auth" });
       setStep("auth");
       return;
     }
@@ -195,19 +226,25 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       localStorage.getItem("accessToken") ||
       sessionStorage.getItem("accessToken");
     if (!token) {
+      paymentFlowState.update({ currentStep: "auth" });
       setStep("auth");
       return;
     }
 
     // Start Digio verification
+    paymentFlowState.update({ currentStep: "digio" });
     startDigioFlow();
   };
 
   const handleAuthSuccess = async () => {
     continuedAfterAuthRef.current = true;
-    // The post-login state will be handled by the pricing section
-    // Just close this modal and let the parent handle the flow
-    handleClose();
+    // Continue the flow immediately after successful authentication
+    // Skip consent and go directly to Digio verification
+    paymentFlowState.update({ 
+      currentStep: "digio", 
+      isAuthenticated: true 
+    });
+    startDigioFlow();
   };
 
 
@@ -292,6 +329,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
               setStep("success");
               setProcessing(false);
+              // Clear flow state on successful payment
+              paymentFlowState.clear();
+              // Mark first payment complete for profile completion
+              profileCompletionState.markFirstPaymentComplete();
               toast({
                 title: "Payment Successful",
                 description: "Subscription activated",
@@ -359,6 +400,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
               setStep("success");
               setProcessing(false);
+              // Clear flow state on successful payment
+              paymentFlowState.clear();
+              // Mark first payment complete for profile completion
+              profileCompletionState.markFirstPaymentComplete();
               toast({
                 title: "Payment Successful",
                 description: "Subscription activated",
@@ -425,7 +470,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   : step === "auth"
                   ? "Login Required"
                   : step === "consent"
-                  ? "Identity Verification Consent"
+                  ? "Complete Your Digital Verification"
                   : "Choose Your Plan"}
               </h2>
               <button
@@ -690,79 +735,45 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
               {step === "consent" && (
                 <div className="space-y-6">
-                  <div className="text-center">
-                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-lg font-semibold mb-2">
-                      Identity Verification Required
-                    </h3>
-                    <p className="text-gray-600 text-sm mb-4">
-                      To proceed with your payment, we need to verify your identity as per regulatory requirements.
-                    </p>
+                  {/* YouTube Video */}
+                  <div className="bg-gray-100 rounded-lg overflow-hidden">
+                    <iframe
+                      width="100%"
+                      height="315"
+                      src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                      title="Digital Verification Process"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="w-full"
+                    ></iframe>
                   </div>
 
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-medium text-blue-900 mb-3">
-                      What happens during verification?
+                  {/* Content Below Video */}
+                  <div className="bg-white border border-gray-200 rounded-lg p-6">
+                    <h4 className="text-xl font-semibold text-gray-900 mb-4">
+                      Why Digital Verification is Required
                     </h4>
-                    <ul className="text-sm text-blue-800 space-y-2">
-                      <li className="flex items-start gap-2">
-                        <span className="text-blue-600 mt-1">•</span>
-                        <span>You'll be asked to provide your PAN card details</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-blue-600 mt-1">•</span>
-                        <span>We'll verify your identity using secure government databases</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-blue-600 mt-1">•</span>
-                        <span>This process is mandatory for all financial transactions</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-blue-600 mt-1">•</span>
-                        <span>Your data is encrypted and securely processed</span>
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <h4 className="font-medium text-gray-900 mb-3">
-                      Your Information
-                    </h4>
-                    <div className="text-sm text-gray-600 space-y-1">
-                      <p><strong>Bundle:</strong> {bundle.name}</p>
-                      <p><strong>Amount:</strong> ₹{getPrice()}</p>
-                      <p><strong>Billing:</strong> {subscriptionType === "yearly" ? "Annually" : "Monthly"}</p>
-                      {appliedCoupon && (
-                        <p><strong>Discount:</strong> {appliedCoupon.code} ({appliedCoupon.discount}% off)</p>
-                      )}
+                    <div className="prose prose-gray max-w-none">
+                      <p className="text-gray-700 mb-4">
+                        As per SEBI regulations and RBI guidelines, all investment platforms must verify the identity 
+                        of their subscribers before processing any financial transactions. This digital verification 
+                        ensures the security of your investments and compliance with regulatory requirements.
+                      </p>
+                      <p className="text-gray-700 mb-4">
+                        The process is completely secure, government-approved, and takes only a few minutes to complete. 
+                        Your personal information is encrypted and protected throughout the verification process.
+                      </p>
+                      <p className="text-gray-700">
+                        Once verified, you'll have seamless access to all our premium investment services and 
+                        portfolio recommendations.
+                      </p>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        id="consent-checkbox"
-                        checked={consentGiven}
-                        onChange={(e) => setConsentGiven(e.target.checked)}
-                        className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor="consent-checkbox" className="text-sm text-gray-700">
-                        <span className="font-medium">I consent to the identity verification process</span>
-                        <br />
-                        <span className="text-gray-500">
-                          I understand that I need to provide my PAN card details and consent to identity verification 
-                          as required by financial regulations. I confirm that the information I provide will be accurate 
-                          and that I am the authorized person to make this transaction.
-                        </span>
-                      </label>
-                    </div>
-                  </div>
+                  {/* Consent Checkbox */}
 
+                  {/* Action Buttons */}
                   <div className="flex gap-3">
                     <Button
                       onClick={() => setStep("plan")}
@@ -773,10 +784,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     </Button>
                     <Button
                       onClick={handleConsentProceed}
-                      disabled={!consentGiven}
                       className="flex-1 bg-[#001633] hover:bg-[#002244] text-white disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
-                      Continue to Verification
+                      Proceed to Verification
                     </Button>
                   </div>
                 </div>

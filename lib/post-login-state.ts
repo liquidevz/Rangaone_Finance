@@ -56,6 +56,9 @@ export const postLoginState = {
     const state = postLoginState.get();
     if (!state) return false;
 
+    // Clear state immediately to prevent duplicate execution
+    postLoginState.clear();
+
     switch (state.action) {
       case "purchase":
         if (state.bundleId && state.pricingType && onPurchase) {
@@ -69,7 +72,6 @@ export const postLoginState = {
         break;
     }
 
-    postLoginState.clear();
     return true;
   }
 };

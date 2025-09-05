@@ -11,6 +11,7 @@ import { paymentService } from "@/services/payment.service"
 import CartAuthForm from "@/components/cart-auth-form"
 import { DigioVerificationModal } from "@/components/digio-verification-modal"
 import { usePaymentState } from "@/components/payment/payment-state-context"
+import { profileCompletionState } from "@/lib/profile-completion-state"
 import type { PaymentAgreementData } from "@/services/digio.service"
 
 export function EnhancedPaymentModal() {
@@ -86,6 +87,7 @@ export function EnhancedPaymentModal() {
   const handleAuthSuccess = async () => {
     // Immediately continue the flow after successful login
     continuedAfterAuthRef.current = true
+    // Don't close modal, proceed to next step
     startDigioFlow()
   }
 
@@ -179,6 +181,7 @@ export function EnhancedPaymentModal() {
               }
               
               setStep("success")
+              profileCompletionState.markFirstPaymentComplete()
               toast({ title: "Payment Successful", description: "Subscription activated" })
             } else {
               setStep("error")
@@ -229,6 +232,7 @@ export function EnhancedPaymentModal() {
               }
               
               setStep("success")
+              profileCompletionState.markFirstPaymentComplete()
               toast({ title: "Payment Successful", description: "Subscription activated" })
             } else {
               setStep("error")

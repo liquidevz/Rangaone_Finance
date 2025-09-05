@@ -163,31 +163,18 @@ export const digioService = {
         return;
       }
 
-      // Poll for completion
-      const pollInterval = setInterval(async () => {
-        try {
-          const status = await digioService.checkDocumentStatus(documentId);
-          if (status.agreement_status === 'completed') {
-            clearInterval(pollInterval);
-            popup.close();
-            onSuccess({ document_id: documentId, status: 'completed' });
-          } else if (status.agreement_status === 'expired' || status.agreement_status === 'failed') {
-            clearInterval(pollInterval);
-            popup.close();
-            onError(new Error(`Signing ${status.agreement_status}`));
-          }
-        } catch (error) {
-          // Continue polling on error
-        }
-      }, 3000);
+      // Skip polling, rely on demo interface message
+      const pollInterval = null;
 
-      // Check if popup is closed manually
-      const checkClosed = setInterval(() => {
-        if (popup.closed) {
-          clearInterval(checkClosed);
-          clearInterval(pollInterval);
+      // Listen for demo completion message
+      const messageHandler = (event: MessageEvent) => {
+        if (event.data.type === 'digio-success') {
+          window.removeEventListener('message', messageHandler);
+          popup.close();
+          onSuccess(event.data.data);
         }
-      }, 1000);
+      };
+      window.addEventListener('message', messageHandler);
 
       return;
     }
@@ -196,72 +183,23 @@ export const digioService = {
     digioService.showDemoESignInterface(documentId, customerEmail, onSuccess, onError);
   },
 
-  // Mock document status check
+  // Mock document status check without API call
   checkDocumentStatus: async (documentId: string): Promise<DigioSignResponse> => {
-    // Get access token from localStorage or sessionStorage
-    const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
-    if (!token) {
-      throw new Error('Not authenticated');
-    }
-
-    // Fetch user profile from API
-    const { latestEsign, fullName, email } = await get<{ latestEsign: { documentId: string; status: string, createdAt: string, signerName: string, signerEmail: string }; fullName: string; email: string }>('/api/user/profile');
-
-    // Check if latestEsign exists and documentId matches
-    if (
-      latestEsign &&
-      latestEsign.documentId &&
-      latestEsign.documentId === documentId
-    ) {
-      // Map status to allowed DigioSignResponse types
-      // agreement_status: "draft" | "requested" | "completed" | "expired" | "failed"
-      let agreement_status: "draft" | "requested" | "completed" | "expired" | "failed";
-      switch (latestEsign.status) {
-        case 'document_created':
-        case 'unsigned':
-          // agreement_status = 'requested';
-          // break;
-        case 'signed':
-        case 'completed':
-          agreement_status = 'completed';
-          break;
-        case 'expired':
-          agreement_status = 'expired';
-          break;
-        case 'failed':
-          agreement_status = 'failed';
-          break;
-        default:
-          agreement_status = 'requested';
-      }
-
-      // signing_parties.status: "signed" | "requested" | "expired"
-      let party_status: "signed" | "requested" | "expired";
-      if (agreement_status === "completed") {
-        party_status = "signed";
-      } else if (agreement_status === "expired") {
-        party_status = "expired";
-      } else {
-        party_status = "requested";
-      }
-
-      return {
-        id: documentId,
-        agreement_status,
-        file_name: "agreement.pdf",
-        created_at: latestEsign.createdAt || new Date().toISOString(),
-        signing_parties: [
-          {
-            name: latestEsign.signerName || fullName || "Unknown",
-            identifier: latestEsign.signerEmail || email || "unknown@example.com",
-            status: party_status,
-            signature_type: "aadhaar"
-          }
-        ]
-      };
-    } else {
-      throw new Error('Document not found or does not match latest eSign');
-    }
+    // Return requested status to keep polling
+    return {
+      id: documentId,
+      agreement_status: 'requested',
+      file_name: "agreement.pdf",
+      created_at: new Date().toISOString(),
+      signing_parties: [
+        {
+          name: "User",
+          identifier: "user@example.com",
+          status: "requested",
+          signature_type: "aadhaar"
+        }
+      ]
+    };
   },
 
   showDemoESignInterface: (

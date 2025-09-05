@@ -4,6 +4,7 @@ import { useAuth } from "./auth-context";
 import { ProfileCompletionModal } from "@/components/profile-completion-modal";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { profileCompletionState } from "@/lib/profile-completion-state";
 
 export default function ProfileCompletionGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, profileComplete, missingFields, isLoading } = useAuth();
@@ -15,22 +16,27 @@ export default function ProfileCompletionGuard({ children }: { children: React.R
   const isExemptRoute = exemptRoutes.includes(pathname) || pathname.startsWith("/auth/");
 
   useEffect(() => {
-    if (isAuthenticated && !profileComplete && !isExemptRoute && !isLoading) {
+    // Only show modal after first payment completion
+    const shouldShow = profileCompletionState.shouldShowModal(isAuthenticated, profileComplete);
+    if (shouldShow && !isExemptRoute && !isLoading) {
       setShowModal(true);
     } else {
       setShowModal(false);
     }
-  }, [isAuthenticated, profileComplete, isExemptRoute, isLoading]);
+  }, [isAuthenticated, profileComplete, isExemptRoute, isLoading, pathname]);
 
-  // If user is authenticated but profile is incomplete and not on exempt route, show modal
-  if (isAuthenticated && !profileComplete && !isExemptRoute && !isLoading) {
+  // If user should complete profile after first payment, show modal
+  if (showModal) {
     return (
       <>
         {children}
         <ProfileCompletionModal
           open={showModal}
           onOpenChange={() => {}} // Prevent closing
-          onProfileComplete={() => setShowModal(false)}
+          onProfileComplete={() => {
+            setShowModal(false);
+            profileCompletionState.markModalShown();
+          }}
           forceOpen={true}
         />
       </>
