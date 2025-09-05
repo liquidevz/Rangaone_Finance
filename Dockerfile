@@ -23,7 +23,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Copy environment variables for build-time
-COPY .env.production .env.production
+COPY .env .env
 
 # Set build environment variables (matching Vercel)
 ENV NODE_ENV=production
@@ -65,7 +65,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Copy environment file
-COPY --from=builder --chown=nextjs:nodejs /app/.env.production ./.env.production
+COPY --from=builder --chown=nextjs:nodejs /app/.env ./.env
 
 # Switch to non-root user
 USER nextjs

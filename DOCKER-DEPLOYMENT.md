@@ -7,7 +7,7 @@ This guide will help you containerize and deploy your Next.js application to wor
 ### Prerequisites
 - Docker Desktop installed and running
 - Git (for cloning)
-- Your `.env.production` file with all required environment variables
+- Your `.env` file with all required environment variables
 
 ### One-Command Deployment
 
@@ -44,7 +44,7 @@ docker run -d \
   --name rangaone-fe-prod \
   --restart unless-stopped \
   -p 3000:3000 \
-  --env-file .env.production \
+  --env-file .env \
   -e NODE_ENV=production \
   -e NEXT_TELEMETRY_DISABLED=1 \
   rangaone-fe:latest
@@ -53,7 +53,7 @@ docker run -d \
 ## 🔧 Configuration
 
 ### Environment Variables
-Ensure your `.env.production` file contains all necessary variables:
+Ensure your `.env` file contains all necessary variables:
 
 ```env
 # API Configuration
@@ -153,7 +153,7 @@ docker-deploy.bat   # Windows
    ```
 
 2. **Environment variables not loading**
-   - Ensure `.env.production` exists in project root
+   - Ensure `.env` exists in project root
    - Check file permissions
    - Verify environment variable names match exactly
 

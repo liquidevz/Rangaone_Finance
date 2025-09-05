@@ -12,7 +12,7 @@ services:
       - PORT=3000
       - HOSTNAME=0.0.0.0
     env_file:
-      - .env.production
+      - .env
     restart: unless-stopped
     networks:
       - rangaone-network

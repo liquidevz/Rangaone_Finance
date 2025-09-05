@@ -28,9 +28,9 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Check if .env.production exists
-if [ ! -f .env.production ]; then
-    print_error ".env.production file not found!"
+# Check if .env exists
+if [ ! -f .env ]; then
+    print_error ".env file not found!"
     exit 1
 fi
 

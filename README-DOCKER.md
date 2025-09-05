@@ -11,14 +11,14 @@ Your application is now fully dockerized with the `standalone` output configurat
 3. **deploy.sh** - Automated deployment script
 4. **.dockerignore** - Optimized build context
 5. **next.config.mjs** - Updated with production optimizations
-6. **.env.production.example** - Environment variables template
+6. **.env.example** - Environment variables template
 
 ## Quick Deployment
 
 ### 1. Setup Environment Variables
 ```bash
-cp .env.production.example .env.production
-# Edit .env.production with your actual values
+cp .env.example .env
+# Edit .env with your actual values
 ```
 
 ### 2. Deploy with Script (Linux/Mac)
@@ -108,7 +108,7 @@ docker-compose -f docker-compose.production.yml logs nginx
 - Verify standalone build includes API routes
 
 **Issue: Environment variables not loaded**
-- Ensure `.env.production` exists and is properly formatted
+- Ensure `.env` exists and is properly formatted
 - Check docker-compose.yml env_file configuration
 - Verify NEXT_PUBLIC_ prefix for client-side variables
 
@@ -124,7 +124,7 @@ docker-compose -f docker-compose.production.yml logs nginx
 
 ## Production Checklist
 
-- [ ] `.env.production` configured with real values
+- [ ] `.env` configured with real values
 - [ ] Database connections tested
 - [ ] API endpoints accessible
 - [ ] SSL certificates configured (if using HTTPS)

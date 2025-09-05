@@ -25,7 +25,7 @@ sudo chmod +x /usr/local/bin/docker-compose
 ### 3. Clone and Deploy
 ```bash
 # Upload your project files to VPS
-# Update .env.production with your actual values
+# Update .env with your actual values
 
 # Make deploy script executable
 chmod +x deploy.sh
@@ -95,7 +95,7 @@ sudo crontab -e
 
 ## Environment Variables
 
-Update `.env.production` with your actual values:
+Update `.env` with your actual values:
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=https://your-api-domain.com
@@ -161,7 +161,7 @@ git pull origin main
 
 ## Security Checklist
 
-- [ ] Update `.env.production` with secure values
+- [ ] Update `.env` with secure values
 - [ ] Configure firewall (UFW)
 - [ ] Set up SSL certificate
 - [ ] Configure Nginx security headers

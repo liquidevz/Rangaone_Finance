@@ -13,7 +13,7 @@ services:
       - NEXT_TELEMETRY_DISABLED=1
     restart: unless-stopped
     volumes:
-      - ./.env.production:/app/.env.production:ro
+      - ./.env:/app/.env:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
