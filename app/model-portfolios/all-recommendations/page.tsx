@@ -206,7 +206,7 @@ export default function ModelPortfolioAllRecommendationsPage() {
   const tipsPerPage = 999;
   const [filters, setFilters] = useState({
     category: 'all',
-    status: 'Active',
+    status: 'all',
     action: 'all',
     portfolioId: 'all',
     stockId: '',
@@ -357,11 +357,7 @@ export default function ModelPortfolioAllRecommendationsPage() {
       }
       
 
-      // Status filter
-      if (filters.status !== 'all' && tip.status?.toLowerCase() !== filters.status.toLowerCase()) {
-        return false;
-      }
-      
+
       // Category filter
       if (filters.category !== 'all' && tip.category !== filters.category) {
         return false;
@@ -498,7 +494,7 @@ export default function ModelPortfolioAllRecommendationsPage() {
   const clearFilters = () => {
     setFilters({
       category: 'all',
-      status: 'all', // Show all tips when clearing filters
+      status: 'all',
       action: 'all',
       portfolioId: 'all',
       stockId: '',
@@ -607,42 +603,7 @@ export default function ModelPortfolioAllRecommendationsPage() {
               </button>
             </div>
             
-            {/* Live/Closed Calls Checkboxes */}
-            <div className="flex items-center justify-center lg:ml-8 gap-4 lg:gap-6">
-              <label className="flex items-center gap-3 cursor-pointer select-none transition-all duration-200 hover:scale-105">
-                <input
-                  type="checkbox"
-                  checked={filters.status === 'Active'}
-                  onChange={() => handleFilterChange('status', filters.status === 'Active' ? 'all' : 'Active')}
-                  className="w-5 h-5 border-2 border-gray-400 rounded-[6px] accent-[#101e5a] focus:ring-0 focus:outline-none transition-all duration-200 hover:border-[#101e5a]"
-                  style={{ boxShadow: 'none' }}
-                />
-                <span className={`font-bold text-base lg:text-lg transition-colors duration-200 ${
-                  filters.status === 'Active' 
-                    ? 'text-[#101e5a]' 
-                    : 'text-gray-400 hover:text-gray-600'
-                }`}>
-                  Live Calls
-                </span>
-              </label>
-              
-              <label className="flex items-center gap-3 cursor-pointer select-none transition-all duration-200 hover:scale-105">
-                <input
-                  type="checkbox"
-                  checked={filters.status === 'Closed'}
-                  onChange={() => handleFilterChange('status', filters.status === 'Closed' ? 'all' : 'Closed')}
-                  className="w-5 h-5 border-2 border-gray-400 rounded-[6px] accent-[#101e5a] focus:ring-0 focus:outline-none transition-all duration-200 hover:border-[#101e5a]"
-                  style={{ boxShadow: 'none' }}
-                />
-                <span className={`font-bold text-base lg:text-lg transition-colors duration-200 ${
-                  filters.status === 'Closed' 
-                    ? 'text-[#101e5a]' 
-                    : 'text-gray-400 hover:text-gray-600'
-                }`}>
-                  Closed Calls
-                </span>
-              </label>
-            </div>
+
           </div>
 
           {/* Filter Pills Row */}
