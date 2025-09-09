@@ -49,10 +49,8 @@ function StockSymbolDisplay({ stockId }: { stockId?: string }) {
             console.log('📊 API response:', response.data)
             if (response.data?.symbol) {
               setSymbol(response.data.symbol)
-              stockSymbolCacheService.setCachedSymbol(stockId, response.data.symbol)
             } else if (response.data?.name) {
               setSymbol(response.data.name)
-              stockSymbolCacheService.setCachedSymbol(stockId, response.data.name)
             }
           })
           .catch(error => {
@@ -98,19 +96,90 @@ export function MarketIndicesSection() {
           return
         }
         
-        const indexSymbols = ['NIFTY50', 'MIDCAP150', 'NIFTYSMLCAP250']
+        // Define index symbols with proper display names
+        // Try multiple symbol variations to ensure NIFTY 50 is found
+        const indexConfig = [
+          { symbol: 'NIFTY 50', displayName: 'NIFTY 50', alternatives: ['NIFTY50', 'NIFTY_50', 'NIFTY', 'NIFTY INDEX', 'NSE:NIFTY50'] },
+          { symbol: 'MIDCAP150', displayName: 'NIFTY MIDCAP 150', alternatives: ['NIFTY MIDCAP 150', 'MIDCAP_150'] },
+          { symbol: 'NIFTYSMLCAP250', displayName: 'NIFTY 250', alternatives: ['NIFTY 250', 'NIFTY_250', 'SMLCAP250'] }
+        ]
+        
+        // Try primary symbols first
+        const indexSymbols = indexConfig.map(config => config.symbol)
         const results = await stockPriceService.getMultipleStockPrices(indexSymbols)
         
-        const validIndices = Array.from(results.values())
-          .filter(result => result.success && result.data)
-          .map(result => result.data!)
+        let validIndices = Array.from(results.entries())
+          .filter(([symbol, result]) => result.success && result.data)
+          .map(([symbol, result]) => {
+            const config = indexConfig.find(c => c.symbol === symbol)
+            const data = result.data!
+            // Override the name with our display name
+            return {
+              ...data,
+              name: config?.displayName || data.name || data.symbol
+            }
+          })
+
+        // If we're missing indices, try alternative symbols
+        const missingConfigs = indexConfig.filter(config => 
+          !validIndices.some(idx => idx.name === config.displayName)
+        )
+
+        if (missingConfigs.length > 0) {
+          console.log(`🔍 Trying alternative symbols for missing indices:`, 
+            missingConfigs.map(c => c.displayName))
+          
+          for (const config of missingConfigs) {
+            let found = false
+            for (const altSymbol of config.alternatives) {
+              if (found) break
+              try {
+                console.log(`🔄 Trying alternative symbol: ${altSymbol} for ${config.displayName}`)
+                const altResult = await stockPriceService.getStockPrice(altSymbol)
+                if (altResult.success && altResult.data) {
+                  console.log(`✅ Found data for ${config.displayName} using symbol: ${altSymbol}`)
+                  validIndices.push({
+                    ...altResult.data,
+                    name: config.displayName
+                  })
+                  found = true
+                } else {
+                  console.log(`❌ No data for ${altSymbol}: ${altResult.error || 'Unknown error'}`)
+                }
+              } catch (error) {
+                console.warn(`⚠️ Failed to fetch ${altSymbol}:`, error)
+              }
+            }
+            
+            // If still no data found, skip this index (no placeholders)
+            if (!found) {
+              console.warn(`⚠️ No API data found for ${config.displayName}, skipping (no placeholders)`)
+            }
+          }
+        }
+
+        console.log(`📊 Market Indices fetched: ${validIndices.length}/${indexConfig.length}`, 
+          validIndices.map(idx => idx.name))
         
+        // Only show indices with real API data - no placeholders
         if (validIndices.length > 0) {
-          setIndices(validIndices)
-          cache.set('market_indices', validIndices, 1)
+          // Sort to ensure consistent order: NIFTY 50, NIFTY MIDCAP 150, NIFTY 250
+          const sortedIndices = validIndices.sort((a, b) => {
+            const order = ['NIFTY 50', 'NIFTY MIDCAP 150', 'NIFTY 250']
+            return order.indexOf(a.name || '') - order.indexOf(b.name || '')
+          })
+          
+          console.log(`✅ Displaying ${sortedIndices.length} indices with real data:`, sortedIndices.map(idx => idx.name))
+          setIndices(sortedIndices)
+          cache.set('market_indices', sortedIndices, 1)
+        } else {
+          console.warn('⚠️ No market indices data available from API')
+          setIndices([])
         }
       } catch (error) {
         console.error('Failed to fetch indices data:', error)
+        // On error, show empty array (no placeholders)
+        setIndices([])
       } finally {
         setLoading(false)
       }
@@ -290,40 +359,47 @@ export function MarketIndicesSection() {
                       transition: 'transform 0.3s ease-in-out'
                     }}
                   >
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                          {indices[currentIndex]?.name || indices[currentIndex]?.symbol}
-                        </h3>
-                        <div className={`w-2 h-2 rounded-full ${
-                          indices[currentIndex]?.change < 0 ? 'bg-red-400' : 'bg-green-400'
-                        }`}></div>
-                      </div>
-                      
-                      <div className="text-3xl font-bold text-gray-900 leading-none">
-                        ₹{indices[currentIndex]?.currentPrice.toLocaleString()}
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm font-semibold ${
-                          indices[currentIndex]?.change < 0 
-                            ? 'bg-red-100 text-red-700' 
-                            : 'bg-green-100 text-green-700'
-                        }`}>
-                          {indices[currentIndex]?.change < 0 ? (
-                            <ArrowDown className="h-3.5 w-3.5" />
-                          ) : (
-                            <ArrowUp className="h-3.5 w-3.5" />
-                          )}
-                          <span>{indices[currentIndex]?.change < 0 ? '' : '+'}₹{indices[currentIndex]?.change.toFixed(2)}</span>
+                    {indices.length > 0 && indices[currentIndex] ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-medium text-gray-600 uppercase tracking-wide">
+                            {indices[currentIndex].name || indices[currentIndex].symbol}
+                          </h3>
+                          <div className={`w-2 h-2 rounded-full ${
+                            indices[currentIndex].change < 0 ? 'bg-red-400' : 'bg-green-400'
+                          }`}></div>
                         </div>
-                        <div className={`text-sm font-medium ${
-                          indices[currentIndex]?.change < 0 ? 'text-red-600' : 'text-green-600'
-                        }`}>
-                          ₹ ({indices[currentIndex]?.change < 0 ? '' : '+'}{indices[currentIndex]?.changePercent.toFixed(2)}%)
+                        
+                        <div className="text-3xl font-bold text-gray-900 leading-none">
+                          ₹{indices[currentIndex].currentPrice.toLocaleString()}
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm font-semibold ${
+                            indices[currentIndex].change < 0 
+                              ? 'bg-red-100 text-red-700' 
+                              : 'bg-green-100 text-green-700'
+                          }`}>
+                            {indices[currentIndex].change < 0 ? (
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            ) : (
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            )}
+                            <span>{indices[currentIndex].change < 0 ? '' : '+'}₹{indices[currentIndex].change.toFixed(2)}</span>
+                          </div>
+                          <div className={`text-sm font-medium ${
+                            indices[currentIndex].change < 0 ? 'text-red-600' : 'text-green-600'
+                          }`}>
+                            ₹ ({indices[currentIndex].change < 0 ? '' : '+'}{indices[currentIndex].changePercent.toFixed(2)}%)
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="space-y-3 text-center">
+                        <h3 className="text-sm font-medium text-gray-500">No market data available</h3>
+                        <p className="text-xs text-gray-400">Please check your connection and try again</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
