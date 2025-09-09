@@ -16,7 +16,7 @@ interface StockAllocation {
   symbol: string;
   weight: number;
   price: number;
-  action: 'Buy' | 'Buy More' | 'Fresh Buy';
+  action: string; // Use exact API status string
   sharesBought: number;
   actualCost: number;
 }
@@ -100,11 +100,18 @@ export function InvestmentCalculator() {
       throw new Error('Portfolio has no valid holdings with proper data');
     }
     
-    // Determine which stocks to actually buy
+    // Determine which stocks to actually buy - EXCLUDE HOLD status stocks
+    const excludeFromBuying = (holding: any) => {
+      if (!holding.status) return false;
+      const status = holding.status.toLowerCase();
+      return status.includes('hold');
+    };
+
     let buyableHoldings;
     if (totalAmount < minInvestment) {
       buyableHoldings = allValidHoldings.filter(holding => 
         holding.status &&
+        !excludeFromBuying(holding) &&
         (holding.status.toLowerCase().includes('buy more') || 
          (holding.status.toLowerCase().includes('buy') && !holding.status.toLowerCase().includes('fresh')))
       );
@@ -113,7 +120,8 @@ export function InvestmentCalculator() {
         throw new Error('No Buy or Buy More stocks available for investment below minimum amount');
       }
     } else {
-      buyableHoldings = allValidHoldings;
+      // Even with full investment, exclude HOLD stocks from buying
+      buyableHoldings = allValidHoldings.filter(holding => !excludeFromBuying(holding));
     }
     
     const prioritizedBuyableHoldings = [...buyableHoldings].sort((a, b) => {
@@ -170,7 +178,7 @@ export function InvestmentCalculator() {
           symbol: holding.symbol,
           weight: holding.weight || 0,
           price: holding.buyPrice,
-          action: (holding.status || 'Fresh Buy') as 'Buy' | 'Buy More' | 'Fresh Buy',
+          action: holding.status || 'Fresh Buy', // Use exact API status
           sharesBought,
           actualCost
         });
@@ -215,7 +223,7 @@ export function InvestmentCalculator() {
           symbol: holding.symbol,
           weight: holding.weight || 0,
           price: holding.buyPrice,
-          action: (holding.status || 'Fresh Buy') as 'Buy' | 'Buy More' | 'Fresh Buy',
+          action: holding.status || 'Fresh Buy', // Use exact API status
           sharesBought: 0,
           actualCost: 0
         });
@@ -426,11 +434,12 @@ export function InvestmentCalculator() {
                           </td>
                           <td className="px-2 py-2 text-center">
                             <span className={`px-1 py-0.5 rounded text-xs font-medium ${
-                              stock.action === 'Buy More' ? 'bg-green-100 text-green-700' :
-                              stock.action === 'Buy' ? 'bg-blue-100 text-blue-700' :
+                              stock.action?.toLowerCase().includes('buy more') ? 'bg-green-100 text-green-700' :
+                              stock.action?.toLowerCase().includes('buy') && !stock.action?.toLowerCase().includes('more') ? 'bg-blue-100 text-blue-700' :
+                              stock.action?.toLowerCase().includes('hold') ? 'bg-gray-100 text-gray-700' :
                               'bg-orange-100 text-orange-700'
                             }`}>
-                              {stock.action.toUpperCase()}
+                              {stock.action}
                             </span>
                           </td>
                           <td className="px-2 py-2 text-center font-medium">{stock.weight.toFixed(2)}%</td>
@@ -486,11 +495,12 @@ export function InvestmentCalculator() {
                         </td>
                         <td className="px-2 py-2 text-center">
                           <span className={`px-1 py-0.5 rounded text-xs font-medium ${
-                            stock.action === 'Buy More' ? 'bg-green-100 text-green-700' :
-                            stock.action === 'Buy' ? 'bg-blue-100 text-blue-700' :
+                            stock.action?.toLowerCase().includes('buy more') ? 'bg-green-100 text-green-700' :
+                            stock.action?.toLowerCase().includes('buy') && !stock.action?.toLowerCase().includes('more') ? 'bg-blue-100 text-blue-700' :
+                            stock.action?.toLowerCase().includes('hold') ? 'bg-gray-100 text-gray-700' :
                             'bg-orange-100 text-orange-700'
                           }`}>
-                            {stock.action.toUpperCase()}
+                            {stock.action}
                           </span>
                         </td>
                         <td className="px-2 py-2 text-center font-medium">{stock.weight.toFixed(2)}%</td>
