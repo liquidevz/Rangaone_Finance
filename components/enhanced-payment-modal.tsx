@@ -74,20 +74,30 @@ export function EnhancedPaymentModal() {
   const handleProceed = async () => {
     if (!bundle) return
 
-    // Step 1: Check authentication
-    if (!isAuthenticated) {
+    // Step 1: Always check authentication before Digio
+    if (!isAuthenticated || !user) {
       setStep("auth")
       return
     }
 
-    // Step 2: Start Digio verification (5-step flow for both paths)
+    // Verify token is still valid
+    const token =
+      (user as any)?.accessToken ||
+      localStorage.getItem("accessToken") ||
+      sessionStorage.getItem("accessToken");
+    if (!token) {
+      setStep("auth")
+      return
+    }
+
+    // Step 2: Start Digio verification only after authentication is confirmed
     startDigioFlow()
   }
 
   const handleAuthSuccess = async () => {
     // Immediately continue the flow after successful login
     continuedAfterAuthRef.current = true
-    // Don't close modal, proceed to next step
+    // Don't close modal, proceed to Digio verification now that user is authenticated
     startDigioFlow()
   }
 

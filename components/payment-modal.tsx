@@ -213,7 +213,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const handleConsentProceed = async () => {
     if (!bundle) return;
 
-    // Check authentication only when proceeding to payment
+    // Always check authentication before proceeding to Digio
     if (!isAuthenticated || !user) {
       paymentFlowState.update({ currentStep: "auth" });
       setStep("auth");
@@ -231,7 +231,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       return;
     }
 
-    // Start Digio verification
+    // Start Digio verification only after authentication is confirmed
     paymentFlowState.update({ currentStep: "digio" });
     startDigioFlow();
   };
@@ -239,7 +239,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const handleAuthSuccess = async () => {
     continuedAfterAuthRef.current = true;
     // Continue the flow immediately after successful authentication
-    // Skip consent and go directly to Digio verification
+    // Go to Digio verification now that user is authenticated
     paymentFlowState.update({ 
       currentStep: "digio", 
       isAuthenticated: true 

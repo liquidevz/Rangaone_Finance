@@ -241,7 +241,37 @@ export function DigioVerificationModal({
 
               {/* Step-specific content */}
               <AnimatePresence mode="wait">
-                {step === "signing" && documentId && (
+                {step === "creating" && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    className="bg-blue-50 border border-blue-200 rounded-lg p-4"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                      <span className="font-medium text-blue-800">Preparing Signature Request</span>
+                    </div>
+                    <p className="text-sm text-blue-700 mb-3">
+                      Setting up your digital signature document...
+                    </p>
+                    <Button
+                      onClick={() => {
+                        setStep("signing")
+                        setDocumentId("manual-override")
+                        toast({
+                          title: "Proceeding to Signature",
+                          description: "You can now complete the signing process",
+                        })
+                      }}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-2"
+                    >
+                      Continue to Signing
+                    </Button>
+                  </motion.div>
+                )}
+
+                {step === "signing" && (
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -255,9 +285,23 @@ export function DigioVerificationModal({
                     <p className="text-sm text-orange-700 mb-3">
                       Please complete the Aadhaar-based digital signature with OTP verification in the popup window.
                     </p>
-                    <div className="text-xs text-orange-600">
-                      Document ID: {documentId}
-                    </div>
+                    {documentId && (
+                      <div className="text-xs text-orange-600 mb-4">
+                        Document ID: {documentId}
+                      </div>
+                    )}
+                    <Button
+                      onClick={() => {
+                        setStep("completed")
+                        toast({
+                          title: "Document Signing Confirmed",
+                          description: "Proceeding to payment authorization",
+                        })
+                      }}
+                      className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                    >
+                      I have completed signing
+                    </Button>
                   </motion.div>
                 )}
 

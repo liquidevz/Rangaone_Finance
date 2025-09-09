@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -20,6 +20,10 @@ interface TourStep {
   highlightColor?: string
   waitForElement?: boolean
   customContent?: React.ReactNode
+  requireInteraction?: boolean
+  interactionSelector?: string
+  interactionType?: 'click' | 'hover' | 'input' | 'scroll'
+  interactionMessage?: string
 }
 
 const tourSteps: TourStep[] = [
@@ -67,11 +71,15 @@ const tourSteps: TourStep[] = [
   {
     id: 'global_search',
     title: 'Smart Search Feature',
-    description: 'Quickly find stocks, portfolios, recommendations, and any information across our platform. Our intelligent search helps you discover investment opportunities.',
+    description: 'Try our intelligent search! Click on the search box and type something to see how it works.',
     route: '/dashboard',
     selector: 'search',
     position: 'bottom',
-    category: 'tools'
+    category: 'tools',
+    requireInteraction: true,
+    interactionSelector: 'input[type="search"], input[placeholder*="search" i], .search-input, [data-testid="search"], button[aria-label*="search" i]',
+    interactionType: 'click',
+    interactionMessage: 'Click on the search box to continue'
   },
 
   // Expert Recommendations
@@ -113,11 +121,15 @@ const tourSteps: TourStep[] = [
   {
     id: 'user_menu',
     title: 'User Account Menu',
-    description: 'Manage your account, access settings, and logout from here. Click on your avatar to see account options including profile settings and subscription management.',
+    description: 'Click on your avatar to open the user menu and explore account options.',
     route: '/dashboard',
     selector: 'user menu',
     position: 'left',
-    category: 'navigation'
+    category: 'navigation',
+    requireInteraction: true,
+    interactionSelector: '.h-8.w-8.rounded-xl, button:has(.h-8.w-8.rounded-xl), .user-avatar, button[aria-label*="user" i], img[alt*="avatar" i]',
+    interactionType: 'click',
+    interactionMessage: 'Click on your avatar to open the menu'
   },
 
   // RangaOne Wealth
@@ -204,12 +216,16 @@ const tourSteps: TourStep[] = [
   {
     id: 'settings_tabs',
     title: 'Settings Categories',
-    description: 'Navigate through different settings categories: Profile (personal info), Portfolios (investment preferences), Subscriptions (plan management), and Payments (billing history).',
+    description: 'Try clicking on different tabs to explore various settings. Click on any tab to see how the settings are organized.',
     route: '/settings',
     selector: '[role="tablist"]',
     position: 'bottom',
     category: 'settings',
-    waitForElement: true
+    waitForElement: true,
+    requireInteraction: true,
+    interactionSelector: '[role="tab"]:not([aria-selected="true"]), .tab:not(.active), button:not(.active)',
+    interactionType: 'click',
+    interactionMessage: 'Click on any settings tab to continue'
   },
 
   // Videos For You
@@ -276,101 +292,228 @@ interface DemoTourProps {
   onClose: () => void
 }
 
+// Centralized state management to prevent race conditions
+interface TourState {
+  currentStep: number
+  highlightedElement: HTMLElement | null
+  tooltipPosition: { top: number; left: number }
+  isNavigating: boolean
+  isTransitioning: boolean
+  interactionCompleted: boolean
+  navigationError: string | null
+  retryCount: number
+  isReady: boolean
+  interactionElementFound: boolean
+}
+
+const initialTourState: TourState = {
+  currentStep: 0,
+  highlightedElement: null,
+  tooltipPosition: { top: 0, left: 0 },
+  isNavigating: false,
+  isTransitioning: false,
+  interactionCompleted: false,
+  navigationError: null,
+  retryCount: 0,
+  isReady: false,
+  interactionElementFound: false
+}
+
 export function DemoTour({ isOpen, onClose }: DemoTourProps) {
-  const [currentStep, setCurrentStep] = useState(0)
-  const [highlightedElement, setHighlightedElement] = useState<HTMLElement | null>(null)
-  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 })
-  const [isNavigating, setIsNavigating] = useState(false)
+  const [tourState, setTourState] = useState<TourState>(initialTourState)
+  const interactionCleanupRef = useRef<(() => void) | null>(null)
+  const navigationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const elementSearchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const router = useRouter()
   const pathname = usePathname()
+  const maxRetries = 3
 
-  const currentStepData = tourSteps[currentStep]
+  const currentStepData = tourSteps[tourState.currentStep]
 
+  // Centralized state updater to prevent race conditions
+  const updateTourState = useCallback((updates: Partial<TourState>) => {
+    setTourState(prev => ({ ...prev, ...updates }))
+  }, [])
+
+  // Enhanced element finder with better reliability
   const findElement = useCallback((selector: string): HTMLElement | null => {
     try {
       // First try exact selector
       let element = document.querySelector(selector) as HTMLElement
-      
-      if (!element) {
-        // Try simplified selectors
-        const alternatives = [
-          selector.replace(/\\\:/g, ':'), // Fix escaped colons
-          selector.replace(/\\/g, ''), // Remove all escapes
-          selector.split(',')[0].trim(), // Take first if comma-separated
-          selector.replace(/\:has\([^)]+\)/g, ''), // Remove :has() selectors
-          selector.replace(/\:first-child/g, ''), // Remove :first-child
-          selector.replace(/\:contains\([^)]+\)/g, ''), // Remove :contains()
-        ]
+      if (element && element.offsetParent !== null) {
+        return element
+      }
+
+      // Text-based searches with improved reliability
+      const textSearches: { [key: string]: () => HTMLElement | null } = {
+        'Market Indices': () => {
+          const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6'))
+          const heading = headings.find(el => 
+            el.textContent?.toLowerCase().includes('market indices') ||
+            el.textContent?.toLowerCase().includes('market index')
+          )
+          if (heading) {
+            // Find the closest container with meaningful content
+            const container = heading.closest('div[class*="bg-"], section, .card, .border, [class*="shadow"]') as HTMLElement
+            return container || heading.parentElement as HTMLElement
+          }
+          return null
+        },
         
-        for (const alt of alternatives) {
-          if (alt && alt !== selector && alt.trim()) {
-            element = document.querySelector(alt) as HTMLElement
-            if (element) break
+        'Expert Recommendations': () => {
+          const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6'))
+          const heading = headings.find(el => 
+            el.textContent?.toLowerCase().includes('expert recommendations') ||
+            el.textContent?.toLowerCase().includes('expert recommendation')
+          )
+          if (heading) {
+            const container = heading.closest('div[class*="bg-"], section, .card, .border, [class*="shadow"]') as HTMLElement
+            return container || heading.parentElement as HTMLElement
+          }
+          return null
+        },
+        
+        'Model Portfolio': () => {
+          const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6'))
+          const heading = headings.find(el => 
+            el.textContent?.toLowerCase().includes('model portfolio') ||
+            el.textContent?.toLowerCase().includes('model portfolios')
+          )
+          if (heading) {
+            const container = heading.closest('div[class*="bg-"], section, .card, .border, [class*="shadow"]') as HTMLElement
+            return container || heading.parentElement as HTMLElement
+          }
+          return null
+        },
+
+        'Open Recommendations': () => {
+          const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6'))
+          const heading = headings.find(el => 
+            el.textContent?.toLowerCase().includes('open recommendations') ||
+            el.textContent?.toLowerCase().includes('open recommendation')
+          )
+          if (heading) {
+            const container = heading.closest('div[class*="bg-"], section, .card, .border, [class*="shadow"]') as HTMLElement
+            return container || heading.parentElement as HTMLElement
+          }
+          return null
+        },
+
+        'Closed Recommendations': () => {
+          const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6'))
+          const heading = headings.find(el => 
+            el.textContent?.toLowerCase().includes('closed recommendations') ||
+            el.textContent?.toLowerCase().includes('closed recommendation')
+          )
+          if (heading) {
+            const container = heading.closest('div[class*="bg-"], section, .card, .border, [class*="shadow"]') as HTMLElement
+            return container || heading.parentElement as HTMLElement
+          }
+          return null
+        },
+
+        'sidebar': () => {
+          const candidates = [
+            'nav',
+            'aside', 
+            '[class*="sidebar" i]',
+            '.flex.h-screen > div:first-child',
+            '[role="navigation"]',
+            'div[class*="nav"]'
+          ]
+          
+          for (const candidate of candidates) {
+            const el = document.querySelector(candidate) as HTMLElement
+            if (el && el.offsetParent !== null) return el
+          }
+          return null
+        },
+
+        'user menu': () => {
+          const candidates = [
+            '.h-8.w-8.rounded-xl',
+            'button:has(.h-8.w-8.rounded-xl)',
+            '.user-avatar',
+            'button[aria-label*="user" i]',
+            'img[alt*="avatar" i]',
+            '[data-testid*="user"]',
+            '.profile-button'
+          ]
+          
+          for (const candidate of candidates) {
+            const el = document.querySelector(candidate) as HTMLElement
+            if (el && el.offsetParent !== null) {
+              return el.closest('.relative, button, div') as HTMLElement || el
+            }
+          }
+          return null
+        },
+
+        'search': () => {
+          const candidates = [
+            'input[type="search"]',
+            'input[placeholder*="search" i]',
+            '.search-input',
+            '[data-testid="search"]',
+            'button[aria-label*="search" i]',
+            '.relative.flex-1',
+            '[class*="search"]'
+          ]
+          
+          for (const candidate of candidates) {
+            const el = document.querySelector(candidate) as HTMLElement
+            if (el && el.offsetParent !== null) {
+              return el.closest('.relative, .flex-1, div') as HTMLElement || el
+            }
+          }
+          return null
+        }
+      }
+
+      // Try text-based searches
+      for (const [searchTerm, searchFn] of Object.entries(textSearches)) {
+        if (selector.toLowerCase().includes(searchTerm.toLowerCase())) {
+          const foundElement = searchFn()
+          if (foundElement && foundElement.offsetParent !== null) {
+            return foundElement
           }
         }
       }
 
-      // Text-based fallbacks for specific elements
-      if (!element) {
-        if (selector.includes('Market Indices') || selector.includes('market_indices')) {
-          element = Array.from(document.querySelectorAll('h2, h3')).find(el => 
-            el.textContent?.includes('Market Indices')
-          )?.closest('div, section, .bg-white') as HTMLElement
+      // Generic fallbacks with better detection
+      if (selector === 'main') {
+        const candidates = ['main', '[role="main"]', '.main-content', 'div[class*="main"]']
+        for (const candidate of candidates) {
+          const el = document.querySelector(candidate) as HTMLElement
+          if (el && el.offsetParent !== null) return el
         }
-        
-        if (selector.includes('Expert Recommendations') || selector.includes('expert_recommendations')) {
-          element = Array.from(document.querySelectorAll('h2, h3')).find(el => 
-            el.textContent?.includes('Expert Recommendations')
-          )?.closest('div, section, .bg-white') as HTMLElement
+      } else if (selector === 'iframe') {
+        const candidates = ['iframe[src*="youtube"]', 'iframe[src*="vimeo"]', 'iframe']
+        for (const candidate of candidates) {
+          const el = document.querySelector(candidate) as HTMLElement
+          if (el && el.offsetParent !== null) return el
         }
-        
-        if (selector.includes('Model Portfolio') || selector.includes('model_portfolio')) {
-          element = Array.from(document.querySelectorAll('h2, h3')).find(el => 
-            el.textContent?.includes('Model Portfolio')
-          )?.closest('div, section, .bg-white') as HTMLElement
-        }
-
-        // For RangaOne Wealth page
-        if (selector.includes('Open Recommendations')) {
-          element = Array.from(document.querySelectorAll('h2, h3')).find(el => 
-            el.textContent?.includes('Open Recommendations')
-          )?.closest('div, section, .shadow-sm') as HTMLElement
-        }
-
-        if (selector.includes('Closed Recommendations')) {
-          element = Array.from(document.querySelectorAll('h2, h3')).find(el => 
-            el.textContent?.includes('Closed Recommendations')
-          )?.closest('div, section, .shadow-sm') as HTMLElement
-        }
-
-        // Sidebar and navigation elements
-        if (selector.includes('sidebar') || selector.includes('Sidebar')) {
-          element = document.querySelector('nav, aside, [class*="sidebar"]') as HTMLElement ||
-                   document.querySelector('.flex.h-screen > div:first-child') as HTMLElement
-        }
-
-        if (selector.includes('user') && selector.includes('menu')) {
-          element = document.querySelector('.h-8.w-8.rounded-xl')?.closest('.relative') as HTMLElement
-        }
-
-        // Global search
-        if (selector.includes('search') || selector.includes('Search')) {
-          element = document.querySelector('input[placeholder*="search" i], .relative.flex-1') as HTMLElement
+      } else if (selector.includes('tablist')) {
+        const candidates = ['[role="tablist"]', '.tabs', '.tab-list', '[class*="tab"]']
+        for (const candidate of candidates) {
+          const el = document.querySelector(candidate) as HTMLElement
+          if (el && el.offsetParent !== null) return el
         }
       }
 
-      return element
+      return null
     } catch (error) {
-      console.warn('Error finding element:', error)
+      console.warn('Element search error:', error)
       return null
     }
   }, [])
 
+  // Improved position calculation with better viewport handling
   const calculatePosition = useCallback((element: HTMLElement | null, position: string) => {
-    const tooltipWidth = 400
-    const tooltipHeight = 320
+    const tooltipWidth = 420
+    const tooltipHeight = 350
     const offset = 25
-    const margin = 15
+    const margin = 20
     
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
@@ -381,9 +524,17 @@ export function DemoTour({ isOpen, onClose }: DemoTourProps) {
     let left = 0
 
     if (!element || position === 'center') {
-      // Center positioning - always safe
-      top = scrollY + (viewportHeight / 2) - (tooltipHeight / 2)
-      left = scrollX + (viewportWidth / 2) - (tooltipWidth / 2)
+      // Center positioning with better viewport handling
+      top = scrollY + Math.max(margin, (viewportHeight / 2) - (tooltipHeight / 2))
+      left = scrollX + Math.max(margin, (viewportWidth / 2) - (tooltipWidth / 2))
+      
+      // Ensure it doesn't go off screen
+      if (left + tooltipWidth > scrollX + viewportWidth - margin) {
+        left = scrollX + viewportWidth - tooltipWidth - margin
+      }
+      if (top + tooltipHeight > scrollY + viewportHeight - margin) {
+        top = scrollY + viewportHeight - tooltipHeight - margin
+      }
     } else {
       const rect = element.getBoundingClientRect()
       const elementTop = rect.top + scrollY
@@ -427,121 +578,442 @@ export function DemoTour({ isOpen, onClose }: DemoTourProps) {
           }
           break
       }
+
+      // Final boundary checks
+      left = Math.max(scrollX + margin, Math.min(left, scrollX + viewportWidth - tooltipWidth - margin))
+      top = Math.max(scrollY + margin, Math.min(top, scrollY + viewportHeight - tooltipHeight - margin))
     }
 
-    // Final boundary checks with smart repositioning
-    if (left < scrollX + margin) {
-      left = scrollX + margin
-    } else if (left + tooltipWidth > scrollX + viewportWidth - margin) {
-      left = scrollX + viewportWidth - tooltipWidth - margin
-    }
-
-    if (top < scrollY + margin) {
-      top = scrollY + margin
-    } else if (top + tooltipHeight > scrollY + viewportHeight - margin) {
-      top = scrollY + viewportHeight - tooltipHeight - margin
-    }
-
-    return { 
-      top: Math.max(scrollY + margin, top), 
-      left: Math.max(scrollX + margin, left) 
-    }
+    return { top, left }
   }, [])
 
-  const highlightElement = useCallback(async (stepData: TourStep) => {
-    // Clear previous highlighting immediately
-    setHighlightedElement(null)
-    
-    // Handle navigation if needed
-    if (stepData.route && pathname !== stepData.route) {
-      setIsNavigating(true)
+  // Improved navigation with better error handling and timing
+  const navigateToRoute = useCallback(async (route: string): Promise<boolean> => {
+    try {
+      updateTourState({ navigationError: null, isNavigating: true })
       
-      // Calculate position for center while navigating
-      const centerPosition = calculatePosition(null, 'center')
-      setTooltipPosition(centerPosition)
-      
-      router.push(stepData.route)
-      
-      // Wait for navigation to complete
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      setIsNavigating(false)
-      
-      // Additional wait for page to stabilize
-      await new Promise(resolve => setTimeout(resolve, 500))
-    }
-
-    // Try to find element with retries for better reliability
-    let element: HTMLElement | null = null
-    let attempts = 0
-    const maxAttempts = stepData.waitForElement ? 8 : 3
-    
-    while (!element && attempts < maxAttempts) {
-      element = findElement(stepData.selector)
-      if (!element) {
-        await new Promise(resolve => setTimeout(resolve, 300))
-        attempts++
+      // Clear any existing navigation timeout
+      if (navigationTimeoutRef.current) {
+        clearTimeout(navigationTimeoutRef.current)
       }
-    }
-    
-    // Calculate position first, then set element and position together
-    const position = calculatePosition(element, stepData.position)
-    
-    if (element) {
-      // Smooth scroll to element
-      element.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'center',
-        inline: 'center'
+      
+      // Navigate using Next.js router
+      await router.push(route)
+      
+      // Wait for route change with timeout
+      const navigationPromise = new Promise<boolean>((resolve) => {
+        let attempts = 0
+        const maxWaitAttempts = 30 // 15 seconds max
+        
+        const checkNavigation = () => {
+          if (window.location.pathname === route) {
+            resolve(true)
+          } else if (attempts < maxWaitAttempts) {
+            attempts++
+            setTimeout(checkNavigation, 500)
+          } else {
+            resolve(false)
+          }
+        }
+        
+        checkNavigation()
       })
       
-      // Wait for scroll to complete, then set highlighting
-      await new Promise(resolve => setTimeout(resolve, 600))
+      const navigationSuccess = await navigationPromise
       
-      // Double-check element is still there after scroll
-      const finalElement = findElement(stepData.selector)
-      if (finalElement) {
-        setHighlightedElement(finalElement)
-        // Recalculate position after scroll
-        const finalPosition = calculatePosition(finalElement, stepData.position)
-        setTooltipPosition(finalPosition)
-      } else {
-        setTooltipPosition(position)
+      if (!navigationSuccess) {
+        throw new Error(`Navigation to ${route} timed out`)
       }
-    } else {
-      // No element found, use center or calculated position
-      setTooltipPosition(position)
+      
+      // Wait for DOM to stabilize with improved detection
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // Wait for React hydration and components to mount
+      let domStable = false
+      let stabilityAttempts = 0
+      const maxStabilityAttempts = 8
+      
+      while (!domStable && stabilityAttempts < maxStabilityAttempts) {
+        const initialCount = document.querySelectorAll('*').length
+        await new Promise(resolve => setTimeout(resolve, 400))
+        const finalCount = document.querySelectorAll('*').length
+        
+        // DOM is stable if element count hasn't changed significantly
+        domStable = Math.abs(initialCount - finalCount) <= 2
+        stabilityAttempts++
+      }
+      
+      // Additional wait for any async components
+      await new Promise(resolve => setTimeout(resolve, 800))
+      
+      return true
+    } catch (error) {
+      console.error('Navigation error:', error)
+      updateTourState({ 
+        navigationError: error instanceof Error ? error.message : 'Navigation failed' 
+      })
+      return false
+    } finally {
+      updateTourState({ isNavigating: false })
     }
-  }, [findElement, calculatePosition, router, pathname])
+  }, [router, updateTourState])
 
+  // Improved interaction detection with better cleanup
+  const setupInteractionDetection = useCallback((stepData: TourStep) => {
+    if (!stepData.requireInteraction || !stepData.interactionSelector) {
+      updateTourState({ interactionElementFound: true })
+      return
+    }
+
+    // Clean up any existing listener
+    if (interactionCleanupRef.current) {
+      interactionCleanupRef.current()
+      interactionCleanupRef.current = null
+    }
+
+    const handleInteraction = (event: Event) => {
+      event.preventDefault()
+      event.stopPropagation()
+      
+      // Set completion state immediately
+      updateTourState({ interactionCompleted: true })
+      
+      // Cleanup listener after a short delay
+      setTimeout(() => {
+        if (interactionCleanupRef.current) {
+          interactionCleanupRef.current()
+          interactionCleanupRef.current = null
+        }
+      }, 100)
+    }
+
+    // Enhanced element finding with comprehensive fallbacks
+    const findInteractionElement = (): HTMLElement | null => {
+      const selectors = stepData.interactionSelector!.split(',').map(s => s.trim())
+      
+      // Try each selector
+      for (const selector of selectors) {
+        const element = document.querySelector(selector) as HTMLElement
+        if (element && element.offsetParent !== null) {
+          return element
+        }
+      }
+      
+      // Comprehensive fallback searches based on step ID
+      const fallbackSearches: { [key: string]: string[] } = {
+        'global_search': [
+          'input[type="search"]',
+          'input[placeholder*="search" i]',
+          '[data-testid="search"]',
+          '.search-input',
+          'input[name*="search" i]',
+          '[aria-label*="search" i]',
+          '.search-box input',
+          '.search-field',
+          'input[class*="search"]'
+        ],
+        'user_menu': [
+          'button:has(img[alt*="avatar" i])',
+          '.user-avatar',
+          '[data-testid="user-menu"]',
+          'button[aria-label*="user" i]',
+          '.profile-button',
+          '.user-menu-trigger',
+          'img[alt*="profile" i]',
+          'button:has(.rounded-xl)'
+        ],
+        'settings_tabs': [
+          '[role="tab"]:not([aria-selected="true"])',
+          '.tab:not(.active)',
+          'button[data-tab]:not(.active)',
+          '.tab-button:not(.selected)',
+          '[class*="tab"]:not(.active)',
+          'button:not([aria-selected="true"])'
+        ]
+      }
+      
+      const fallbacks = fallbackSearches[stepData.id] || []
+      for (const fallback of fallbacks) {
+        const el = document.querySelector(fallback) as HTMLElement
+        if (el && el.offsetParent !== null) return el
+      }
+      
+      return null
+    }
+
+    // Retry mechanism with progressive delays
+    let attempts = 0
+    const maxAttempts = 10
+    
+    const trySetupInteraction = (): boolean => {
+      const interactionElement = findInteractionElement()
+      
+      if (interactionElement) {
+        updateTourState({ interactionElementFound: true })
+        
+        const eventType = stepData.interactionType || 'click'
+        
+        // Add event listener with proper options
+        interactionElement.addEventListener(eventType, handleInteraction, { 
+          once: true,
+          passive: false,
+          capture: true
+        })
+        
+        // Store cleanup function
+        interactionCleanupRef.current = () => {
+          interactionElement.removeEventListener(eventType, handleInteraction, { capture: true })
+        }
+        
+        return true
+      }
+      
+      return false
+    }
+    
+    // Initial attempt
+    if (!trySetupInteraction()) {
+      // Retry with progressive delays
+      const retrySetup = () => {
+        if (elementSearchTimeoutRef.current) {
+          clearTimeout(elementSearchTimeoutRef.current)
+        }
+        
+        elementSearchTimeoutRef.current = setTimeout(() => {
+          attempts++
+          const success = trySetupInteraction()
+          
+          if (!success && attempts < maxAttempts) {
+            retrySetup()
+          } else if (!success) {
+            // Fallback: mark as found but not completed to prevent blocking
+            updateTourState({ interactionElementFound: true })
+          }
+        }, 400 + (attempts * 300))
+      }
+      
+      retrySetup()
+    }
+  }, [updateTourState])
+
+  // Main step highlighting function with improved state management
+  const highlightElement = useCallback(async (stepData: TourStep) => {
+    try {
+      // Prevent overlapping transitions
+      if (tourState.isTransitioning) return
+      
+      updateTourState({ 
+        isTransitioning: true,
+        navigationError: null,
+        interactionCompleted: false,
+        interactionElementFound: false,
+        isReady: false
+      })
+      
+      // Clear existing highlights smoothly
+      updateTourState({ highlightedElement: null })
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
+      // Handle navigation if needed
+      if (stepData.route && pathname !== stepData.route) {
+        const centerPosition = calculatePosition(null, 'center')
+        updateTourState({ tooltipPosition: centerPosition })
+        
+        let navigationSuccess = false
+        let currentRetry = 0
+        
+        while (!navigationSuccess && currentRetry < maxRetries) {
+          navigationSuccess = await navigateToRoute(stepData.route)
+          
+          if (!navigationSuccess) {
+            currentRetry++
+            updateTourState({ retryCount: currentRetry })
+            
+            if (currentRetry < maxRetries) {
+              await new Promise(resolve => setTimeout(resolve, 2000))
+            }
+          }
+        }
+        
+        if (!navigationSuccess) {
+          throw new Error(`Failed to navigate to ${stepData.route} after ${maxRetries} attempts`)
+        }
+      }
+
+      // Enhanced element finding with better retry logic
+      let element: HTMLElement | null = null
+      let attempts = 0
+      const maxAttempts = stepData.waitForElement ? 15 : 8
+      
+      while (!element && attempts < maxAttempts) {
+        element = findElement(stepData.selector)
+        
+        if (!element) {
+          const delay = Math.min(500 + (attempts * 200), 1500)
+          await new Promise(resolve => setTimeout(resolve, delay))
+          attempts++
+          
+          // Force reflow every few attempts
+          if (attempts % 3 === 0) {
+            document.body.offsetHeight
+            await new Promise(resolve => setTimeout(resolve, 200))
+          }
+        }
+      }
+      
+      if (element) {
+        // Ensure element is visible in viewport
+        const rect = element.getBoundingClientRect()
+        const isInViewport = rect.top >= 0 && 
+                           rect.bottom <= window.innerHeight &&
+                           rect.left >= 0 && 
+                           rect.right <= window.innerWidth
+        
+        if (!isInViewport) {
+          element.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center',
+            inline: 'center'
+          })
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
+        
+        // Calculate position and setup interaction
+        const position = calculatePosition(element, stepData.position)
+        updateTourState({ tooltipPosition: position })
+        
+        // Setup interaction detection
+        await new Promise(resolve => setTimeout(resolve, 300))
+        setupInteractionDetection(stepData)
+        
+        // Wait for interaction setup
+        await new Promise(resolve => setTimeout(resolve, 400))
+        
+        // Finally set the highlighted element
+        updateTourState({ 
+          highlightedElement: element,
+          retryCount: 0,
+          isReady: true,
+          isTransitioning: false
+        })
+        
+      } else {
+        console.warn(`Element not found for step ${stepData.id}`)
+        const centerPosition = calculatePosition(null, 'center')
+        updateTourState({ 
+          tooltipPosition: centerPosition,
+          isReady: true,
+          isTransitioning: false
+        })
+        setupInteractionDetection(stepData)
+      }
+      
+    } catch (error) {
+      console.error('Error in highlightElement:', error)
+      updateTourState({ 
+        navigationError: error instanceof Error ? error.message : 'Unknown error occurred',
+        isTransitioning: false,
+        isReady: true
+      })
+      
+      const centerPosition = calculatePosition(null, 'center')
+      updateTourState({ tooltipPosition: centerPosition })
+    }
+  }, [findElement, calculatePosition, pathname, setupInteractionDetection, navigateToRoute, maxRetries, tourState.isTransitioning, updateTourState])
+
+  // Navigation functions with improved state management
   const nextStep = useCallback(() => {
-    if (currentStep < tourSteps.length - 1) {
-      setCurrentStep(currentStep + 1)
+    if (tourState.isTransitioning || tourState.isNavigating) return
+    
+    // Check if interaction is required and not completed
+    if (currentStepData.requireInteraction && !tourState.interactionCompleted) {
+      return
+    }
+    
+    // Clean up current interaction listener
+    if (interactionCleanupRef.current) {
+      interactionCleanupRef.current()
+      interactionCleanupRef.current = null
+    }
+    
+    // Reset states for next step
+    const nextStepIndex = tourState.currentStep + 1
+    
+    if (nextStepIndex < tourSteps.length) {
+      updateTourState({
+        currentStep: nextStepIndex,
+        interactionCompleted: false,
+        interactionElementFound: false,
+        navigationError: null,
+        retryCount: 0,
+        isReady: false
+      })
     } else {
       onClose()
     }
-  }, [currentStep, onClose])
+  }, [tourState.currentStep, tourState.isTransitioning, tourState.isNavigating, tourState.interactionCompleted, currentStepData, onClose, updateTourState])
 
   const previousStep = useCallback(() => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1)
+    if (tourState.isTransitioning || tourState.isNavigating || tourState.currentStep === 0) return
+    
+    // Clean up current interaction listener
+    if (interactionCleanupRef.current) {
+      interactionCleanupRef.current()
+      interactionCleanupRef.current = null
     }
-  }, [currentStep])
+    
+    // Reset states for previous step
+    updateTourState({
+      currentStep: tourState.currentStep - 1,
+      interactionCompleted: false,
+      interactionElementFound: false,
+      navigationError: null,
+      retryCount: 0,
+      isReady: false
+    })
+  }, [tourState.currentStep, tourState.isTransitioning, tourState.isNavigating, updateTourState])
 
   const skipTour = useCallback(() => {
+    // Clean up any active listeners and timeouts
+    if (interactionCleanupRef.current) {
+      interactionCleanupRef.current()
+      interactionCleanupRef.current = null
+    }
+    
+    if (navigationTimeoutRef.current) {
+      clearTimeout(navigationTimeoutRef.current)
+      navigationTimeoutRef.current = null
+    }
+    
+    if (elementSearchTimeoutRef.current) {
+      clearTimeout(elementSearchTimeoutRef.current)
+      elementSearchTimeoutRef.current = null
+    }
+    
+    // Reset all states
+    setTourState(initialTourState)
     onClose()
   }, [onClose])
 
-  // Highlight current step element
+  // Main effect to handle step changes
   useEffect(() => {
-    if (isOpen && currentStepData) {
+    if (isOpen && currentStepData && !tourState.isTransitioning) {
       highlightElement(currentStepData)
     }
-  }, [isOpen, currentStep, currentStepData, highlightElement])
+  }, [isOpen, tourState.currentStep, currentStepData, highlightElement, tourState.isTransitioning])
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      setHighlightedElement(null)
+      if (interactionCleanupRef.current) {
+        interactionCleanupRef.current()
+      }
+      if (navigationTimeoutRef.current) {
+        clearTimeout(navigationTimeoutRef.current)
+      }
+      if (elementSearchTimeoutRef.current) {
+        clearTimeout(elementSearchTimeoutRef.current)
+      }
     }
   }, [])
 
@@ -569,52 +1041,45 @@ export function DemoTour({ isOpen, onClose }: DemoTourProps) {
 
   const Overlay = () => {
     const highlightColor = currentStepData.highlightColor || 'blue'
-    const highlightRect = highlightedElement ? {
-      top: highlightedElement.getBoundingClientRect().top + window.pageYOffset,
-      left: highlightedElement.getBoundingClientRect().left + window.pageXOffset,
-      width: highlightedElement.offsetWidth,
-      height: highlightedElement.offsetHeight
+    const highlightRect = tourState.highlightedElement ? {
+      top: tourState.highlightedElement.getBoundingClientRect().top + window.pageYOffset,
+      left: tourState.highlightedElement.getBoundingClientRect().left + window.pageXOffset,
+      width: tourState.highlightedElement.offsetWidth,
+      height: tourState.highlightedElement.offsetHeight
     } : null
+
+    const isInteractionRequired = currentStepData.requireInteraction && !tourState.interactionCompleted
+    const canProceed = !isInteractionRequired && 
+                      !tourState.isNavigating && 
+                      !tourState.isTransitioning && 
+                      !tourState.navigationError &&
+                      tourState.isReady
 
     return (
       <div className="fixed inset-0 z-[9999] pointer-events-none">
-        {/* Clean overlay without blur - improved performance */}
-        <div className="absolute inset-0 bg-black/60 transition-opacity duration-300" />
+        {/* Improved spotlight overlay */}
+        <div 
+          className="absolute inset-0 bg-black transition-all duration-500 ease-out"
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            mask: tourState.highlightedElement && highlightRect && !tourState.isTransitioning
+              ? `radial-gradient(ellipse ${highlightRect.width/2 + 50}px ${highlightRect.height/2 + 50}px at ${highlightRect.left + highlightRect.width/2}px ${highlightRect.top + highlightRect.height/2}px, transparent 20%, transparent 50%, black 75%)`
+              : 'none',
+            WebkitMask: tourState.highlightedElement && highlightRect && !tourState.isTransitioning
+              ? `radial-gradient(ellipse ${highlightRect.width/2 + 50}px ${highlightRect.height/2 + 50}px at ${highlightRect.left + highlightRect.width/2}px ${highlightRect.top + highlightRect.height/2}px, transparent 20%, transparent 50%, black 75%)`
+              : 'none'
+          }}
+        />
         
-        {/* Cutout spotlight effect for highlighted element */}
-        {highlightedElement && highlightRect && (
+        {/* Enhanced highlight border */}
+        {tourState.highlightedElement && highlightRect && !tourState.isTransitioning && (
           <div
-            className="absolute bg-black/60 transition-all duration-300 ease-out"
+            className="absolute pointer-events-none transition-all duration-500 ease-out"
             style={{
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              clipPath: `polygon(
-                0% 0%, 
-                0% 100%, 
-                ${highlightRect.left - 10}px 100%, 
-                ${highlightRect.left - 10}px ${highlightRect.top - 10}px, 
-                ${highlightRect.left + highlightRect.width + 10}px ${highlightRect.top - 10}px, 
-                ${highlightRect.left + highlightRect.width + 10}px ${highlightRect.top + highlightRect.height + 10}px, 
-                ${highlightRect.left - 10}px ${highlightRect.top + highlightRect.height + 10}px, 
-                ${highlightRect.left - 10}px 100%, 
-                100% 100%, 
-                100% 0%
-              )`
-            }}
-          />
-        )}
-        
-        {/* Smooth highlight border */}
-        {highlightedElement && highlightRect && (
-          <div
-            className="absolute transition-all duration-500 ease-out pointer-events-none animate-pulse"
-            style={{
-              top: highlightRect.top - 6,
-              left: highlightRect.left - 6,
-              width: highlightRect.width + 12,
-              height: highlightRect.height + 12,
+              top: highlightRect.top - 12,
+              left: highlightRect.left - 12,
+              width: highlightRect.width + 24,
+              height: highlightRect.height + 24,
               border: `4px solid ${
                 highlightColor === 'blue' ? '#3B82F6' :
                 highlightColor === 'green' ? '#10B981' :
@@ -626,54 +1091,64 @@ export function DemoTour({ isOpen, onClose }: DemoTourProps) {
                 '#3B82F6'
               }`,
               borderRadius: '16px',
+              background: 'transparent',
               boxShadow: `
-                0 0 0 2px rgba(255,255,255,0.9),
-                0 0 20px ${
-                  highlightColor === 'blue' ? 'rgba(59, 130, 246, 0.5)' :
-                  highlightColor === 'green' ? 'rgba(16, 185, 129, 0.5)' :
-                  highlightColor === 'purple' ? 'rgba(139, 92, 246, 0.5)' :
-                  highlightColor === 'orange' ? 'rgba(245, 158, 11, 0.5)' :
-                  highlightColor === 'red' ? 'rgba(239, 68, 68, 0.5)' :
-                  highlightColor === 'indigo' ? 'rgba(99, 102, 241, 0.5)' :
-                  highlightColor === 'teal' ? 'rgba(20, 184, 166, 0.5)' :
-                  'rgba(59, 130, 246, 0.5)'
+                0 0 0 3px rgba(255,255,255,0.95),
+                0 0 30px ${
+                  highlightColor === 'blue' ? 'rgba(59, 130, 246, 0.6)' :
+                  highlightColor === 'green' ? 'rgba(16, 185, 129, 0.6)' :
+                  highlightColor === 'purple' ? 'rgba(139, 92, 246, 0.6)' :
+                  highlightColor === 'orange' ? 'rgba(245, 158, 11, 0.6)' :
+                  highlightColor === 'red' ? 'rgba(239, 68, 68, 0.6)' :
+                  highlightColor === 'indigo' ? 'rgba(99, 102, 241, 0.6)' :
+                  highlightColor === 'teal' ? 'rgba(20, 184, 166, 0.6)' :
+                  'rgba(59, 130, 246, 0.6)'
                 },
-                0 4px 20px rgba(0,0,0,0.1)
-              `
+                0 8px 32px rgba(0,0,0,0.15)
+              `,
+              animation: isInteractionRequired 
+                ? 'tourPulseInteraction 2s ease-in-out infinite' 
+                : 'tourPulseNormal 3s ease-in-out infinite'
             }}
           />
         )}
-        
-        {/* Enhanced Tooltip with smoother transitions */}
+
+        {/* Enhanced tooltip */}
         <Card
-          className="absolute bg-white shadow-2xl border border-gray-200 z-[10000] pointer-events-auto transform transition-all duration-300 ease-out"
+          className={cn(
+            "absolute pointer-events-auto transition-all duration-500 ease-out transform-gpu",
+            tourState.isTransitioning 
+              ? "opacity-0 scale-90 translate-y-8 blur-sm" 
+              : "opacity-100 scale-100 translate-y-0 blur-none"
+          )}
           style={{
-            top: tooltipPosition.top,
-            left: tooltipPosition.left,
-            width: '400px',
+            top: tourState.tooltipPosition.top,
+            left: tourState.tooltipPosition.left,
+            width: '420px',
             maxWidth: 'calc(100vw - 32px)',
             borderRadius: '20px',
-            willChange: 'transform',
-            backfaceVisibility: 'hidden',
+            boxShadow: '0 20px 40px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+            backdropFilter: 'blur(12px)',
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.95) 100%)'
           }}
         >
           <CardContent className="p-6">
             {/* Header */}
-            <div className="flex items-start justify-between mb-4">
+            <div className="flex items-start justify-between mb-5">
               <div className="flex items-center gap-3">
                 <Badge 
                   className={cn(
-                    "text-xs font-bold px-3 py-1.5 border-0 text-white shadow-sm",
-                    currentStepData.category === 'overview' && "bg-blue-600",
-                    currentStepData.category === 'navigation' && "bg-green-600", 
-                    currentStepData.category === 'features' && "bg-purple-600",
-                    currentStepData.category === 'tools' && "bg-orange-600",
-                    currentStepData.category === 'settings' && "bg-gray-700"
+                    "text-xs font-bold px-3 py-2 border-0 text-white shadow-lg",
+                    currentStepData.category === 'overview' && "bg-gradient-to-r from-blue-600 to-blue-700",
+                    currentStepData.category === 'navigation' && "bg-gradient-to-r from-green-600 to-green-700", 
+                    currentStepData.category === 'features' && "bg-gradient-to-r from-purple-600 to-purple-700",
+                    currentStepData.category === 'tools' && "bg-gradient-to-r from-orange-600 to-orange-700",
+                    currentStepData.category === 'settings' && "bg-gradient-to-r from-gray-700 to-gray-800"
                   )}
                 >
-                  Step {currentStep + 1} of {tourSteps.length}
+                  Step {tourState.currentStep + 1} of {tourSteps.length}
                 </Badge>
-                <Badge variant="outline" className="text-xs font-medium px-2 py-1 capitalize">
+                <Badge variant="outline" className="text-xs font-medium px-2 py-1 capitalize border-2">
                   {currentStepData.category}
                 </Badge>
               </div>
@@ -681,7 +1156,7 @@ export function DemoTour({ isOpen, onClose }: DemoTourProps) {
                 variant="ghost"
                 size="sm"
                 onClick={skipTour}
-                className="p-2 h-8 w-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 h-8 w-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all duration-200"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -690,59 +1165,109 @@ export function DemoTour({ isOpen, onClose }: DemoTourProps) {
             {/* Content */}
             <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2 leading-snug">
+                <h3 className="text-xl font-bold text-gray-900 mb-3 leading-tight">
                   {currentStepData.title}
                 </h3>
-                <p className="text-sm text-gray-600 leading-relaxed">
+                <p className="text-sm text-gray-700 leading-relaxed">
                   {currentStepData.description}
                 </p>
               </div>
 
-              {currentStepData.customContent && (
-                <div className="border-t pt-4">{currentStepData.customContent}</div>
+              {/* Interaction requirement indicator */}
+              {isInteractionRequired && (
+                <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-200 p-4 rounded-2xl">
+                  <div className="flex items-center gap-3">
+                    <div className="animate-bounce">
+                      <div className="w-3 h-3 bg-amber-400 rounded-full animate-pulse"></div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-amber-800 mb-1">
+                        Interaction Required
+                      </p>
+                      <p className="text-xs text-amber-700">
+                        {currentStepData.interactionMessage || 'Please interact with the highlighted element to continue'}
+                      </p>
+                      {!tourState.interactionElementFound && (
+                        <p className="text-xs text-amber-600 mt-1 italic">
+                          Searching for interactive element...
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
               )}
 
-              {isNavigating && (
-                <div className="flex items-center gap-3 text-sm text-blue-700 bg-blue-50 p-3 rounded-xl border border-blue-200">
-                  <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full" />
-                  <span className="font-medium">Loading {currentStepData.route?.replace('/', '')}...</span>
+              {currentStepData.customContent && (
+                <div className="border-t pt-4">
+                  {currentStepData.customContent}
+                </div>
+              )}
+
+              {/* Navigation status */}
+              {tourState.isNavigating && (
+                <div className="flex items-center gap-3 text-sm text-blue-700 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-2xl border-2 border-blue-200">
+                  <div className="animate-spin h-5 w-5 border-3 border-blue-600 border-t-transparent rounded-full" />
+                  <div>
+                    <span className="font-medium">Loading {currentStepData.route?.replace('/', '')}...</span>
+                    {tourState.retryCount > 0 && (
+                      <p className="text-xs text-blue-600 mt-1">Retry attempt {tourState.retryCount}/{maxRetries}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Navigation error */}
+              {tourState.navigationError && (
+                <div className="flex items-center gap-3 text-sm text-red-700 bg-gradient-to-r from-red-50 to-pink-50 p-4 rounded-2xl border-2 border-red-200">
+                  <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">!</span>
+                  </div>
+                  <div>
+                    <p className="font-medium">Navigation Error</p>
+                    <p className="text-xs text-red-600 mt-1">{tourState.navigationError}</p>
+                  </div>
                 </div>
               )}
             </div>
 
             {/* Controls */}
-            <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
+            <div className="flex items-center justify-between mt-6 pt-5 border-t-2 border-gray-100">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={previousStep}
-                disabled={currentStep === 0 || isNavigating}
-                className="flex items-center gap-2 px-3 py-2 font-medium disabled:opacity-50"
+                disabled={tourState.currentStep === 0 || tourState.isNavigating || tourState.isTransitioning}
+                className="flex items-center gap-2 px-4 py-2 font-medium disabled:opacity-50 transition-all duration-200 hover:scale-105"
               >
                 <ChevronLeft className="h-4 w-4" />
                 Previous
               </Button>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={skipTour}
-                  disabled={isNavigating}
-                  className="text-gray-500 hover:text-gray-700 px-3 py-2 disabled:opacity-50"
+                  disabled={tourState.isNavigating || tourState.isTransitioning}
+                  className="text-gray-500 hover:text-gray-700 px-3 py-2 disabled:opacity-50 transition-all duration-200"
                 >
-                  Exit Tour
+                  Skip Tour
                 </Button>
                 
                 <Button
                   onClick={nextStep}
                   size="sm"
-                  disabled={isNavigating}
-                  className="flex items-center gap-2 px-4 py-2 font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 shadow-md"
+                  disabled={!canProceed}
+                  className={cn(
+                    "flex items-center gap-2 px-5 py-2 font-medium transition-all duration-300 rounded-xl shadow-lg hover:shadow-xl",
+                    canProceed 
+                      ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white hover:scale-105" 
+                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  )}
                 >
-                  {currentStep === tourSteps.length - 1 ? (
+                  {tourState.currentStep === tourSteps.length - 1 ? (
                     <>
-                      Finish
+                      Complete Tour
                       <Play className="h-4 w-4" />
                     </>
                   ) : (
@@ -756,20 +1281,59 @@ export function DemoTour({ isOpen, onClose }: DemoTourProps) {
             </div>
 
             {/* Progress bar */}
-            <div className="mt-4">
-              <div className="flex justify-between text-xs text-gray-500 mb-2">
-                <span>Progress</span>
-                <span>{Math.round(((currentStep + 1) / tourSteps.length) * 100)}%</span>
+            <div className="mt-5">
+              <div className="flex justify-between text-xs text-gray-600 mb-2 font-medium">
+                <span>Tour Progress</span>
+                <span>{Math.round(((tourState.currentStep + 1) / tourSteps.length) * 100)}%</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden shadow-inner">
                 <div
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 h-2 rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${((currentStep + 1) / tourSteps.length) * 100}%` }}
+                  className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 h-3 rounded-full transition-all duration-700 ease-out shadow-lg"
+                  style={{ 
+                    width: `${((tourState.currentStep + 1) / tourSteps.length) * 100}%`,
+                    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.1), 0 0 8px rgba(59, 130, 246, 0.3)'
+                  }}
                 />
               </div>
             </div>
           </CardContent>
         </Card>
+
+        {/* CSS animations */}
+        <style jsx>{`
+          @keyframes tourPulseNormal {
+            0%, 100% { 
+              opacity: 1; 
+              transform: scale(1);
+            }
+            50% { 
+              opacity: 0.95; 
+              transform: scale(1.01);
+            }
+          }
+          @keyframes tourPulseInteraction {
+            0%, 100% { 
+              opacity: 1; 
+              transform: scale(1);
+              filter: brightness(1.1);
+            }
+            25% {
+              opacity: 0.9;
+              transform: scale(1.03);
+              filter: brightness(1.3);
+            }
+            50% { 
+              opacity: 0.85; 
+              transform: scale(1.05);
+              filter: brightness(1.5);
+            }
+            75% {
+              opacity: 0.9;
+              transform: scale(1.03);
+              filter: brightness(1.3);
+            }
+          }
+        `}</style>
       </div>
     )
   }
