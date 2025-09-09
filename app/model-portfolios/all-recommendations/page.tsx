@@ -212,7 +212,7 @@ export default function ModelPortfolioAllRecommendationsPage() {
     stockId: '',
     startDate: null as Date | null,
     endDate: null as Date | null,
-    horizon: 'Long Term' as string,
+
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -356,11 +356,7 @@ export default function ModelPortfolioAllRecommendationsPage() {
         }
       }
       
-      // Horizon filter (if horizon field exists)
-      if (filters.horizon && tip.horizon && tip.horizon !== filters.horizon) {
-        return false;
-      }
-      
+
       // Status filter
       if (filters.status !== 'all' && tip.status?.toLowerCase() !== filters.status.toLowerCase()) {
         return false;
@@ -508,7 +504,7 @@ export default function ModelPortfolioAllRecommendationsPage() {
       stockId: '',
       startDate: null,
       endDate: null,
-      horizon: 'Long Term',
+
     });
     setCurrentPage(1);
     setShowDatePicker(false);
@@ -672,41 +668,7 @@ export default function ModelPortfolioAllRecommendationsPage() {
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="flex w-full border-b-2 border-gray-300 mt-2">
-            <button
-              className={`flex-1 text-center font-bold text-sm sm:text-lg lg:text-2xl py-2 lg:py-3 cursor-pointer transition-all duration-200 hover:bg-gray-50
-                ${filters.horizon === 'Long Term' 
-                  ? 'text-[#101e5a] border-b-4 border-[#101e5a] bg-white shadow-sm' 
-                  : 'text-gray-400 border-b-4 border-transparent hover:text-gray-600'
-                }`}
-              onClick={() => handleFilterChange('horizon', 'Long Term')}
-            >
-              <span className="hidden sm:inline">Long Term</span>
-              <span className="sm:hidden">Long</span>
-            </button>
-            <button
-              className={`flex-1 text-center font-bold text-sm sm:text-lg lg:text-2xl py-2 lg:py-3 cursor-pointer transition-all duration-200 hover:bg-gray-50
-                ${filters.horizon === 'Short Term' 
-                  ? 'text-[#101e5a] border-b-4 border-[#101e5a] bg-white shadow-sm' 
-                  : 'text-gray-400 border-b-4 border-transparent hover:text-gray-600'
-                }`}
-              onClick={() => handleFilterChange('horizon', 'Short Term')}
-            >
-              <span className="hidden sm:inline">Short Term</span>
-              <span className="sm:hidden">Short</span>
-            </button>
-            <button
-              className={`flex-1 text-center font-bold text-sm sm:text-lg lg:text-2xl py-2 lg:py-3 cursor-pointer transition-all duration-200 hover:bg-gray-50
-                ${filters.horizon === 'Swing' 
-                  ? 'text-[#101e5a] border-b-4 border-[#101e5a] bg-white shadow-sm' 
-                  : 'text-gray-400 border-b-4 border-transparent hover:text-gray-600'
-                }`}
-              onClick={() => handleFilterChange('horizon', 'Swing')}
-            >
-              Swing
-            </button>
-          </div>
+
         </div>
 
         {/* Results Section */}

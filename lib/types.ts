@@ -97,6 +97,7 @@ export interface TipDownloadLink {
 }
 
 export interface Tip {
+  [x: string]: any;
   analysistConfidence: any;
   _id: string;
   portfolio: string | {
@@ -115,7 +116,6 @@ export interface Tip {
   buyRange: string;
   targetPrice: string;
   targetPercentage?: string;
-  mpWeightage?: number;
   addMoreAt: string;
   tipUrl: string;
   exitPrice?: string;
