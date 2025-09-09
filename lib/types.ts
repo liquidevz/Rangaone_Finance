@@ -115,6 +115,7 @@ export interface Tip {
   buyRange: string;
   targetPrice: string;
   targetPercentage?: string;
+  mpWeightage?: number;
   addMoreAt: string;
   tipUrl: string;
   exitPrice?: string;

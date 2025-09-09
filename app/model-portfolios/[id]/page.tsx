@@ -25,6 +25,7 @@ import {
   ExternalLink,
   Clock,
   Lock,
+  ClipboardList,
 } from "lucide-react";
 import { useParams, useSearchParams } from "next/navigation";
 import React, { useEffect, useState, useRef, useMemo } from "react";
@@ -1793,11 +1794,10 @@ export default function PortfolioDetailsPage() {
             <div className="p-4 sm:p-6 pb-0">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4">
                 <h3 className="text-xl font-semibold text-blue-600 mb-2 sm:mb-0">Portfolio Investment Tips</h3>
-                {/* Removed View All Tips button */}
               </div>
             </div>
             
-            <div className={`w-full ${portfolioTips.length > 0 ? 'min-h-[300px] pb-8' : 'pb-2'}`}>
+            <div className={`w-full ${portfolioTips.length > 0 ? 'min-h-[300px] pb-4' : 'pb-2'}`}>
               <TipsCarousel 
                 portfolioId={portfolio?._id} 
                 tips={portfolioTips}
@@ -1809,6 +1809,23 @@ export default function PortfolioDetailsPage() {
                 }}
               />
             </div>
+            
+            {/* View All Recommendations Button */}
+            {portfolioTips.length > 0 && (
+              <div className="px-4 sm:px-6 pb-6">
+                <div className="flex justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push('/model-portfolios/all-recommendations')}
+                    className="flex items-center gap-2"
+                  >
+                    <ClipboardList className="h-4 w-4" />
+                    View All Recommendations
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
