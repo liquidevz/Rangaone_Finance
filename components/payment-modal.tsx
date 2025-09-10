@@ -31,7 +31,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   // Use isEmandateFlow to determine which options to show
   console.log("isEmandateFlow:", isEmandateFlow);
   const [step, setStep] = useState<
-    "plan" | "consent" | "auth" | "digio" | "processing" | "success" | "error"
+    "plan" | "consent" | "auth" | "pan-form" | "esign" | "processing" | "success" | "error"
   >("plan");
   const [subscriptionType, setSubscriptionType] = useState<
     "monthly" | "yearly"
@@ -48,9 +48,22 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [showDigio, setShowDigio] = useState(false);
   const [agreementData, setAgreementData] =
     useState<PaymentAgreementData | null>(null);
+  const [eSignData, setESignData] = useState<{
+    documentId?: string;
+    authUrl?: string;
+  } | null>(null);
   const [telegramLinks, setTelegramLinks] = useState<Array<{
     invite_link: string;
   }> | null>(null);
+  const [panFormData, setPanFormData] = useState({
+    fullName: "",
+    dateofBirth: "",
+    phone: "",
+    pandetails: ""
+  });
+  const [panFormLoading, setPanFormLoading] = useState(false);
+  const [panVerifying, setPanVerifying] = useState(false);
+  const [panVerified, setPanVerified] = useState(false);
   const cancelRequested = useRef(false);
   const continuedAfterAuthRef = useRef(false);
 
@@ -103,13 +116,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     // Check if we should continue an existing flow
     const continueStep = paymentFlowState.shouldContinueFlow(bundle._id, isAuthenticated);
     if (continueStep) {
-      if (continueStep === "digio") {
-        startDigioFlow();
-      } else {
-        setStep(continueStep as any);
-        if (continueStep === "consent") {
-        }
-      }
+      setStep(continueStep as any);
     } else {
       setStep("plan");
       // Save initial flow state
@@ -124,19 +131,19 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     continuedAfterAuthRef.current = false;
   }, [isOpen, isAuthenticated, bundle, isEmandateFlow]);
 
-  // If user authenticates while viewing the auth step, automatically continue to Digio
+  // If user authenticates while viewing the auth step, automatically continue to enhanced flow
   useEffect(() => {
     if (!isOpen) return;
     if (step !== "auth") return;
     if (isAuthenticated && bundle && !continuedAfterAuthRef.current) {
       continuedAfterAuthRef.current = true;
       paymentFlowState.update({ 
-        currentStep: "digio", 
+        currentStep: "processing", 
         isAuthenticated: true 
       });
-      startDigioFlow();
+      handlePaymentFlow();
     }
-  }, [isOpen, step, isAuthenticated, bundle, startDigioFlow]);
+  }, [isOpen, step, isAuthenticated, bundle]);
 
   const computeMonthlyEmandateDiscount = () => {
     if (!bundle) return 0;
@@ -195,6 +202,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     setProcessing(false);
     setShowDigio(false);
     setTelegramLinks(null);
+    setESignData(null);
     // Clear payment flow state when modal is closed
     paymentFlowState.clear();
     onClose();
@@ -213,8 +221,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const handleConsentProceed = async () => {
     if (!bundle) return;
 
-    // Always check authentication before proceeding to Digio
+    console.log("🚀 Consent proceed clicked - Flow type:", isEmandateFlow ? "eMandate" : "One-time");
+    
+    // Always check authentication before proceeding
     if (!isAuthenticated || !user) {
+      console.log("⚠️ User not authenticated - showing auth form");
       paymentFlowState.update({ currentStep: "auth" });
       setStep("auth");
       return;
@@ -226,25 +237,29 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       localStorage.getItem("accessToken") ||
       sessionStorage.getItem("accessToken");
     if (!token) {
+      console.log("⚠️ No valid token found - showing auth form");
       paymentFlowState.update({ currentStep: "auth" });
       setStep("auth");
       return;
     }
 
-    // Start Digio verification only after authentication is confirmed
-    paymentFlowState.update({ currentStep: "digio" });
-    startDigioFlow();
+    console.log("✅ User authenticated with token");
+    
+    // Apply enhanced order flow to BOTH eMandate and one-time payments
+    console.log("🔍 Starting enhanced payment flow for", isEmandateFlow ? "eMandate" : "one-time payment");
+    paymentFlowState.update({ currentStep: "processing" });
+    await handlePaymentFlow();
   };
 
   const handleAuthSuccess = async () => {
     continuedAfterAuthRef.current = true;
-    // Continue the flow immediately after successful authentication
-    // Go to Digio verification now that user is authenticated
+    // Continue the enhanced payment flow for both eMandate and one-time payments
+    console.log("🔍 Auth success - starting enhanced payment flow for", isEmandateFlow ? "eMandate" : "one-time payment");
     paymentFlowState.update({ 
-      currentStep: "digio", 
+      currentStep: "processing", 
       isAuthenticated: true 
     });
-    startDigioFlow();
+    await handlePaymentFlow();
   };
 
 
@@ -252,13 +267,216 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     setShowDigio(false);
     if (!bundle) return;
 
-    // Step 3: Create eMandate
-    // Step 4: Open payment gateway
-    // Step 5: Verify payment
-    await handlePaymentFlow();
+    try {
+      setStep("processing");
+      setProcessing(true);
+      setProcessingMsg("Creating order after Digio...");
+      
+      const order = await paymentService.createOrder({
+        productType: "Bundle",
+        productId: bundle._id,
+        planType: "monthly",
+        subscriptionType: (bundle.category as any) || "premium",
+        couponCode: appliedCoupon?.code || undefined,
+      });
+      
+      setProcessingMsg("Opening payment gateway…");
+      await paymentService.openCheckout(
+        order,
+        {
+          name: (user as any)?.fullName || user?.username || "User",
+          email: user?.email || "user@example.com",
+        },
+        async (rp) => {
+          setProcessingMsg("Verifying payment…");
+          const verify = await paymentService.verifyPayment({
+            orderId: order.orderId,
+            paymentId: rp?.razorpay_payment_id,
+            signature: rp?.razorpay_signature,
+          });
+          
+          if (verify.success) {
+            const links = (verify as any)?.telegramInviteLinks;
+            if (links?.length) setTelegramLinks(links);
+            setStep("success");
+            setProcessing(false);
+            paymentFlowState.clear();
+            profileCompletionState.markFirstPaymentComplete();
+            toast({ title: "Payment Successful", description: "Subscription activated" });
+          } else {
+            setStep("error");
+            setProcessing(false);
+            toast({ title: "Verification Failed", description: verify.message || "Please try again", variant: "destructive" });
+          }
+        },
+        (err) => {
+          setStep("error");
+          setProcessing(false);
+          toast({ title: "Payment Cancelled", description: err?.message || "Payment was cancelled", variant: "destructive" });
+        }
+      );
+    } catch (error: any) {
+      setStep("error");
+      setProcessing(false);
+      toast({ title: "Checkout Error", description: error?.message || "Could not start checkout", variant: "destructive" });
+    }
+  };
+
+  const handleEmandatePaymentFlow = async () => {
+    if (!bundle) return;
+
+    try {
+      cancelRequested.current = false;
+      setStep("processing");
+      setProcessing(true);
+      setProcessingMsg("Creating eMandate…");
+      
+      const emandateAmount =
+        subscriptionType === "yearly"
+          ? ((bundle as any).yearlyemandateprice as number) ||
+            bundle.yearlyPrice ||
+            0
+          : ((bundle as any).monthlyemandateprice as number) ||
+            bundle.monthlyPrice ||
+            0;
+
+      const emandate = await paymentService.createEmandate({
+        productType: "Bundle",
+        productId: bundle._id,
+        planType: subscriptionType,
+        subscriptionType: (bundle.category as any) || "premium",
+        amount: emandateAmount,
+        couponCode: appliedCoupon?.code || undefined,
+        items: [
+          {
+            productType: "Bundle",
+            productId: bundle._id,
+            planType: subscriptionType,
+            amount: emandateAmount,
+          },
+        ],
+      });
+
+      if (cancelRequested.current) {
+        setProcessing(false);
+        setStep("plan");
+        return;
+      }
+
+      setProcessingMsg("Opening payment gateway…");
+      await paymentService.openCheckout(
+        emandate,
+        {
+          name: (user as any)?.fullName || user?.username || "User",
+          email: user?.email || "user@example.com",
+        },
+        async () => {
+          setProcessingMsg("Verifying payment…");
+          const verify = await paymentService.verifyEmandateWithRetry(
+            emandate.subscriptionId
+          );
+
+          if (
+            verify.success ||
+            ["active", "authenticated"].includes(
+              (verify as any).subscriptionStatus || ""
+            )
+          ) {
+            const links = (verify as any)?.telegramInviteLinks as
+              | Array<{ invite_link: string }>
+              | undefined;
+            console.log("Telegram links received:", links);
+            if (links && links.length) {
+              setTelegramLinks(links);
+            }
+
+            setStep("success");
+            setProcessing(false);
+            // Clear flow state on successful payment
+            paymentFlowState.clear();
+            // Mark first payment complete for profile completion
+            profileCompletionState.markFirstPaymentComplete();
+            toast({
+              title: "Payment Successful",
+              description: "Subscription activated",
+            });
+          } else {
+            setStep("error");
+            setProcessing(false);
+            toast({
+              title: "Verification Failed",
+              description: verify.message || "Please try again",
+              variant: "destructive",
+            });
+          }
+        },
+        (err) => {
+          setStep("error");
+          setProcessing(false);
+          toast({
+            title: "Payment Cancelled",
+            description: err?.message || "Payment was cancelled",
+            variant: "destructive",
+          });
+        }
+      );
+    } catch (error: any) {
+      setStep("error");
+      setProcessing(false);
+      toast({
+        title: "Checkout Error",
+        description: error?.message || "Could not start checkout",
+        variant: "destructive",
+      });
+    }
   };
 
   const handlePaymentFlow = async () => {
+    if (!bundle) return;
+
+    console.log("🚀 Starting enhanced payment flow for bundle:", bundle.name);
+    
+    // Step 1: Check PAN details first
+    console.log("🔍 Step 1: Checking PAN details...");
+    const panCheck = await paymentService.checkPanDetails();
+    console.log("🔍 PAN check result:", panCheck);
+    
+    if (!panCheck.hasPan) {
+      console.log("❌ PAN details missing - showing PAN form");
+      // Pre-fill form with existing profile data
+      if (panCheck.profile) {
+        setPanFormData({
+          fullName: panCheck.profile.fullName || "",
+          dateofBirth: panCheck.profile.dateofBirth || "",
+          phone: panCheck.profile.phone || "",
+          pandetails: ""
+        });
+      }
+      setStep("pan-form");
+      setProcessing(false);
+      return;
+    }
+    
+    console.log("✅ PAN details found - proceeding with Digio verification");
+
+    // Show Digio verification for all flows
+    const price = getPrice();
+    const data: PaymentAgreementData = {
+      customerName: (user as any)?.fullName || user?.username || "User",
+      customerEmail: user?.email || "user@example.com",
+      customerMobile: user?.phone,
+      amount: price,
+      subscriptionType: isEmandateFlow ? subscriptionType : "monthly",
+      portfolioNames: bundle.portfolios.map((p) => p.name),
+      agreementDate: new Date().toLocaleDateString("en-IN"),
+    } as any;
+    
+    setAgreementData(data);
+    setShowDigio(true);
+    setProcessing(false);
+  };
+
+  const continueAfterDigio = async () => {
     if (!bundle) return;
 
     try {
@@ -266,107 +484,68 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       setStep("processing");
       setProcessing(true);
 
+      // Enhanced order flow now handles both eMandate and one-time payments
       if (isEmandateFlow) {
-        setProcessingMsg("Creating eMandate…");
-        const emandateAmount =
-          subscriptionType === "yearly"
-            ? ((bundle as any).yearlyemandateprice as number) ||
-              bundle.yearlyPrice ||
-              0
-            : ((bundle as any).monthlyemandateprice as number) ||
-              bundle.monthlyPrice ||
-              0;
-
-        const emandate = await paymentService.createEmandate({
-          productType: "Bundle",
-          productId: bundle._id,
-          planType: subscriptionType,
-          subscriptionType: (bundle.category as any) || "premium",
-          amount: emandateAmount,
-          couponCode: appliedCoupon?.code || undefined,
-          items: [
-            {
+        // eMandate flow after enhanced checks (PAN + Digio)
+        await handleEmandatePaymentFlow();
+      } else {
+        // One-time order flow
+        console.log("🔍 Step 2: Creating order...");
+        setProcessingMsg("Creating order…");
+        let order;
+        try {
+          order = await paymentService.createOrder({
+            productType: "Bundle",
+            productId: bundle._id,
+            planType: "monthly",
+            subscriptionType: (bundle.category as any) || "premium",
+            couponCode: appliedCoupon?.code || undefined,
+          });
+          console.log("✅ Order created successfully:", order);
+        } catch (error: any) {
+          console.log("⚠️ Order creation failed:", error);
+          if (error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
+            console.log("🔍 Step 3: eSign required - creating eSign request...");
+            setProcessingMsg("Creating eSign request...");
+            
+            // Create eSign request immediately
+            const eSignResult = await paymentService.createESignRequest({
+              signerEmail: user?.email || "user@example.com",
+              signerName: (user as any)?.fullName || user?.username || "User",
+              signerPhone: (user as any)?.phone || "",
+              reason: "Investment Agreement",
+              expireInDays: 10,
+              displayOnPage: "all",
+              notifySigners: true,
+              sendSignLink: true,
               productType: "Bundle",
               productId: bundle._id,
-              planType: subscriptionType,
-              amount: emandateAmount,
-            },
-          ],
-        });
-
-        if (cancelRequested.current) {
-          setProcessing(false);
-          setStep("plan");
-          return;
-        }
-
-        setProcessingMsg("Opening payment gateway…");
-        await paymentService.openCheckout(
-          emandate,
-          {
-            name: (user as any)?.fullName || user?.username || "User",
-            email: user?.email || "user@example.com",
-          },
-          async () => {
-            setProcessingMsg("Verifying payment…");
-            const verify = await paymentService.verifyEmandateWithRetry(
-              emandate.subscriptionId
-            );
-
-            if (
-              verify.success ||
-              ["active", "authenticated"].includes(
-                (verify as any).subscriptionStatus || ""
-              )
-            ) {
-              const links = (verify as any)?.telegramInviteLinks as
-                | Array<{ invite_link: string }>
-                | undefined;
-              console.log("Telegram links received:", links);
-              if (links && links.length) {
-                setTelegramLinks(links);
-              }
-
-              setStep("success");
-              setProcessing(false);
-              // Clear flow state on successful payment
-              paymentFlowState.clear();
-              // Mark first payment complete for profile completion
-              profileCompletionState.markFirstPaymentComplete();
-              toast({
-                title: "Payment Successful",
-                description: "Subscription activated",
-              });
-            } else {
-              setStep("error");
-              setProcessing(false);
-              toast({
-                title: "Verification Failed",
-                description: verify.message || "Please try again",
-                variant: "destructive",
-              });
-            }
-          },
-          (err) => {
-            setStep("error");
-            setProcessing(false);
-            toast({
-              title: "Payment Cancelled",
-              description: err?.message || "Payment was cancelled",
-              variant: "destructive",
+              productName: bundle.name
             });
+            
+            console.log("✅ eSign request created:", eSignResult);
+            setProcessingMsg("Please complete eSign and enter DID token...");
+            
+            // Show Digio modal
+            const price = getPrice();
+            const data: PaymentAgreementData = {
+              customerName: (user as any)?.fullName || user?.username || "User",
+              customerEmail: user?.email || "user@example.com",
+              customerMobile: user?.phone,
+              amount: price,
+              subscriptionType: "monthly",
+              portfolioNames: bundle.portfolios.map((p) => p.name),
+              agreementDate: new Date().toLocaleDateString("en-IN"),
+            } as any;
+            
+            setAgreementData(data);
+            setShowDigio(true);
+            setProcessing(false);
+            return;
+          } else {
+            throw error;
           }
-        );
-      } else {
-        // One-time order flow (still uses Digio as part of 5-step UX)
-        setProcessingMsg("Creating order…");
-        const order = await paymentService.createOrder({
-          productType: "Bundle",
-          productId: bundle._id,
-          planType: "monthly",
-          subscriptionType: (bundle.category as any) || "premium",
-          couponCode: appliedCoupon?.code || undefined,
-        });
+        }
 
         if (cancelRequested.current) {
           setProcessing(false);
@@ -374,6 +553,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           return;
         }
 
+        console.log("🔍 Step 6: Opening payment gateway...");
         setProcessingMsg("Opening payment gateway…");
         await paymentService.openCheckout(
           order,
@@ -382,6 +562,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             email: user?.email || "user@example.com",
           },
           async (rp) => {
+            console.log("🔍 Step 7: Payment successful, verifying...");
             setProcessingMsg("Verifying payment…");
             const verify = await paymentService.verifyPayment({
               orderId: order.orderId,
@@ -390,6 +571,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             });
 
             if (verify.success) {
+              console.log("✅ Payment verified successfully");
               const links = (verify as any)?.telegramInviteLinks as
                 | Array<{ invite_link: string }>
                 | undefined;
@@ -409,6 +591,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 description: "Subscription activated",
               });
             } else {
+              console.log("❌ Payment verification failed:", verify.message);
               setStep("error");
               setProcessing(false);
               toast({
@@ -419,6 +602,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             }
           },
           (err) => {
+            console.log("❌ Payment cancelled or failed:", err?.message);
             setStep("error");
             setProcessing(false);
             toast({
@@ -450,7 +634,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-          onClick={(e) => e.target === e.currentTarget && handleClose()}
+          onClick={(e) => {
+            // Prevent closing modal when clicking on backdrop during form interactions
+            if (e.target === e.currentTarget && step !== "pan-form" && !panVerifying && !panFormLoading) {
+              handleClose();
+            }
+          }}
         >
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
@@ -471,7 +660,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   ? "Login Required"
                   : step === "consent"
                   ? "Complete Your Digital Verification"
-                  : "Choose Your Plan"}
+                  : step === "pan-form"
+                  ? "Complete Your Profile"
+                  : step === "esign"
+                  ? "Complete Digio Verification"
+                  : "Choose Your Plan"
+                }
               </h2>
               <button
                 onClick={handleClose}
@@ -811,6 +1005,462 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     cartTotal={getPrice()}
                     cartItemCount={1}
                   />
+                </div>
+              )}
+
+              {step === "pan-form" && (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2 text-gray-900">
+                      Complete Your Profile
+                    </h3>
+                    <p className="text-gray-600 text-sm">
+                      We need your PAN details to comply with regulatory requirements
+                    </p>
+                  </div>
+                  
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-start space-x-3">
+                      <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                      <div>
+                        <h4 className="text-sm font-medium text-blue-800">Why PAN is Required</h4>
+                        <p className="text-sm text-blue-700 mt-1">
+                          As per SEBI regulations, PAN verification is mandatory for all investment services. Your details are secure and encrypted.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <form className="space-y-5" onSubmit={async (e) => {
+                    e.preventDefault();
+                    setPanFormLoading(true);
+                    
+                    try {
+                      if (!panVerified) {
+                        toast({
+                          title: "PAN Not Verified",
+                          description: "Please verify your PAN details first",
+                          variant: "destructive",
+                        });
+                        setPanFormLoading(false);
+                        return;
+                      }
+                      // Validate form data before sending
+                      if (!panFormData.fullName.trim()) {
+                        throw new Error("Full name is required");
+                      }
+                      if (!panFormData.dateofBirth) {
+                        throw new Error("Date of birth is required");
+                      }
+                      if (!panFormData.phone.trim()) {
+                        throw new Error("Phone number is required");
+                      }
+                      if (!panFormData.pandetails.trim()) {
+                        throw new Error("PAN details are required");
+                      }
+                      
+                      console.log('Updating PAN details:', panFormData);
+                      await paymentService.updatePanDetails(panFormData);
+                      console.log('PAN details updated successfully');
+                      
+                      // Re-check profile to confirm PAN details are saved
+                      const profileCheck = await paymentService.checkPanDetails();
+                      if (!profileCheck.hasPan) {
+                        toast({
+                          title: "Profile Update Failed",
+                          description: "PAN details could not be saved. Please try again.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      
+                      toast({
+                        title: "Profile Updated",
+                        description: "Your PAN details have been verified and saved successfully",
+                      });
+                      // Continue with payment flow
+                      await handlePaymentFlow();
+                    } catch (error: any) {
+                      toast({
+                        title: "Update Failed",
+                        description: error.message || "Failed to update profile",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setPanFormLoading(false);
+                    }
+                  }}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Full Name *
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            required
+                            value={panFormData.fullName}
+                            onChange={(e) => setPanFormData({...panFormData, fullName: e.target.value})}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                            placeholder="Enter your full name as per PAN"
+                          />
+                          <svg className="absolute right-3 top-3 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Date of Birth *
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="date"
+                            required
+                            value={panFormData.dateofBirth}
+                            onChange={(e) => setPanFormData({...panFormData, dateofBirth: e.target.value})}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-100"
+                            max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Phone Number *
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="tel"
+                          required
+                          value={panFormData.phone}
+                          onChange={(e) => setPanFormData({...panFormData, phone: e.target.value})}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                          placeholder="Enter your phone number"
+                        />
+                        <svg className="absolute right-3 top-3 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        PAN Card Number *
+                      </label>
+                      <div className="space-y-3">
+                        <div className="relative">
+                          <input
+                            type="text"
+                            required
+                            value={panFormData.pandetails}
+                            onChange={(e) => {
+                              setPanFormData({...panFormData, pandetails: e.target.value.toUpperCase()});
+                              setPanVerified(false);
+                            }}
+                            className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all font-mono text-lg tracking-wider ${
+                              panVerified 
+                                ? 'border-green-300 bg-green-50 focus:ring-green-500' 
+                                : 'border-gray-300 focus:ring-blue-500'
+                            }`}
+                            placeholder="ABCDE1234F"
+                            maxLength={10}
+                            pattern={"[A-Z]{5}[0-9]{4}[A-Z]{1}"}
+                          />
+                          {panVerified ? (
+                            <svg className="absolute right-3 top-3 w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                          ) : (
+                            <svg className="absolute right-3 top-3 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          )}
+                        </div>
+                        
+                        <Button
+                          type="button"
+                          onClick={async () => {
+                            if (!panFormData.pandetails || !panFormData.fullName || !panFormData.dateofBirth) {
+                              toast({
+                                title: "Missing Information",
+                                description: "Please fill in PAN, name, and date of birth first",
+                                variant: "destructive",
+                              });
+                              return;
+                            }
+                            
+                            setPanVerifying(true);
+                            try {
+                              // Convert YYYY-MM-DD to DD/MM/YYYY
+                              const [year, month, day] = panFormData.dateofBirth.split('-');
+                              const dobFormatted = `${day}/${month}/${year}`;
+                              console.log('Date conversion:', panFormData.dateofBirth, '->', dobFormatted);
+                              const verifyResult = await paymentService.verifyPanDetails({
+                                id_no: panFormData.pandetails,
+                                name: panFormData.fullName,
+                                dob: dobFormatted
+                              });
+                              
+                              if (verifyResult.success === true) {
+                                setPanVerified(true);
+                                toast({
+                                  title: "PAN Verified",
+                                  description: "Your PAN details have been successfully verified",
+                                });
+                              } else {
+                                setPanVerified(false);
+                                toast({
+                                  title: "PAN Verification Failed",
+                                  description: verifyResult.message || "Please check your PAN details",
+                                  variant: "destructive",
+                                });
+                              }
+                            } catch (error: any) {
+                              setPanVerified(false);
+                              toast({
+                                title: "Verification Error",
+                                description: error.message || "Failed to verify PAN",
+                                variant: "destructive",
+                              });
+                            } finally {
+                              setPanVerifying(false);
+                            }
+                          }}
+                          disabled={panVerifying || !panFormData.pandetails || !panFormData.fullName || !panFormData.dateofBirth}
+                          className={`w-full ${
+                            panVerified 
+                              ? 'bg-green-600 hover:bg-green-700 text-white' 
+                              : 'bg-blue-600 hover:bg-blue-700 text-white'
+                          }`}
+                        >
+                          {panVerifying ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                              Verifying PAN...
+                            </>
+                          ) : panVerified ? (
+                            <>
+                              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                              PAN Verified ✓
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Verify PAN Details
+                            </>
+                          )}
+                        </Button>
+                        
+                        <p className="text-xs text-gray-500">
+                          Format: 5 letters + 4 digits + 1 letter (e.g., ABCDE1234F)
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-3 pt-2">
+                      <Button
+                        type="button"
+                        onClick={() => setStep("consent")}
+                        variant="outline"
+                        className="flex-1 py-3"
+                        disabled={panFormLoading}
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                        Back
+                      </Button>
+                      <Button
+                        type="submit"
+                        className="flex-1 bg-[#001633] hover:bg-[#002244] text-white py-3 relative"
+                        disabled={panFormLoading || !panVerified}
+                      >
+                        {panFormLoading ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                            Verifying PAN...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Verify & Continue
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {step === "esign" && (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2 text-gray-900">
+                      Complete Digio Verification
+                    </h3>
+                    <p className="text-gray-600 text-sm mb-4">
+                      Please complete the Digio verification process and enter your DID token below
+                    </p>
+                  </div>
+                  
+                  {eSignData?.authUrl && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                      <p className="text-sm text-blue-700 mb-3">
+                        Click the button below to complete Digio verification:
+                      </p>
+                      <a
+                        href={eSignData.authUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        Complete Digio
+                      </a>
+                    </div>
+                  )}
+                  
+                  <form className="space-y-4" onSubmit={async (e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.target as HTMLFormElement);
+                    const didToken = formData.get('didToken') as string;
+                    
+                    if (!didToken?.trim()) {
+                      toast({
+                        title: "DID Token Required",
+                        description: "Please enter your DID token",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    
+                    setProcessing(true);
+                    setStep("processing");
+                    setProcessingMsg("Verifying Digio...");
+                    
+                    try {
+                      const verifyResult = await paymentService.verifyESignToken(didToken);
+                      if (verifyResult.success) {
+                        setProcessingMsg("Creating order after Digio...");
+                        const order = await paymentService.createOrder({
+                          productType: "Bundle",
+                          productId: bundle._id,
+                          planType: "monthly",
+                          subscriptionType: (bundle.category as any) || "premium",
+                          couponCode: appliedCoupon?.code || undefined,
+                        });
+                        
+                        // Continue with payment flow
+                        setProcessingMsg("Opening payment gateway…");
+                        await paymentService.openCheckout(
+                          order,
+                          {
+                            name: (user as any)?.fullName || user?.username || "User",
+                            email: user?.email || "user@example.com",
+                          },
+                          async (rp) => {
+                            setProcessingMsg("Verifying payment…");
+                            const verify = await paymentService.verifyPayment({
+                              orderId: order.orderId,
+                              paymentId: rp?.razorpay_payment_id,
+                              signature: rp?.razorpay_signature,
+                            });
+                            
+                            if (verify.success) {
+                              const links = (verify as any)?.telegramInviteLinks;
+                              if (links?.length) setTelegramLinks(links);
+                              setStep("success");
+                              setProcessing(false);
+                              paymentFlowState.clear();
+                              profileCompletionState.markFirstPaymentComplete();
+                              toast({ title: "Payment Successful", description: "Subscription activated" });
+                            } else {
+                              setStep("error");
+                              setProcessing(false);
+                              toast({ title: "Verification Failed", description: verify.message || "Please try again", variant: "destructive" });
+                            }
+                          },
+                          (err) => {
+                            setStep("error");
+                            setProcessing(false);
+                            toast({ title: "Payment Cancelled", description: err?.message || "Payment was cancelled", variant: "destructive" });
+                          }
+                        );
+                      } else {
+                        setStep("error");
+                        setProcessing(false);
+                        toast({
+                          title: "Digio Verification Failed",
+                          description: verifyResult.message || "Please try again",
+                          variant: "destructive",
+                        });
+                      }
+                    } catch (error: any) {
+                      setStep("error");
+                      setProcessing(false);
+                      toast({
+                        title: "Verification Error",
+                        description: error.message || "Failed to verify Digio",
+                        variant: "destructive",
+                      });
+                    }
+                  }}>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        DID Token *
+                      </label>
+                      <input
+                        type="text"
+                        name="didToken"
+                        required
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Enter your DID token from Digio completion"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        You'll receive this token after completing the Digio process
+                      </p>
+                    </div>
+                    
+                    <div className="flex gap-3">
+                      <Button
+                        type="button"
+                        onClick={() => setStep("processing")}
+                        variant="outline"
+                        className="flex-1"
+                      >
+                        Back
+                      </Button>
+                      <Button
+                        type="submit"
+                        className="flex-1 bg-[#001633] hover:bg-[#002244] text-white"
+                      >
+                        Verify & Continue
+                      </Button>
+                    </div>
+                  </form>
                 </div>
               )}
 

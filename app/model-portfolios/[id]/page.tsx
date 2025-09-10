@@ -1772,7 +1772,7 @@ export default function PortfolioDetailsPage() {
                   </div>
                 </div>
 
-                <div className="mt-3 pt-3 border-t border-gray-100/60">
+                {/* <div className="mt-3 pt-3 border-t border-gray-100/60">
                   <div className="flex items-center justify-center space-x-2 text-center">
                     <div className="flex items-center space-x-1">
                       <div className="w-1 h-1 bg-green-500 rounded-full"></div>
@@ -1782,7 +1782,7 @@ export default function PortfolioDetailsPage() {
                       {inceptionGainPercent === null ? '-' : `${inceptionGainPercent >= 0 ? '+' : ''}${Math.abs(inceptionGainPercent).toFixed(2)}%`} Gain
                     </span>
                   </div>
-                </div>
+                </div> */}
               </div>
                 </div>
           </CardContent>

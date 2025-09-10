@@ -77,6 +77,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       return;
     }
 
+    // Step 1: Check PAN details
+    const panCheck = await paymentService.checkPanDetails();
+    if (!panCheck.hasPan) {
+      toast({
+        title: "PAN Details Required",
+        description: "Please update your PAN details first",
+        variant: "destructive",
+      });
+      router.push("/settings?tab=profile");
+      return;
+    }
+
     setLoading(true);
     setPaymentStep("processing");
 
@@ -189,13 +201,56 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         // Show Digio first, payment will start after verification
         startDigioFlow();
       } else {
-        // Monthly one-time payment
-        const order = await paymentService.createOrder({ 
-          productType, 
-          productId, 
-          planType: "monthly",
-          subscriptionType: (bundle?.category as any) || "premium"
-        });
+        // Monthly one-time payment - handle eSign requirement
+        let order;
+        try {
+          order = await paymentService.createOrder({ 
+            productType, 
+            productId, 
+            planType: "monthly",
+            subscriptionType: (bundle?.category as any) || "premium"
+          });
+        } catch (error: any) {
+          if (error.requiresESign || error.eSignError) {
+            // Create eSign request
+            await paymentService.createESignRequest({
+              signerEmail: userInfo.email,
+              signerName: userInfo.name,
+              signerPhone: "",
+              reason: "Document Agreement",
+              expireInDays: 10,
+              displayOnPage: "all",
+              notifySigners: true,
+              sendSignLink: true,
+              productType,
+              productId,
+              productName: bundle?.name || portfolio?.name || "Product"
+            });
+            
+            // Show eSign completion prompt
+            const didToken = prompt("Please complete eSign and enter DID token:");
+            if (didToken) {
+              const verifyResult = await paymentService.verifyESignToken(didToken);
+              if (verifyResult.success) {
+                // Retry order creation after eSign
+                order = await paymentService.createOrder({ 
+                  productType, 
+                  productId, 
+                  planType: "monthly",
+                  subscriptionType: (bundle?.category as any) || "premium"
+                });
+              } else {
+                finishError("eSign verification failed");
+                return;
+              }
+            } else {
+              finishError("eSign required for this product");
+              return;
+            }
+          } else {
+            throw error;
+          }
+        }
         await paymentService.openCheckout(
           order,
           userInfo,

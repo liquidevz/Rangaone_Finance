@@ -278,6 +278,18 @@ export default function CartPage() {
   };
 
   const handlePaymentTrigger = async () => {
+    // Step 1: Check PAN details first
+    const panCheck = await paymentService.checkPanDetails();
+    if (!panCheck.hasPan) {
+      toast({
+        title: "PAN Details Required",
+        description: "Please update your PAN details first",
+        variant: "destructive",
+      });
+      router.push("/settings?tab=profile");
+      return;
+    }
+
     // Check for already-purchased items before checkout
     const alreadyPurchasedItems = filteredItems.filter(item => 
       activatedPortfolioIds.includes(item.portfolio._id)
@@ -478,177 +490,6 @@ export default function CartPage() {
     
     // For authenticated users, go directly to Digio verification
     showDigioVerificationModal();
-    return;
-
-    // Check for already-purchased items before checkout
-    const alreadyPurchasedItems = filteredItems.filter(item => 
-      activatedPortfolioIds.includes(item.portfolio._id)
-    )
-    
-    if (alreadyPurchasedItems.length > 0) {
-      toast({
-        title: "Cannot Checkout",
-        description: "Please remove already-purchased items from your cart before proceeding.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setProcessingCheckout(true);
-    clearError();
-
-    try {
-      console.log("Starting direct checkout for subscription type:", subscriptionType);
-      
-      let orderResponse;
-      
-      // Use eMandate for yearly and quarterly subscriptions
-      if (subscriptionType === "yearly" || subscriptionType === "quarterly") {
-        console.log(`Creating cart eMandate for ${subscriptionType} subscription`);
-        console.log("Cart items:", cart?.items);
-        console.log("First cart item:", cart?.items?.[0]);
-        
-        // Check if cart has items
-        const cartItems2 = cart?.items ?? [];
-        if (cartItems2.length === 0) {
-          throw new Error("Cart is empty. Please add items before checkout.");
-        }
-        
-        // Prepare cart data for eMandate API with subscription type and pricing
-        const cartData = {
-          productType: "Portfolio", // Can be any product type
-          productId: cartItems2[0].portfolio._id, // Use first item's product ID
-          planType: subscriptionType, // Add subscription type (yearly/quarterly)
-          subscriptionType: "premium", // Add subscription category
-          amount: total, // Add total amount to ensure correct pricing
-          totalAmount: total, // Alternative field name
-          // Add individual item pricing for the API to use correct pricing
-          items: cartItems2.map(item => ({
-            portfolioId: item.portfolio._id,
-            quantity: item.quantity,
-            price: subscriptionType === "yearly" 
-              ? item.portfolio.subscriptionFee.find(fee => fee.type === "yearly")?.price || 0
-              : item.portfolio.subscriptionFee.find(fee => fee.type === "quarterly")?.price || 0
-          }))
-        };
-        
-        console.log("eMandate payload:", cartData);
-        console.log("Total amount being sent:", total);
-        console.log("Subscription type:", subscriptionType);
-        orderResponse = await paymentService.cartCheckoutEmandate(cartData);
-        console.log("Cart eMandate created:", orderResponse);
-      } else {
-        // Use regular checkout for monthly subscriptions
-        orderResponse = await paymentService.cartCheckout({
-          planType: subscriptionType,
-          subscriptionType: "premium",
-        });
-        console.log("Cart checkout created:", orderResponse);
-      }
-
-      // Initialize payment with Razorpay
-      await paymentService.openCheckout(
-        orderResponse,
-        {
-          name: "User", // You might want to get this from auth context
-          email: "user@example.com", // You might want to get this from auth context
-        },
-        async (response: any) => {
-          console.log("Payment success response:", response);
-          
-          // Handle payment verification
-          try {
-            const isEmandate = (subscriptionType === "yearly" || subscriptionType === "quarterly") && 'subscriptionId' in orderResponse;
-            
-            if (isEmandate) {
-              console.log("Processing eMandate verification");
-              const verificationResponse = await paymentService.verifyEmandate(
-                (orderResponse as any).subscriptionId
-              );
-              
-              if (verificationResponse.success || verificationResponse.message.includes("not authenticated yet")) {
-                const isNotAuthenticated = verificationResponse.message.includes("not authenticated yet");
-                
-                // Check profile completion after successful payment
-                await checkProfileCompletionAfterPayment();
-                
-                toast({
-                  title: `${subscriptionType === "yearly" ? "Yearly" : "Quarterly"} ${isNotAuthenticated ? "eMandate Created" : "Subscription Activated"}`,
-                  description: isNotAuthenticated 
-                    ? `Your ${subscriptionType} subscription has been created. Please complete the eMandate authentication to activate it.`
-                    : `Your ${subscriptionType} subscription with eMandate has been activated successfully`,
-                });
-                // Clear cart after successful payment
-                await refreshCart();
-              } else {
-                throw new Error(verificationResponse.message || "eMandate verification failed");
-              }
-            } else {
-              // Regular payment verification
-              const verificationResponse = await paymentService.verifyPayment({
-                orderId: response.razorpay_order_id,
-                paymentId: response.razorpay_payment_id,
-                signature: response.razorpay_signature
-              });
-              
-              if (verificationResponse.success) {
-                // Check profile completion after successful payment
-                await checkProfileCompletionAfterPayment();
-                
-                toast({
-                  title: "Payment Successful",
-                  description: "Your subscription has been activated",
-                });
-                // Clear cart after successful payment
-                await refreshCart();
-              } else {
-                throw new Error(verificationResponse.message || "Payment verification failed");
-              }
-            }
-          } catch (error: any) {
-            console.error("Payment verification failed:", error);
-            toast({
-              title: "Payment Verification Failed",
-              description: error.message || "Please contact support if payment was deducted",
-              variant: "destructive",
-            });
-          }
-        },
-        (error: any) => {
-          console.error("Payment failed:", error);
-          toast({
-            title: "Payment Failed",
-            description: error.message || "Payment was cancelled or failed",
-            variant: "destructive",
-          });
-        }
-      );
-    } catch (error: any) {
-      console.error("Checkout failed:", error);
-      console.error("Error details:", {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message
-      });
-      
-      let errorMessage = "Failed to initiate checkout";
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.response?.data?.error) {
-        errorMessage = error.response.data.error;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      toast({
-        title: "Checkout Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setProcessingCheckout(false);
-    }
   };
 
   const subtotal = filteredItems.reduce((sum, item) => {

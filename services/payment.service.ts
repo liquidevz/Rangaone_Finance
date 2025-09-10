@@ -1,4 +1,4 @@
-import { post, get } from "@/lib/axios";
+import { post, get, put } from "@/lib/axios";
 import { authService } from "./auth.service";
 import { externalSubscribeService } from "./external-subscribe.service";
 
@@ -93,6 +93,178 @@ export interface UserSubscription {
 }
 
 export const paymentService = {
+  // Check PAN details first
+  checkPanDetails: async (): Promise<{ hasPan: boolean; profile?: any }> => {
+    const token = authService.getAccessToken();
+    console.log("🔍 PAN Check - Token:", token ? "Present" : "Missing");
+    
+    try {
+      const response = await get("/api/user/profile", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      console.log("🔍 PAN Check - Profile response:", response);
+      console.log("🔍 PAN Check - Has PAN:", !!(response as any)?.pandetails);
+      
+      return {
+        hasPan: !!(response as any)?.pandetails,
+        profile: response
+      };
+    } catch (error) {
+      console.log("🔍 PAN Check - Error:", error);
+      return { hasPan: false };
+    }
+  },
+
+  // Verify PAN details using Digio
+  verifyPanDetails: async (panData: {
+    id_no: string;
+    name: string;
+    dob: string;
+  }): Promise<{ success: boolean; message: string; data?: any }> => {
+    const token = authService.getAccessToken();
+    console.log("🔍 Verifying PAN details:", { id_no: panData.id_no, name: panData.name, dob: panData.dob });
+    
+    try {
+      const response = await post("/digio/pan/verify", panData, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      console.log("🔍 PAN verification response:", response);
+      console.log("🔍 Response success value:", (response as any)?.success, "Type:", typeof (response as any)?.success);
+      
+      return {
+        success: (response as any)?.success === true,
+        message: (response as any)?.message || "PAN verification completed",
+        data: (response as any)?.data
+      };
+    } catch (error: any) {
+      console.log("🔍 PAN verification error:", error);
+      const errorData = error.response?.data;
+      return {
+        success: false,
+        message: errorData?.message || error.message || "PAN verification failed"
+      };
+    }
+  },
+
+  // Update PAN details
+  updatePanDetails: async (panData: {
+    fullName: string;
+    dateofBirth: string;
+    phone: string;
+    pandetails: string;
+  }): Promise<any> => {
+    const token = authService.getAccessToken();
+    
+    // Convert date format from YYYY-MM-DD to DD/MM/YYYY
+    const [year, month, day] = panData.dateofBirth.split('-');
+    const formattedDate = `${day}/${month}/${year}`;
+    
+    const formattedData = {
+      ...panData,
+      dateofBirth: formattedDate
+    };
+    
+    console.log("🔍 Updating PAN details with formatted data:", formattedData);
+    
+    try {
+      const response = await put("/api/user/profile", formattedData, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      console.log("✅ PAN details updated successfully:", response);
+      return response;
+    } catch (error: any) {
+      console.log("❌ PAN update error:", error);
+      console.log("❌ Error response:", error.response?.data);
+      
+      const errorData = error.response?.data;
+      let errorMessage = errorData?.error || "Failed to update profile";
+      
+      throw new Error(errorMessage);
+    }
+  },
+
+  // Create eSign request
+  createESignRequest: async (eSignData: {
+    signerEmail: string;
+    signerName: string;
+    signerPhone: string;
+    reason: string;
+    expireInDays: number;
+    displayOnPage: string;
+    notifySigners: boolean;
+    sendSignLink: boolean;
+    productType: string;
+    productId: string;
+    productName: string;
+  }): Promise<{ documentId: string; authUrl?: string }> => {
+    const token = authService.getAccessToken();
+    console.log("🔍 Creating eSign request with data:", eSignData);
+    
+    const response = await post("/api/digio/create-sign-request", {
+      agreementData: {
+        customerName: eSignData.signerName,
+        customerEmail: eSignData.signerEmail,
+        customerMobile: eSignData.signerPhone,
+        productType: eSignData.productType,
+        productId: eSignData.productId,
+        productName: eSignData.productName,
+      },
+      signRequest: {
+        file_name: `${eSignData.productName}_agreement.pdf`,
+        signers: [{
+          identifier: eSignData.signerEmail,
+          name: eSignData.signerName
+        }]
+      }
+    }, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    
+    console.log("🔍 eSign request created:", response);
+    return {
+      documentId: (response as any).documentId,
+      authUrl: (response as any).authenticationUrl
+    };
+  },
+
+  // Verify eSign with DID token
+  verifyESignToken: async (didToken: string): Promise<{ success: boolean; message: string }> => {
+    const token = authService.getAccessToken();
+    console.log("🔍 Verifying eSign token:", didToken);
+    
+    try {
+      const response = await get(`/api/user/esign/verify?token=${didToken}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      console.log("🔍 eSign verification response:", response);
+      return {
+        success: (response as any)?.success || true,
+        message: (response as any)?.message || "eSign verified successfully"
+      };
+    } catch (error: any) {
+      console.log("🔍 eSign verification error:", error);
+      return {
+        success: false,
+        message: error.message || "eSign verification failed"
+      };
+    }
+  },
+
   // Create order for single product with duplicate prevention
   createOrder: async (
     payload: CreateOrderPayload
@@ -110,9 +282,10 @@ export const paymentService = {
       }
     }
 
-    console.log("Payment service - creating order with payload:", payload);
+    console.log("🔍 Payment service - creating order with payload:", payload);
 
     try {
+      console.log("🔍 Creating order with payload:", payload);
       const response = await post<CreateOrderResponse>(
         "/api/subscriptions/order",
         payload,
@@ -125,6 +298,8 @@ export const paymentService = {
         }
       );
       
+      console.log("🔍 Order created successfully:", response);
+      
       // Cache order creation to prevent duplicates
       localStorage.setItem(orderKey, JSON.stringify({
         orderId: response.orderId,
@@ -133,8 +308,23 @@ export const paymentService = {
       
       return response;
     } catch (error: any) {
+      console.log("🔍 Order creation error:", error);
+      console.log("🔍 Error status:", error.response?.status);
+      console.log("🔍 Error data:", error.response?.data);
+      
       // Clear cache on error to allow retry
       localStorage.removeItem(orderKey);
+      
+      // Handle eSign requirement error specifically
+      if (error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
+        console.log("🔍 eSign required - throwing enhanced error");
+        throw {
+          ...error,
+          requiresESign: true,
+          eSignError: true
+        };
+      }
+      
       throw error;
     }
   },
@@ -604,6 +794,17 @@ export const paymentService = {
     } catch (error: any) {
       // Clear cache on error to allow retry
       localStorage.removeItem(emandateKey);
+      
+      // Handle eSign requirement error for eMandate as well
+      if (error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
+        console.log("🔍 eMandate requires eSign - throwing enhanced error");
+        throw {
+          ...error,
+          requiresESign: true,
+          eSignError: true
+        };
+      }
+      
       console.error("🚨 EMANDATE ERROR:", error?.response?.data?.message || error?.message);
       throw error;
     }
