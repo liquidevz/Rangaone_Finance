@@ -5,7 +5,6 @@ import { AuthProvider } from "@/components/auth/auth-context";
 import { CartProvider } from "@/components/cart/cart-context";
 
 import AuthGuard from "@/components/auth/auth-guard";
-import ProfileCompletionGuard from "@/components/auth/profile-completion-guard";
 import { Toaster } from "@/components/ui/toaster";
 
 
@@ -33,15 +32,13 @@ export default function RootLayout({
         <AuthProvider>
             <CartProvider>
               <AuthGuard>
-                <ProfileCompletionGuard>
-                  <div className="min-h-screen bg-gray-50 overflow-x-hidden">
-                    <main>
-                      {children}
-                    </main>
+                <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+                  <main>
+                    {children}
+                  </main>
 
-                  </div>
-                  <Toaster />
-                </ProfileCompletionGuard>
+                </div>
+                <Toaster />
               </AuthGuard>
             </CartProvider>
         </AuthProvider>

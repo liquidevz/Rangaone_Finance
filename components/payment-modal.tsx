@@ -12,7 +12,7 @@ import { paymentService } from "@/services/payment.service";
 import CartAuthForm from "@/components/cart-auth-form";
 import { DigioVerificationModal } from "@/components/digio-verification-modal";
 import { paymentFlowState } from "@/lib/payment-flow-state";
-import { profileCompletionState } from "@/lib/profile-completion-state";
+
 import type { PaymentAgreementData } from "@/services/digio.service";
 
 interface PaymentModalProps {
@@ -316,26 +316,24 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             emandate.subscriptionId
           );
 
+          console.log("🔍 eMandate verification response:", verify);
+
           if (
             verify.success ||
             ["active", "authenticated"].includes(
               (verify as any).subscriptionStatus || ""
             )
           ) {
-            const links = (verify as any)?.telegramInviteLinks as
-              | Array<{ invite_link: string }>
-              | undefined;
-            console.log("Telegram links received:", links);
-            if (links && links.length) {
+            // Check for Telegram links in the response
+            const links = (verify as any)?.telegramInviteLinks;
+            console.log("🔍 Telegram links from eMandate verification:", links);
+            if (links && Array.isArray(links) && links.length > 0) {
               setTelegramLinks(links);
             }
 
             setStep("success");
             setProcessing(false);
-            // Clear flow state on successful payment
             paymentFlowState.clear();
-            // Mark first payment complete for profile completion
-            profileCompletionState.markFirstPaymentComplete();
             toast({
               title: "Payment Successful",
               description: "Subscription activated",
@@ -460,13 +458,17 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               signature: rp?.razorpay_signature,
             });
 
+            console.log("🔍 Payment verification response:", verify);
+
             if (verify.success) {
               const links = (verify as any)?.telegramInviteLinks;
-              if (links?.length) setTelegramLinks(links);
+              console.log("🔍 Telegram links from payment verification:", links);
+              if (links && Array.isArray(links) && links.length > 0) {
+                setTelegramLinks(links);
+              }
               setStep("success");
               setProcessing(false);
               paymentFlowState.clear();
-              profileCompletionState.markFirstPaymentComplete();
               toast({ title: "Payment Successful", description: "Subscription activated" });
             } else {
               setStep("error");
@@ -1263,7 +1265,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                               setStep("success");
                               setProcessing(false);
                               paymentFlowState.clear();
-                              profileCompletionState.markFirstPaymentComplete();
                               toast({ title: "Payment Successful", description: "Subscription activated" });
                             } else {
                               setStep("error");
@@ -1410,21 +1411,19 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     </div>
                   )}
 
-                  {/* Debug info - remove in production */}
-                  {process.env.NODE_ENV === "development" && (
-                    <div className="mt-4 p-2 bg-gray-100 rounded text-xs">
-                      <p>
-                        Debug: Telegram links count:{" "}
-                        {telegramLinks?.length || 0}
-                      </p>
-                      {telegramLinks &&
-                        telegramLinks.map((link, i) => (
-                          <p key={i}>
-                            Link {i + 1}: {link.invite_link ? "✓" : "✗"}
-                          </p>
-                        ))}
-                    </div>
-                  )}
+                  {/* Debug info */}
+                  <div className="mt-4 p-2 bg-gray-100 rounded text-xs">
+                    <p>
+                      Debug: Telegram links count: {telegramLinks?.length || 0}
+                    </p>
+                    <p>Flow type: {isEmandateFlow ? "eMandate" : "One-time"}</p>
+                    {telegramLinks &&
+                      telegramLinks.map((link, i) => (
+                        <p key={i}>
+                          Link {i + 1}: {link.invite_link ? "✓" : "✗"}
+                        </p>
+                      ))}
+                  </div>
                 </div>
               )}
 
