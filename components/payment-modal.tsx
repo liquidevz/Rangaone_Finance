@@ -109,29 +109,23 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     setShowDigio(true);
   }, [bundle, user, subscriptionType, getPrice]);
 
-  // When modal opens, restore or start with plan selection
+  // When modal opens, always start with plan selection
   useEffect(() => {
     if (!isOpen || !bundle) return;
     
-    // Check if we should continue an existing flow
-    const continueStep = paymentFlowState.shouldContinueFlow(bundle._id, isAuthenticated);
-    if (continueStep) {
-      setStep(continueStep as any);
-    } else {
-      setStep("plan");
-      // Save initial flow state
-      paymentFlowState.save({
-        bundleId: bundle._id,
-        pricingType: isEmandateFlow ? "monthlyEmandate" : "monthly",
-        currentStep: "plan",
-        isAuthenticated
-      });
-    }
+    setStep("plan");
+    // Save initial flow state
+    paymentFlowState.save({
+      bundleId: bundle._id,
+      pricingType: isEmandateFlow ? "monthlyEmandate" : "monthly",
+      currentStep: "plan",
+      isAuthenticated
+    });
     
     continuedAfterAuthRef.current = false;
-  }, [isOpen, isAuthenticated, bundle, isEmandateFlow]);
+  }, [isOpen, bundle, isEmandateFlow]);
 
-  // If user authenticates while viewing the auth step, automatically continue to enhanced flow
+  // If user authenticates while in auth step, automatically continue to verification
   useEffect(() => {
     if (!isOpen) return;
     if (step !== "auth") return;
