@@ -66,7 +66,7 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
 NEXT_PUBLIC_FIREBASE_VAPID_KEY=BN4o_5...
 
 # API Configuration
-NEXT_PUBLIC_API_BASE_URL=https://stocks-backend-cmjxc.ondigitalocean.app
+NEXT_PUBLIC_API_BASE_URL=https://api.rangaone.finance
 ```
 
 ## 🔧 Step 7: Update Service Worker

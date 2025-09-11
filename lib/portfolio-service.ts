@@ -71,7 +71,7 @@ const mockPortfolios: Portfolio[] = [
 // Function to get all portfolios
 export async function getPortfolios(): Promise<Portfolio[]> {
   // In a real implementation, this would fetch from your API
-  // const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://stocks-backend-cmjxc.ondigitalocean.app'
+  // const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.rangaone.finance'
   // const response = await fetch(`${apiBaseUrl}/api/portfolios`)
   // return response.json()
 
@@ -86,7 +86,7 @@ export async function getPortfolios(): Promise<Portfolio[]> {
 // Function to get a specific portfolio by ID
 export async function getPortfolio(id: string): Promise<Portfolio | null> {
   // In a real implementation, this would fetch from your API
-  // const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://stocks-backend-cmjxc.ondigitalocean.app'
+  // const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.rangaone.finance'
   // const response = await fetch(`${apiBaseUrl}/api/portfolios/${id}`)
   // return response.json()
 
@@ -102,7 +102,7 @@ export async function getPortfolio(id: string): Promise<Portfolio | null> {
 // Function to purchase a portfolio
 export async function purchasePortfolio(id: string): Promise<{ success: boolean; message?: string }> {
   // In a real implementation, this would be a POST request to your API
-  // const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://stocks-backend-cmjxc.ondigitalocean.app'
+  // const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.rangaone.finance'
   // const response = await fetch(`${apiBaseUrl}/api/portfolios/${id}/purchase`, {
   //   method: 'POST',
   //   headers: {

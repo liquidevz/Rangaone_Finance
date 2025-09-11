@@ -46,7 +46,7 @@ export interface UserPortfolio {
 
 // Create a separate axios instance for public API calls (without auth headers)
 const publicApi = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || "https://stocks-backend-cmjxc.ondigitalocean.app",
+  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.rangaone.finance",
   headers: {
     "Content-Type": "application/json",
     accept: "application/json",
@@ -64,7 +64,7 @@ export const userPortfolioService = {
       // If authenticated, use auth token
       if (authToken) {
         const response = await axios.get<UserPortfolio[]>("/api/user/portfolios", {
-          baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || "https://stocks-backend-cmjxc.ondigitalocean.app",
+          baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.rangaone.finance",
           headers: {
             accept: "application/json",
             Authorization: `Bearer ${authToken}`,
@@ -74,7 +74,7 @@ export const userPortfolioService = {
       }
       
       // If not authenticated, use public API endpoint
-      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://stocks-backend-cmjxc.ondigitalocean.app";
+      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.rangaone.finance";
       console.log('API Base URL:', apiUrl);
       console.log('Fetching portfolios from:', apiUrl + '/api/user/portfolios');
       

@@ -27,7 +27,7 @@ class WebSocketService extends EventEmitter {
 
     this.isIntentionallyClosed = false;
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 
-      (process.env.NEXT_PUBLIC_API_BASE_URL || 'https://stocks-backend-cmjxc.ondigitalocean.app')
+      (process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.rangaone.finance')
         .replace('https://', 'wss://')
         .replace('http://', 'ws://');
 
