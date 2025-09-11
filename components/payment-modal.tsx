@@ -259,61 +259,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
   const handleDigioComplete = async () => {
     setShowDigio(false);
-    if (!bundle) return;
-
-    try {
-      setStep("processing");
-      setProcessing(true);
-      setProcessingMsg("Creating order after Digio...");
-      
-      const order = await paymentService.createOrder({
-        productType: "Bundle",
-        productId: bundle._id,
-        planType: "monthly",
-        subscriptionType: (bundle.category as any) || "premium",
-        couponCode: appliedCoupon?.code || undefined,
-      });
-      
-      setProcessingMsg("Opening payment gateway…");
-      await paymentService.openCheckout(
-        order,
-        {
-          name: (user as any)?.fullName || user?.username || "User",
-          email: user?.email || "user@example.com",
-        },
-        async (rp) => {
-          setProcessingMsg("Verifying payment…");
-          const verify = await paymentService.verifyPayment({
-            orderId: order.orderId,
-            paymentId: rp?.razorpay_payment_id,
-            signature: rp?.razorpay_signature,
-          });
-          
-          if (verify.success) {
-            const links = (verify as any)?.telegramInviteLinks;
-            if (links?.length) setTelegramLinks(links);
-            setStep("success");
-            setProcessing(false);
-            paymentFlowState.clear();
-            profileCompletionState.markFirstPaymentComplete();
-            toast({ title: "Payment Successful", description: "Subscription activated" });
-          } else {
-            setStep("error");
-            setProcessing(false);
-            toast({ title: "Verification Failed", description: verify.message || "Please try again", variant: "destructive" });
-          }
-        },
-        (err) => {
-          setStep("error");
-          setProcessing(false);
-          toast({ title: "Payment Cancelled", description: err?.message || "Payment was cancelled", variant: "destructive" });
-        }
-      );
-    } catch (error: any) {
-      setStep("error");
-      setProcessing(false);
-      toast({ title: "Checkout Error", description: error?.message || "Could not start checkout", variant: "destructive" });
-    }
+    await continueAfterDigio();
   };
 
   const handleEmandatePaymentFlow = async () => {
@@ -478,68 +424,20 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       setStep("processing");
       setProcessing(true);
 
-      // Enhanced order flow now handles both eMandate and one-time payments
       if (isEmandateFlow) {
-        // eMandate flow after enhanced checks (PAN + Digio)
+        console.log("🔍 Starting eMandate flow after Digio verification");
         await handleEmandatePaymentFlow();
       } else {
-        // One-time order flow
-        console.log("🔍 Step 2: Creating order...");
+        console.log("🔍 Starting one-time payment flow after Digio verification");
         setProcessingMsg("Creating order…");
-        let order;
-        try {
-          order = await paymentService.createOrder({
-            productType: "Bundle",
-            productId: bundle._id,
-            planType: "monthly",
-            subscriptionType: (bundle.category as any) || "premium",
-            couponCode: appliedCoupon?.code || undefined,
-          });
-          console.log("✅ Order created successfully:", order);
-        } catch (error: any) {
-          console.log("⚠️ Order creation failed:", error);
-          if (error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
-            console.log("🔍 Step 3: eSign required - creating eSign request...");
-            setProcessingMsg("Creating eSign request...");
-            
-            // Create eSign request immediately
-            const eSignResult = await paymentService.createESignRequest({
-              signerEmail: user?.email || "user@example.com",
-              signerName: (user as any)?.fullName || user?.username || "User",
-              signerPhone: (user as any)?.phone || "",
-              reason: "Investment Agreement",
-              expireInDays: 10,
-              displayOnPage: "all",
-              notifySigners: true,
-              sendSignLink: true,
-              productType: "Bundle",
-              productId: bundle._id,
-              productName: bundle.name
-            });
-            
-            console.log("✅ eSign request created:", eSignResult);
-            setProcessingMsg("Please complete eSign and enter DID token...");
-            
-            // Show Digio modal
-            const price = getPrice();
-            const data: PaymentAgreementData = {
-              customerName: (user as any)?.fullName || user?.username || "User",
-              customerEmail: user?.email || "user@example.com",
-              customerMobile: user?.phone,
-              amount: price,
-              subscriptionType: "monthly",
-              portfolioNames: bundle.portfolios.map((p) => p.name),
-              agreementDate: new Date().toLocaleDateString("en-IN"),
-            } as any;
-            
-            setAgreementData(data);
-            setShowDigio(true);
-            setProcessing(false);
-            return;
-          } else {
-            throw error;
-          }
-        }
+        
+        const order = await paymentService.createOrder({
+          productType: "Bundle",
+          productId: bundle._id,
+          planType: "monthly",
+          subscriptionType: (bundle.category as any) || "premium",
+          couponCode: appliedCoupon?.code || undefined,
+        });
 
         if (cancelRequested.current) {
           setProcessing(false);
@@ -547,7 +445,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           return;
         }
 
-        console.log("🔍 Step 6: Opening payment gateway...");
         setProcessingMsg("Opening payment gateway…");
         await paymentService.openCheckout(
           order,
@@ -556,7 +453,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             email: user?.email || "user@example.com",
           },
           async (rp) => {
-            console.log("🔍 Step 7: Payment successful, verifying...");
             setProcessingMsg("Verifying payment…");
             const verify = await paymentService.verifyPayment({
               orderId: order.orderId,
@@ -565,45 +461,23 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             });
 
             if (verify.success) {
-              console.log("✅ Payment verified successfully");
-              const links = (verify as any)?.telegramInviteLinks as
-                | Array<{ invite_link: string }>
-                | undefined;
-              console.log("Telegram links received:", links);
-              if (links && links.length) {
-                setTelegramLinks(links);
-              }
-
+              const links = (verify as any)?.telegramInviteLinks;
+              if (links?.length) setTelegramLinks(links);
               setStep("success");
               setProcessing(false);
-              // Clear flow state on successful payment
               paymentFlowState.clear();
-              // Mark first payment complete for profile completion
               profileCompletionState.markFirstPaymentComplete();
-              toast({
-                title: "Payment Successful",
-                description: "Subscription activated",
-              });
+              toast({ title: "Payment Successful", description: "Subscription activated" });
             } else {
-              console.log("❌ Payment verification failed:", verify.message);
               setStep("error");
               setProcessing(false);
-              toast({
-                title: "Verification Failed",
-                description: verify.message || "Please try again",
-                variant: "destructive",
-              });
+              toast({ title: "Verification Failed", description: verify.message || "Please try again", variant: "destructive" });
             }
           },
           (err) => {
-            console.log("❌ Payment cancelled or failed:", err?.message);
             setStep("error");
             setProcessing(false);
-            toast({
-              title: "Payment Cancelled",
-              description: err?.message || "Payment was cancelled",
-              variant: "destructive",
-            });
+            toast({ title: "Payment Cancelled", description: err?.message || "Payment was cancelled", variant: "destructive" });
           }
         );
       }
