@@ -117,16 +117,6 @@ export const subscriptionService = {
     const token = authService.getAccessToken();
     if (!token) throw new Error("Authentication required");
     
-    // Check for duplicate eMandate creation
-    const emandateKey = `emandate_${productId}_${emandateType}`;
-    const existingEmandate = localStorage.getItem(emandateKey);
-    if (existingEmandate) {
-      const cached = JSON.parse(existingEmandate);
-      if (Date.now() - cached.timestamp < 300000) { // 5 minutes
-        throw new Error("eMandate creation already in progress. Please wait or refresh the page.");
-      }
-    }
-    
     this.clearCurrentEmandateId();
 
     try {
@@ -136,18 +126,11 @@ export const subscriptionService = {
 
       if (response.subscriptionId) {
         this.setCurrentEmandateId(response.subscriptionId);
-        // Cache eMandate creation to prevent duplicates
-        localStorage.setItem(emandateKey, JSON.stringify({
-          subscriptionId: response.subscriptionId,
-          timestamp: Date.now()
-        }));
       }
 
       this.clearCache();
       return response;
     } catch (error) {
-      // Clear cache on error to allow retry
-      localStorage.removeItem(emandateKey);
       console.error("eMandate creation failed", error);
       throw error;
     }

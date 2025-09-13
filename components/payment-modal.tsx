@@ -596,7 +596,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                           </div>
                           <div className="pt-9 sm:pt-10" />
                           <div className="font-semibold text-base sm:text-lg md:text-xl">
-                            Annual, billed monthly
+                            Annual, butbilled monthly
                           </div>
                           <div className="text-xs sm:text-sm text-gray-600 line-through">
                             ₹

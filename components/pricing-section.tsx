@@ -209,7 +209,7 @@ export default function PricingSection() {
 
                 <div className="flex items-center gap-2 mb-2">
                 <span className="text-[0.6rem] sm:text-lg">
-                    (Annual, billed monthly)
+                    (Annual, but billed monthly)
                   </span>
                 </div>
 
