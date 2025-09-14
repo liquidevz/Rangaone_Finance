@@ -1,96 +1,17 @@
-# Dependencies
-node_modules
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# Next.js (keep .next for potential caching)
-out/
-
-# Production
-build
-dist
-
-# Misc
-.DS_Store
-*.tsbuildinfo
-next-env.d.ts
-
-# Debug
-*.log
-logs
-
-# Local env files (production env is copied explicitly)
+Dockerfile*
+docker-compose*
+.dockerignore
+.git
+.gitignore
+README.md
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
-
-# Vercel
-.vercel
-
-# IDE
-.vscode
-.idea
-*.swp
-*.swo
-*~
-
-# Git
-.git
-.gitignore
-
-# Docker
-docker-compose*
-.dockerignore
-Dockerfile*
-
-# CI/CD
-.github
-
-# Cache
-.cache
-.parcel-cache
-.eslintcache
-
-# Coverage
-coverage
-.nyc_output
-
-# Testing
-__tests__
-*.test.js
-*.test.ts
-*.test.tsx
-*.spec.js
-*.spec.ts
-*.spec.tsx
-jest.config.*
-
-# Documentation
-README*.md
-docs/
-TEST/
-
-# Deployment scripts
-*.sh
-*.php
-check-*.sh
-deploy*.sh
-force-*.sh
-quick-*.md
-verify-*.sh
-webhook-*.php
-
-# Config files
-ecosystem.config.js
-nginx.conf
-cloudpanel*
-
-# Temporary files
-tmp/
-temp/
-*.tmp
-*.temp
+.next
+.swc
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
