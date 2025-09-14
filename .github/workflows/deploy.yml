@@ -24,17 +24,14 @@ jobs:
             IMAGE_NAME=nextjs-app
             CONTAINER_NAME=nextjs-app
 
-            # Stop old container
+            # Stop old container if exists
             if [ "$(docker ps -q -f name=$CONTAINER_NAME)" ]; then
               docker stop $CONTAINER_NAME
               docker rm $CONTAINER_NAME
             fi
 
-            # Build image using cache
-            docker build --pull --cache-from $IMAGE_NAME -t $IMAGE_NAME .
+            # Build new image
+            docker build --pull -t $IMAGE_NAME .
 
-            # Remove old image only if needed
-            docker images -q $IMAGE_NAME | grep . && docker rmi $IMAGE_NAME -f || true
-
-            # Run container
+            # Run new container
             docker run -d --name $CONTAINER_NAME -p 3000:3000 $IMAGE_NAME
