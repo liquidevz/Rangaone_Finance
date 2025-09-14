@@ -1,4 +1,4 @@
-name: Lightning CI/CD
+name: Build & Deploy Next.js App
 
 on:
   push:
@@ -6,62 +6,52 @@ on:
       - main
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      # 1️⃣ Checkout source code
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2️⃣ Setup Docker Buildx for advanced caching
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      # 3️⃣ Cache Docker layers
-      - name: Cache Docker layers
-        uses: actions/cache@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
         with:
-          path: /tmp/.buildx-cache
-          key: buildx-${{ github.sha }}
-          restore-keys: |
-            buildx-
+          node-version: 20
 
-      # 4️⃣ Build Docker image once
-      - name: Build Docker image
-        id: build
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js app
+        run: npm run build
+
+      - name: Prepare Docker image
         run: |
-          IMAGE_TAG=nextjs-app:${GITHUB_SHA}
-          docker build --cache-from=type=local,src=/tmp/.buildx-cache \
-                       --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
-                       -t $IMAGE_TAG .
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
-          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+          IMAGE_NAME=nextjs-app
+          IMAGE_TAG=$IMAGE_NAME:${GITHUB_SHA}
+          docker build -t $IMAGE_TAG .
 
-      # 5️⃣ Save image to a tar file (optional if SSH copy is needed)
-      - name: Save Docker image
-        run: docker save $IMAGE_TAG -o nextjs-app.tar
-
-      # 6️⃣ Deploy via SSH
-      - name: SSH Deploy
+      - name: Deploy to server
         uses: appleboy/ssh-action@v0.1.7
         with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          port: 22
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            IMAGE_TAG=${{ env.IMAGE_TAG }}
+            IMAGE_NAME=nextjs-app
+            IMAGE_TAG=$IMAGE_NAME:${GITHUB_SHA}
 
-            # Stop and remove old container
-            docker stop nextjs-app 2>/dev/null || true
-            docker rm nextjs-app 2>/dev/null || true
+            # Stop old container if exists
+            if [ "$(docker ps -q -f name=$IMAGE_NAME)" ]; then
+              docker stop $IMAGE_NAME
+              docker rm $IMAGE_NAME
+            fi
 
-            # Load new image
-            docker load < nextjs-app.tar || docker pull $IMAGE_TAG
+            # Remove old image (optional)
+            if [ "$(docker images -q $IMAGE_NAME)" ]; then
+              docker rmi $IMAGE_NAME -f
+            fi
+
+            # Load new image from GitHub runner
+            docker load < /tmp/${IMAGE_TAG}.tar || true
 
             # Run new container
-            docker run -d \
-              --name nextjs-app \
-              --restart unless-stopped \
-              -p 3000:3000 \
-              $IMAGE_TAG
+            docker run -d --name $IMAGE_NAME -p 3000:3000 $IMAGE_TAG
