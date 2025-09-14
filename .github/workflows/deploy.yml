@@ -6,22 +6,29 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      - run: npm install --legacy-peer-deps
-      - run: npm run build
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build project
+        run: npm run build
 
   deploy:
-    needs: test
+    needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy with Docker
+      - name: Deploy with Docker via SSH
         uses: appleboy/ssh-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -30,25 +37,31 @@ jobs:
           port: 22
           timeout: 300s
           script: |
-            # Setup app directory
-            cd ~/app || mkdir -p ~/app && cd ~/app
-            
-            # Update code
+            # Navigate to project directory
+            cd ~/htdocs/www.rangaone.finance/Rangaone_Finance || exit
+
+            # Update code from GitHub
             if [ -d ".git" ]; then
+              git reset --hard
+              git clean -fd
               git pull origin master
             else
               git clone https://github.com/${{ github.repository }} .
             fi
-            
-            # Stop existing container
+
+            # Stop existing Docker container if running
             docker stop nextjs-app 2>/dev/null || true
             docker rm nextjs-app 2>/dev/null || true
-            
-            # Build and run new container
+
+            # Build and run Docker container
             docker build -t nextjs-app .
-            docker run -d --name nextjs-app --restart unless-stopped -p 3000:3000 nextjs-app
-            
-            # Clean up old images
+            docker run -d \
+              --name nextjs-app \
+              --restart unless-stopped \
+              -p 3000:3000 \
+              nextjs-app
+
+            # Cleanup unused Docker images
             docker image prune -f
-            
+
             echo "✅ Deployment complete!"
