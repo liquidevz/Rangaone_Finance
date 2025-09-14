@@ -24,12 +24,27 @@ jobs:
       - name: Build project
         run: npm run build
 
+      - name: Archive build
+        run: tar -czf build.tar.gz ./
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: project-build
+          path: build.tar.gz
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: project-build
+          path: ./build
+
       - name: Deploy with Docker via SSH
-        uses: appleboy/ssh-action@v0.1.7
+        uses: appleboy/ssh-action@v0.1.8
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
@@ -38,20 +53,17 @@ jobs:
           timeout: 300s
           script: |
             # Navigate to project directory
-            cd ~/htdocs/www.rangaone.finance/Rangaone_Finance || exit
-
-            # Update code from GitHub
-            if [ -d ".git" ]; then
-              git reset --hard
-              git clean -fd
-              git pull origin master
-            else
-              git clone https://github.com/${{ github.repository }} .
-            fi
+            cd ~/htdocs/www.rangaone.finance/Rangaone_Finance || mkdir -p ~/htdocs/www.rangaone.finance/Rangaone_Finance && cd $_
 
             # Stop existing Docker container if running
             docker stop nextjs-app 2>/dev/null || true
             docker rm nextjs-app 2>/dev/null || true
+
+            # Remove old code
+            rm -rf ./*
+
+            # Copy build from GitHub Actions
+            tar -xzf build/build.tar.gz -C ./
 
             # Build and run Docker container
             docker build -t nextjs-app .
