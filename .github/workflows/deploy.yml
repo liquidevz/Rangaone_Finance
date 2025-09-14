@@ -1,79 +1,67 @@
-name: Deploy to Production
+name: Lightning CI/CD
 
 on:
   push:
-    branches: [master]
-  workflow_dispatch:
+    branches:
+      - main
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
+      # 1️⃣ Checkout source code
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      # 2️⃣ Setup Docker Buildx for advanced caching
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # 3️⃣ Cache Docker layers
+      - name: Cache Docker layers
+        uses: actions/cache@v3
         with:
-          node-version: '20'
-          cache: 'npm'
+          path: /tmp/.buildx-cache
+          key: buildx-${{ github.sha }}
+          restore-keys: |
+            buildx-
 
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
+      # 4️⃣ Build Docker image once
+      - name: Build Docker image
+        id: build
+        run: |
+          IMAGE_TAG=nextjs-app:${GITHUB_SHA}
+          docker build --cache-from=type=local,src=/tmp/.buildx-cache \
+                       --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
+                       -t $IMAGE_TAG .
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
 
-      - name: Build project
-        run: npm run build
+      # 5️⃣ Save image to a tar file (optional if SSH copy is needed)
+      - name: Save Docker image
+        run: docker save $IMAGE_TAG -o nextjs-app.tar
 
-      - name: Archive build
-        run: tar -czf build.tar.gz ./
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
+      # 6️⃣ Deploy via SSH
+      - name: SSH Deploy
+        uses: appleboy/ssh-action@v0.1.7
         with:
-          name: project-build
-          path: build.tar.gz
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download build artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: project-build
-          path: ./build
-
-      - name: Deploy with Docker via SSH
-        uses: appleboy/ssh-action@v0.1.8
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
           port: 22
-          timeout: 300s
           script: |
-            # Navigate to project directory
-            cd ~/htdocs/www.rangaone.finance/Rangaone_Finance || mkdir -p ~/htdocs/www.rangaone.finance/Rangaone_Finance && cd $_
+            IMAGE_TAG=${{ env.IMAGE_TAG }}
 
-            # Stop existing Docker container if running
+            # Stop and remove old container
             docker stop nextjs-app 2>/dev/null || true
             docker rm nextjs-app 2>/dev/null || true
 
-            # Remove old code
-            rm -rf ./*
+            # Load new image
+            docker load < nextjs-app.tar || docker pull $IMAGE_TAG
 
-            # Copy build from GitHub Actions
-            tar -xzf build/build.tar.gz -C ./
-
-            # Build and run Docker container
-            docker build -t nextjs-app .
+            # Run new container
             docker run -d \
               --name nextjs-app \
               --restart unless-stopped \
               -p 3000:3000 \
-              nextjs-app
-
-            # Cleanup unused Docker images
-            docker image prune -f
-
-            echo "✅ Deployment complete!"
+              $IMAGE_TAG
