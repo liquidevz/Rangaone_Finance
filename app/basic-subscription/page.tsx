@@ -173,8 +173,8 @@ export default function BasicSubscriptionPage() {
                 <div className="space-y-2 sm:space-y-3 text-sm leading-relaxed">
                   <p>
                     <strong>
-                      Rangaone Wealth isn’t just a plan—it’s your gateway to
-                      smarter, stress-free investing.
+                      ~Rangaone Wealth isn’t just a plan—it’s your gateway to
+                      smarter, stress-free investing~.
                     </strong>
                      Designed for investors who want 
                     <strong>
