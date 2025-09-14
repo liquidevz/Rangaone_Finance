@@ -9,7 +9,7 @@ RUN apk add --no-cache libc6-compat
 
 # ---------- Dependencies ----------
 FROM base AS deps
-# Copy only package files for better caching
+# Copy only package files for caching
 COPY package*.json ./
 # Install dependencies
 RUN npm ci --legacy-peer-deps
@@ -17,28 +17,29 @@ RUN npm ci --legacy-peer-deps
 # ---------- Builder ----------
 FROM base AS builder
 WORKDIR /app
-# Copy dependencies from deps stage
+# Copy installed dependencies
 COPY --from=deps /app/node_modules ./node_modules
-# Copy the rest of the source code
+# Copy app source
 COPY . .
 # Build Next.js app
 RUN npm run build
 
-# ---------- Runner / Production ----------
-FROM base AS runner
+# ---------- Production Runner ----------
+FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Create user for security
+# Add non-root user
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Copy built artifacts from builder
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./ 
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Copy production files
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/package*.json ./
 
-# Pre-create and assign ownership of prerender cache
-RUN mkdir -p .next && chown -R nextjs:nodejs .next
+# Fix permissions
+RUN chown -R nextjs:nodejs /app
 
 USER nextjs
 
