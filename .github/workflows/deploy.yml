@@ -2,26 +2,42 @@ name: Deploy to Production
 
 on:
   push:
-    branches: [main]
+    branches: [master]
+  workflow_dispatch:
+
+env:
+  DOCKER_IMAGE: nextjs-app
+  CONTAINER_NAME: nextjs-production
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      - run: npm install --legacy-peer-deps
-      - run: npm run build
-      - run: npm run lint
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build application
+        run: npm run build
+
+      - name: Run linter
+        run: npm run lint
 
   docker-test:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
       - name: Test Docker Build
         id: docker-build
         run: |
@@ -33,7 +49,8 @@ jobs:
             echo "EOF" >> $GITHUB_OUTPUT
             exit 1
           fi
-      
+          echo "✅ Docker build test successful"
+
       - name: Send Docker Build Failure Email
         if: failure()
         uses: dawidd6/action-send-mail@v3
@@ -56,6 +73,7 @@ jobs:
             - Check package.json dependencies
             - Verify Dockerfile syntax
             - Check for missing files
+            - Check next.config.mjs standalone output
             
             View logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           to: ${{ secrets.NOTIFICATION_EMAIL }}
@@ -66,7 +84,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy with Docker
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v0.1.7
         with:
           host: ${{ secrets.CLOUDPANEL_HOST }}
           username: ${{ secrets.CLOUDPANEL_USER }}
@@ -74,23 +92,21 @@ jobs:
           timeout: 300s
           command_timeout: 300s
           script: |
-            # Install nvm and Node.js 20
-            export NVM_DIR="$HOME/.nvm"
-            if [ ! -d "$NVM_DIR" ]; then
-              curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-            fi
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            nvm install 20
-            nvm use 20
+            set -e
+            echo "🚀 Starting Docker deployment..."
             
             # Setup domain directory
             DOMAIN_PATH="/home/${{ secrets.CLOUDPANEL_USER }}/htdocs/${{ secrets.CLOUDPANEL_DOMAIN }}"
+            
+            # Create directory if it doesn't exist
+            mkdir -p $DOMAIN_PATH
             cd $DOMAIN_PATH
             
             # Clean and update repository
+            echo "📥 Updating code..."
             if [ -d ".git" ]; then
               git fetch origin
-              git reset --hard origin/main
+              git reset --hard origin/master
               git clean -fd
             else
               cd ..
@@ -100,42 +116,124 @@ jobs:
               git clone https://github.com/${{ github.repository }} .
             fi
             
-            # Install and build
-            npm install --legacy-peer-deps
-            npm run build
-            
-            # Kill existing process
-            pkill -f "next start" || true
-            pkill -f "node.*server.js" || true
-            
-            # Start the app and exit SSH immediately
-            npm start > app.log 2>&1 &
-            echo $! > app.pid
-            
-            # Verify it started
-            sleep 2
-            if kill -0 $(cat app.pid) 2>/dev/null; then
-              echo "✅ App started with PID $(cat app.pid)"
-            else
-              echo "❌ App failed to start"
+            # Install Docker if not present
+            if ! command -v docker &> /dev/null; then
+              echo "📦 Installing Docker..."
+              curl -fsSL https://get.docker.com -o get-docker.sh
+              sudo sh get-docker.sh
+              sudo usermod -aG docker ${{ secrets.CLOUDPANEL_USER }}
             fi
-      
-      - name: Send failure notification
+            
+            # Stop and remove existing container
+            echo "🛑 Stopping existing container..."
+            docker stop ${{ env.CONTAINER_NAME }} 2>/dev/null || true
+            docker rm ${{ env.CONTAINER_NAME }} 2>/dev/null || true
+            
+            # Remove old image
+            docker rmi ${{ env.DOCKER_IMAGE }}:latest 2>/dev/null || true
+            
+            # Build new Docker image
+            echo "🔨 Building Docker image..."
+            docker build -t ${{ env.DOCKER_IMAGE }}:latest .
+            
+            # Start new container
+            echo "▶️ Starting new container..."
+            docker run -d \
+              --name ${{ env.CONTAINER_NAME }} \
+              --restart unless-stopped \
+              -p 3000:3000 \
+              -v $PWD/public:/app/public:ro \
+              ${{ env.DOCKER_IMAGE }}:latest
+            
+            # Wait for container to start
+            echo "⏳ Waiting for container to start..."
+            sleep 15
+            
+            # Health check
+            if docker ps | grep -q ${{ env.CONTAINER_NAME }}; then
+              echo "✅ Container is running!"
+              docker logs --tail 10 ${{ env.CONTAINER_NAME }}
+              
+              # Test if app responds
+              if curl -f http://localhost:3000 >/dev/null 2>&1; then
+                echo "✅ App is responding on port 3000"
+              else
+                echo "⚠️ App might be starting up, check logs later"
+              fi
+            else
+              echo "❌ Container failed to start!"
+              docker logs ${{ env.CONTAINER_NAME }} 2>/dev/null || echo "No logs available"
+              exit 1
+            fi
+            
+            # Clean up unused images and containers
+            docker container prune -f 2>/dev/null || true
+            docker image prune -f 2>/dev/null || true
+            
+            echo "🎉 Docker deployment completed!"
+            echo "📊 Final status:"
+            docker ps | grep ${{ env.CONTAINER_NAME }}
+
+      - name: Send deployment failure notification
         if: failure()
         uses: dawidd6/action-send-mail@v3
         with:
-          server_address: ${{ secrets.SMTP_SERVER }}
-          server_port: ${{ secrets.SMTP_PORT }}
-          username: ${{ secrets.SMTP_USERNAME }}
-          password: ${{ secrets.SMTP_PASSWORD }}
-          subject: 'Deployment Failed - ${{ github.repository }}'
+          server_address: ${{ secrets.SMTP_SERVER || 'smtp.gmail.com' }}
+          server_port: ${{ secrets.SMTP_PORT || '587' }}
+          username: ${{ secrets.SMTP_USERNAME || secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD || secrets.EMAIL_PASSWORD }}
+          subject: 'Docker Deployment Failed - ${{ github.repository }}'
           body: |
-            Deployment failed for commit ${{ github.sha }}
+            Docker deployment failed for commit ${{ github.sha }}
             
             Repository: ${{ github.repository }}
             Branch: ${{ github.ref }}
             Commit: ${{ github.event.head_commit.message }}
             
+            Possible causes:
+            - Docker build failed
+            - Container startup issues
+            - Port conflicts
+            - Resource limitations
+            
             View logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            SSH to server and check:
+            - docker logs nextjs-production
+            - docker ps -a
+            - docker images
           to: ${{ secrets.NOTIFICATION_EMAIL }}
-          from: 'GitHub Actions'
+          from: 'GitHub Actions Docker Deploy'
+
+  notify-success:
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Send success notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER || 'smtp.gmail.com' }}
+          server_port: ${{ secrets.SMTP_PORT || '587' }}
+          username: ${{ secrets.SMTP_USERNAME || secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD || secrets.EMAIL_PASSWORD }}
+          subject: '✅ Docker Deployment Successful - ${{ github.repository }}'
+          body: |
+            🎉 Docker deployment completed successfully!
+            
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref }}
+            Commit: ${{ github.sha }}
+            Message: ${{ github.event.head_commit.message }}
+            
+            🐳 Docker Container: nextjs-production
+            🌐 App should be running on port 3000
+            
+            Next steps:
+            - Configure nginx reverse proxy if needed
+            - Set up SSL certificate
+            - Monitor application logs
+            
+            View deployment: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: 'GitHub Actions Docker Deploy'
