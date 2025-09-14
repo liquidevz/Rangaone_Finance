@@ -1,13 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
+  // Essential for Docker deployment
   output: 'standalone',
+  reactStrictMode: true,
   
-  webpack: (config) => {
+  webpack: (config, { isServer }) => {
+    // Resolve alias
     config.resolve.alias = {
       ...config.resolve.alias,
       '@': new URL('.', import.meta.url).pathname,
     }
+    
+    // Optimize for Docker
+    if (isServer) {
+      config.externals.push('sharp')
+    }
+    
     return config
   },
   
@@ -15,9 +23,7 @@ const nextConfig = {
     return 'build-' + Date.now()
   },
   
-
-  
-  // Image configuration
+  // Image configuration for Docker
   images: {
     domains: ['v0.blob.com'],
     remotePatterns: [
@@ -26,6 +32,7 @@ const nextConfig = {
         hostname: '**',
       },
     ],
+    // Disable image optimization for Docker to avoid sharp issues
     unoptimized: true,
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
@@ -37,7 +44,7 @@ const nextConfig = {
     'lucide-react',
   ],
   
-  // Build configuration
+  // Build configuration - important for Docker
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -45,7 +52,7 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   
-  // Output file tracing
+  // Output file tracing for standalone
   outputFileTracingIncludes: {
     '/': ['./public/**/*'],
   },
@@ -75,6 +82,16 @@ const nextConfig = {
         ],
       },
     ];
+  },
+  
+  // Server configuration for Docker
+  serverRuntimeConfig: {
+    PROJECT_ROOT: __dirname
+  },
+  
+  // Public runtime config
+  publicRuntimeConfig: {
+    staticFolder: '/static',
   },
 }
 
