@@ -1,6 +1,5 @@
 name: Build & Deploy Next.js App
 
-# Trigger workflow on push to main
 on:
   push:
     branches:
@@ -24,32 +23,16 @@ jobs:
             # Navigate to app directory
             cd /home/rangaone/htdocs/www.rangaone.finance/Rangaone_Finance
 
-            # Ensure git repo is clean and on main
+            # Ensure repo is clean & updated
             git fetch origin
-            git stash push -m "auto-stash before deploy" || true
             git reset --hard origin/main
             git checkout main
             git pull origin main
 
-            # Docker variables
-            IMAGE_NAME=nextjs-app
-            CONTAINER_NAME=nextjs-app
+            # Stop and remove all containers from docker-compose
+            docker compose down || true
 
-            # Stop and remove old container if exists
-            if [ "$(docker ps -q -f name=$CONTAINER_NAME)" ]; then
-              docker stop $CONTAINER_NAME
-              docker rm $CONTAINER_NAME
-            fi
+            # Rebuild everything fresh and start in detached mode
+            docker compose up --build -d
 
-            # Remove old images to save space
-            if [ "$(docker images -q $IMAGE_NAME)" ]; then
-              docker rmi -f $IMAGE_NAME
-            fi
-
-            # Build new Docker image
-            docker build --pull -t $IMAGE_NAME .
-
-            # Run new container with restart policy
-            docker run -d --name $CONTAINER_NAME -p 3000:3000 --restart unless-stopped $IMAGE_NAME
-
-            echo "Deployment to main branch completed successfully."
+            echo "✅ Deployment to main branch completed successfully!"
