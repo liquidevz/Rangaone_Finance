@@ -263,19 +263,6 @@ export function DigioVerificationModal({
                     <p className="text-sm text-blue-700 mb-3">
                       Setting up your digital signature document...
                     </p>
-                    <Button
-                      onClick={() => {
-                        setStep("signing")
-                        setDocumentId("manual-override")
-                        toast({
-                          title: "Proceeding to Signature",
-                          description: "You can now complete the signing process",
-                        })
-                      }}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-2"
-                    >
-                      Continue to Signing
-                    </Button>
                   </motion.div>
                 )}
 
@@ -298,18 +285,6 @@ export function DigioVerificationModal({
                         Document ID: {documentId}
                       </div>
                     )}
-                    <Button
-                      onClick={() => {
-                        setStep("completed")
-                        toast({
-                          title: "Document Signing Confirmed",
-                          description: "Proceeding to payment authorization",
-                        })
-                      }}
-                      className="w-full bg-orange-600 hover:bg-orange-700 text-white"
-                    >
-                      I have completed signing
-                    </Button>
                   </motion.div>
                 )}
 
