@@ -137,7 +137,7 @@ export default function BasicSubscriptionPage() {
             >
               <h1 className="px-2 text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-tight bg-gradient-to-r from-[#021836] to-transparent rounded-xl">
                 At RangaOne<br></br>
-                Your Growth, Our Priority
+                ~Your Growth, Our Priority~
               </h1>
             </motion.div>
 

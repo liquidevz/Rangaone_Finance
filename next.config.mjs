@@ -1,23 +1,33 @@
+import { fileURLToPath } from 'url'
+import { dirname } from 'path'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
+  // Essential for Docker deployment
   output: 'standalone',
-  
-  webpack: (config) => {
+  reactStrictMode: true,
+
+  webpack: (config, { isServer }) => {
+    // Resolve alias
     config.resolve.alias = {
       ...config.resolve.alias,
       '@': new URL('.', import.meta.url).pathname,
     }
+
+    // Optimize for Docker
+    if (isServer) {
+      config.externals.push('sharp')
+    }
+
     return config
   },
-  
-  generateBuildId: async () => {
-    return 'build-' + Date.now()
-  },
-  
 
-  
-  // Image configuration
+  generateBuildId: async () => 'build-' + Date.now(),
+
+  // Image configuration for Docker
   images: {
     domains: ['v0.blob.com'],
     remotePatterns: [
@@ -31,32 +41,21 @@ const nextConfig = {
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
-  
-  // Transpile packages
-  transpilePackages: [
-    'lucide-react',
-  ],
-  
-  // Build configuration
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  
-  // Output file tracing
+
+  transpilePackages: ['lucide-react'],
+
+  eslint: { ignoreDuringBuilds: true },
+  typescript: { ignoreBuildErrors: true },
+
   outputFileTracingIncludes: {
     '/': ['./public/**/*'],
   },
-  
-  // Experimental features
+
   experimental: {
     optimizeCss: true,
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
   },
-  
-  // Headers for security and caching
+
   async headers() {
     return [
       {
@@ -74,7 +73,15 @@ const nextConfig = {
           { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
         ],
       },
-    ];
+    ]
+  },
+
+  serverRuntimeConfig: {
+    PROJECT_ROOT: __dirname,
+  },
+
+  publicRuntimeConfig: {
+    staticFolder: '/static',
   },
 }
 
