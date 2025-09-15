@@ -143,25 +143,28 @@ export function DigioVerificationModal({
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-2xl shadow-xl w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-2xl max-h-[90vh] mx-4 flex flex-col overflow-hidden"
       >
-        <div className="p-6">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <Shield className="w-8 h-8 text-blue-600" />
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Payment Verification</h2>
-                <p className="text-sm text-gray-600">Digital signature required for payment authorization</p>
-              </div>
+        {/* Header - Fixed */}
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b bg-white rounded-t-2xl flex-shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Shield className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
+            <div>
+              <h2 className="text-lg sm:text-2xl font-bold text-gray-900">Payment Verification</h2>
+              <p className="text-xs sm:text-sm text-gray-600">Digital signature required</p>
             </div>
-            <button 
-              onClick={handleClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
           </div>
+          <button 
+            onClick={handleClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+          >
+            <X className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
+        </div>
+
+        {/* Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-4 sm:p-6">
 
           {/* Agreement Summary */}
           <Card className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
@@ -172,7 +175,7 @@ export function DigioVerificationModal({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4 text-gray-500" />
                   <span className="text-sm text-gray-600">Customer:</span>
@@ -225,10 +228,10 @@ export function DigioVerificationModal({
               </div>
 
               {/* Progress Steps */}
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between mb-4 sm:mb-6 overflow-x-auto">
                 {["creating", "signing", "completed"].map((stepName, index) => (
                   <div key={stepName} className="flex items-center">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                    <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium flex-shrink-0 ${
                       step === stepName ? "bg-blue-600 text-white" :
                       ["creating", "signing", "completed"].indexOf(step) > index ? "bg-green-600 text-white" :
                       "bg-gray-200 text-gray-600"
@@ -236,7 +239,7 @@ export function DigioVerificationModal({
                       {["creating", "signing", "completed"].indexOf(step) > index ? "✓" : index + 1}
                     </div>
                     {index < 2 && (
-                      <div className={`w-16 h-1 mx-2 ${
+                      <div className={`w-8 sm:w-16 h-1 mx-1 sm:mx-2 ${
                         ["creating", "signing", "completed"].indexOf(step) > index ? "bg-green-600" : "bg-gray-200"
                       }`} />
                     )}
@@ -380,6 +383,7 @@ export function DigioVerificationModal({
             <p className="text-xs text-gray-500">
               This verification step ensures secure payment authorization through digital signature
             </p>
+          </div>
           </div>
         </div>
       </motion.div>

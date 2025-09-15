@@ -684,10 +684,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="bg-white rounded-xl shadow-xl w-full max-w-lg sm:max-w-xl md:max-w-2xl max-h-[90vh] flex flex-col"
+            className="bg-white rounded-xl shadow-xl w-full max-w-lg sm:max-w-xl md:max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
           >
-            {/* Header - Sticky */}
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b bg-white rounded-t-xl sticky top-0 z-50 flex-shrink-0">
+            {/* Header - Fixed */}
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b bg-white rounded-t-xl flex-shrink-0">
               <h2 className="text-xl font-bold">
                 {step === "success"
                   ? "Payment Successful!"
@@ -708,14 +708,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               </h2>
               <button
                 onClick={handleClose}
-                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-1 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             {/* Content - Scrollable */}
-            <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-4 sm:p-6">
               {step === "plan" && (
                 <div className="space-y-6">
                   <div className="flex flex-col items-center">
@@ -1530,6 +1531,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   </div>
                 </div>
               )}
+              </div>
             </div>
           </motion.div>
         </motion.div>
