@@ -265,6 +265,32 @@ export const paymentService = {
     }
   },
 
+  // Verify eSign completion
+  verifyESignCompletion: async (productType: string, productId: string): Promise<{ success: boolean; message: string }> => {
+    const token = authService.getAccessToken();
+    console.log("🔍 Verifying eSign completion for:", { productType, productId });
+    
+    try {
+      const response = await get(`/digio/esign/verify?productType=${productType}&productId=${productId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      console.log("🔍 eSign completion verification response:", response);
+      return {
+        success: (response as any)?.success || true,
+        message: (response as any)?.message || "eSign verification completed"
+      };
+    } catch (error: any) {
+      console.log("🔍 eSign completion verification error:", error);
+      return {
+        success: false,
+        message: error.message || "eSign verification failed"
+      };
+    }
+  },
+
   // Create order for single product with duplicate prevention
   createOrder: async (
     payload: CreateOrderPayload

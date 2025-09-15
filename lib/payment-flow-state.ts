@@ -6,6 +6,8 @@ interface PaymentFlowState {
   currentStep: "plan" | "consent" | "auth" | "digio" | "processing" | "success" | "error";
   timestamp: number;
   isAuthenticated: boolean;
+  subscriptionType?: "monthly" | "yearly";
+  appliedCoupon?: { code: string; discount: number } | null;
 }
 
 const FLOW_STATE_KEY = "paymentFlowState";

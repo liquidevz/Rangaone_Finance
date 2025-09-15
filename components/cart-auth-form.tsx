@@ -35,8 +35,38 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
     phone: "",
     password: "",
     confirmPassword: "",
-    rememberMe: false
+    rememberMe: false,
+    firstName: "",
+    middleName: "",
+    lastName: "",
+    dateOfBirth: "",
+    state: ""
   });
+
+  // Indian states list
+  const indianStates = [
+    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi", "Jammu and Kashmir", "Ladakh", "Puducherry", "Chandigarh", "Andaman and Nicobar Islands", "Dadra and Nagar Haveli and Daman and Diu", "Lakshadweep"
+  ];
+
+  // Generate username from name parts
+  const generateUsername = (firstName: string, lastName: string): string => {
+    const first = firstName.trim().toLowerCase();
+    const last = lastName.trim().toLowerCase();
+    if (!first) return "";
+    if (!last) return first;
+    return first + last;
+  };
+
+  // Get full name from parts
+  const getFullName = (): string => {
+    const parts = [formData.firstName, formData.middleName, formData.lastName]
+      .filter(part => part.trim())
+      .map(part => part.trim());
+    return parts.join(" ");
+  };
+
+  // Get generated username for display
+  const generatedUsername = generateUsername(formData.firstName, formData.lastName);
   const [profileData, setProfileData] = useState({
     fullName: "",
     phone: "",
@@ -72,8 +102,11 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
 
     if (currentStep === 0) {
       if (isSignupMode) {
-        if (!formData.username.trim()) {
-          newErrors.username = "Username is required";
+        if (!formData.firstName.trim()) {
+          newErrors.firstName = "First name is required";
+        }
+        if (!formData.lastName.trim()) {
+          newErrors.lastName = "Last name is required";
         }
         if (!formData.email.trim()) {
           newErrors.email = "Email is required";
@@ -82,6 +115,12 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
         }
         if (!formData.phone.trim()) {
           newErrors.phone = "Phone is required";
+        }
+        if (!formData.dateOfBirth) {
+          newErrors.dateOfBirth = "Date of birth is required";
+        }
+        if (!formData.state.trim()) {
+          newErrors.state = "State is required";
         }
         if (!formData.password) {
           newErrors.password = "Password is required";
@@ -127,14 +166,26 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
       setLoading(true);
       try {
         if (isSignupMode) {
-          // Signup and login in one step
-          await authService.signup({
-            username: formData.username,
+          // Generate username and full name
+          const generatedUsername = generateUsername(formData.firstName, formData.lastName);
+          const fullName = getFullName();
+          
+          const signupData = {
+            username: generatedUsername,
             email: formData.email,
             phone: formData.phone,
-            password: formData.password
-          });
-          await login(formData.username, formData.password, formData.rememberMe);
+            password: formData.password,
+            fullName: fullName,
+            dateOfBirth: formData.dateOfBirth,
+            state: formData.state
+          };
+          
+          console.log("Signup data being sent:", signupData);
+          
+          // Signup first
+          await authService.signup(signupData);
+          // Then automatically login with the generated username
+          await login(generatedUsername, formData.password, formData.rememberMe);
         } else {
           // Try login first
           try {
@@ -186,8 +237,8 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
         } catch (error) {
           console.error('Failed to load profile:', error);
         }
-        // Move to Digio verification after successful auth
-        setCurrentStep(1);
+        // Trigger auth success callback to proceed to PAN verification
+        onAuthSuccess();
       } catch (error: any) {
         setErrors({ general: error.message || "Authentication failed" });
       } finally {
@@ -268,7 +319,12 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
         phone: "",
         password: "",
         confirmPassword: "",
-        rememberMe: false
+        rememberMe: false,
+        firstName: "",
+        middleName: "",
+        lastName: "",
+        dateOfBirth: "",
+        state: ""
       });
     }
     setErrors({});
@@ -293,23 +349,57 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
               </div>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
                 <p className="text-sm text-blue-800">
-                  <span className="font-medium">Creating account for:</span> {formData.email}
+                  <span className="font-medium">Creating account</span>
                 </p>
               </div>
               <div>
-                <Label htmlFor="username" className="text-sm font-medium">Username</Label>
+                <Label htmlFor="firstName" className="text-sm font-medium">First Name</Label>
                 <div className="relative mt-1">
                   <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
-                    id="username"
+                    id="firstName"
                     type="text"
-                    placeholder="Choose a username"
-                    value={formData.username}
-                    onChange={(e) => handleInputChange("username", e.target.value)}
+                    placeholder="Enter your first name"
+                    value={formData.firstName}
+                    onChange={(e) => handleInputChange("firstName", e.target.value)}
                     className="pl-10"
                   />
                 </div>
-                {errors.username && <p className="text-red-500 text-xs mt-1">{errors.username}</p>}
+                {errors.firstName && <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>}
+              </div>
+              <div>
+                <Label htmlFor="middleName" className="text-sm font-medium">Middle Name (Optional)</Label>
+                <div className="relative mt-1">
+                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="middleName"
+                    type="text"
+                    placeholder="Enter your middle name"
+                    value={formData.middleName}
+                    onChange={(e) => handleInputChange("middleName", e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="lastName" className="text-sm font-medium">Last Name</Label>
+                <div className="relative mt-1">
+                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="lastName"
+                    type="text"
+                    placeholder="Enter your last name"
+                    value={formData.lastName}
+                    onChange={(e) => handleInputChange("lastName", e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                {errors.lastName && <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>}
+                {generatedUsername && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Username: <span className="font-medium">{generatedUsername}</span>
+                  </p>
+                )}
               </div>
               <div>
                 <Label htmlFor="email" className="text-sm font-medium">Email</Label>
@@ -384,6 +474,37 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
                   </button>
                 </div>
                 {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>}
+              </div>
+              <div>
+                <Label htmlFor="dateOfBirth" className="text-sm font-medium">Date of Birth</Label>
+                <div className="relative mt-1">
+                  <Calendar className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="dateOfBirth"
+                    type="date"
+                    value={formData.dateOfBirth}
+                    onChange={(e) => handleInputChange("dateOfBirth", e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                {errors.dateOfBirth && <p className="text-red-500 text-xs mt-1">{errors.dateOfBirth}</p>}
+              </div>
+              <div>
+                <Label htmlFor="state" className="text-sm font-medium">State</Label>
+                <div className="relative mt-1">
+                  <select
+                    id="state"
+                    value={formData.state}
+                    onChange={(e) => handleInputChange("state", e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select your state</option>
+                    {indianStates.map((state) => (
+                      <option key={state} value={state}>{state}</option>
+                    ))}
+                  </select>
+                </div>
+                {errors.state && <p className="text-red-500 text-xs mt-1">{errors.state}</p>}
               </div>
             </div>
           );

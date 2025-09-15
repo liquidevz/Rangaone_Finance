@@ -24,8 +24,27 @@ export default function SignupPage() {
     phone: "",
     password: "",
     confirmPassword: "",
+    dateOfBirth: "",
+    state: "",
     agreeTerms: false,
   });
+
+  // Indian states list
+  const indianStates = [
+    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi", "Jammu and Kashmir", "Ladakh", "Puducherry", "Chandigarh", "Andaman and Nicobar Islands", "Dadra and Nagar Haveli and Daman and Diu", "Lakshadweep"
+  ];
+
+  // Generate username from full name
+  const generateUsername = (fullName: string): string => {
+    const names = fullName.trim().toLowerCase().split(/\s+/);
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return names[0] + names[1];
+    // For 3+ names, use first + last
+    return names[0] + names[names.length - 1];
+  };
+
+  // Get generated username for display
+  const generatedUsername = formData.name ? generateUsername(formData.name) : "";
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -74,6 +93,24 @@ export default function SignupPage() {
       return;
     }
 
+    if (!formData.dateOfBirth) {
+      toast({
+        title: "Date of birth required",
+        description: "Please enter your date of birth.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.state.trim()) {
+      toast({
+        title: "State required",
+        description: "Please enter your state.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (formData.password.length < 6) {
       toast({
         title: "Password too short",
@@ -104,12 +141,16 @@ export default function SignupPage() {
     setFormLoading(true);
 
     try {
-      // Call the signup API
+      // Generate username and call the signup API
+      const generatedUsername = generateUsername(formData.name);
       const response = await authService.signup({
-        username: formData.name.trim(),
+        username: generatedUsername,
         email: formData.email.trim(),
         phone: formData.phone.trim(),
         password: formData.password,
+        fullName: formData.name.trim(),
+        dateOfBirth: formData.dateOfBirth,
+        state: formData.state.trim(),
       });
 
       toast({
@@ -217,6 +258,11 @@ export default function SignupPage() {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#001633] focus:border-transparent"
                 disabled={formLoading}
               />
+              {generatedUsername && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Username will be: <span className="font-medium text-gray-700">{generatedUsername}</span>
+                </p>
+              )}
             </div>
 
             <div>
@@ -285,6 +331,42 @@ export default function SignupPage() {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#001633] focus:border-transparent"
                 disabled={formLoading}
               />
+            </div>
+
+            <div>
+              <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 mb-2">
+                Date of Birth
+              </label>
+              <Input
+                id="dateOfBirth"
+                name="dateOfBirth"
+                type="date"
+                required
+                value={formData.dateOfBirth}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#001633] focus:border-transparent"
+                disabled={formLoading}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-2">
+                State
+              </label>
+              <select
+                id="state"
+                name="state"
+                required
+                value={formData.state}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#001633] focus:border-transparent"
+                disabled={formLoading}
+              >
+                <option value="">Select your state</option>
+                {indianStates.map((state) => (
+                  <option key={state} value={state}>{state}</option>
+                ))}
+              </select>
             </div>
 
             <div className="flex items-start space-x-2">

@@ -6,6 +6,9 @@ interface SignupPayload {
   email: string;
   password: string;
   phone: string;
+  fullName: string;
+  dateOfBirth: string;
+  state: string;
   mainUserId?: string;
 }
 
@@ -59,12 +62,27 @@ export const authService = {
 
   // Authentication methods
   signup: async (payload: SignupPayload): Promise<SignupResponse> => {
-    return await post<SignupResponse>("/auth/signup", payload, {
-      headers: {
-        accept: "application/json",
-        "Content-Type": "application/json",
-      },
-    });
+    try {
+      console.log("Signup payload:", payload);
+      const response = await post<SignupResponse>("/auth/signup", payload, {
+        headers: {
+          accept: "application/json",
+          "Content-Type": "application/json",
+        },
+      });
+      console.log("Signup response:", response);
+      return response;
+    } catch (error: any) {
+      console.error("Signup error:", error);
+      console.error("Signup error response:", error.response?.data);
+      
+      if (error?.response?.status === 400) {
+        const errorMessage = error.response?.data?.message || error.response?.data?.error || "Invalid signup data";
+        throw new Error(errorMessage);
+      }
+      
+      throw error;
+    }
   },
 
   login: async (payload: LoginPayload): Promise<LoginResponse> => {

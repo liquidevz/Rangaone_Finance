@@ -62,12 +62,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     pandetails: ""
   });
   const [panFormLoading, setPanFormLoading] = useState(false);
-  const [panVerifying, setPanVerifying] = useState(false);
-  const [panVerified, setPanVerified] = useState(false);
+
   const cancelRequested = useRef(false);
   const continuedAfterAuthRef = useRef(false);
 
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, isLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -109,35 +108,53 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     setShowDigio(true);
   }, [bundle, user, subscriptionType, getPrice]);
 
-  // When modal opens, always start with plan selection
+  // When modal opens, restore saved state and determine starting step
   useEffect(() => {
     if (!isOpen || !bundle) return;
     
+    // Block body scroll when modal opens
+    document.body.style.overflow = 'hidden';
+    
+    const savedState = paymentFlowState.get();
+    if (savedState && savedState.bundleId === bundle._id) {
+      // Restore saved plan selection
+      if (savedState.subscriptionType) {
+        setSubscriptionType(savedState.subscriptionType);
+      }
+      if (savedState.appliedCoupon) {
+        setAppliedCoupon(savedState.appliedCoupon);
+      }
+      
+      // If user is authenticated and has saved state, skip to payment flow
+      if (isAuthenticated && user && savedState.subscriptionType) {
+        console.log("✅ User authenticated with saved plan - proceeding to PAN verification");
+        setStep("processing");
+        setProcessing(true);
+        setProcessingMsg("Checking profile...");
+        handlePaymentFlow();
+        return;
+      }
+    }
+    
     setStep("plan");
-    // Save initial flow state
     paymentFlowState.save({
       bundleId: bundle._id,
       pricingType: isEmandateFlow ? "monthlyEmandate" : "monthly",
       currentStep: "plan",
-      isAuthenticated
+      isAuthenticated,
+      subscriptionType,
+      appliedCoupon
     });
     
     continuedAfterAuthRef.current = false;
-  }, [isOpen, bundle, isEmandateFlow]);
+    
+    // Cleanup function to restore body scroll
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, bundle, isEmandateFlow, isAuthenticated, user]);
 
-  // If user authenticates while in auth step, automatically continue to verification
-  useEffect(() => {
-    if (!isOpen) return;
-    if (step !== "auth") return;
-    if (isAuthenticated && bundle && !continuedAfterAuthRef.current) {
-      continuedAfterAuthRef.current = true;
-      paymentFlowState.update({ 
-        currentStep: "processing", 
-        isAuthenticated: true 
-      });
-      handlePaymentFlow();
-    }
-  }, [isOpen, step, isAuthenticated, bundle]);
+
 
   const computeMonthlyEmandateDiscount = () => {
     if (!bundle) return 0;
@@ -174,9 +191,13 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const applyCoupon = () => {
     const code = couponCode.toUpperCase();
     if (code === "WELCOME10") {
-      setAppliedCoupon({ code, discount: 10 });
+      const coupon = { code, discount: 10 };
+      setAppliedCoupon(coupon);
+      paymentFlowState.update({ appliedCoupon: coupon });
     } else if (code === "SAVE20") {
-      setAppliedCoupon({ code, discount: 20 });
+      const coupon = { code, discount: 20 };
+      setAppliedCoupon(coupon);
+      paymentFlowState.update({ appliedCoupon: coupon });
     } else {
       toast({
         title: "Invalid Coupon",
@@ -189,14 +210,18 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const removeCoupon = () => {
     setAppliedCoupon(null);
     setCouponCode("");
+    paymentFlowState.update({ appliedCoupon: null });
   };
 
   const handleClose = () => {
+    // Restore body scroll
+    document.body.style.overflow = 'unset';
     setStep("plan");
     setProcessing(false);
     setShowDigio(false);
     setTelegramLinks(null);
     setESignData(null);
+    continuedAfterAuthRef.current = false;
     // Clear payment flow state when modal is closed
     paymentFlowState.clear();
     onClose();
@@ -205,11 +230,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const handleProceed = async () => {
     if (!bundle) return;
 
-    // Update flow state
-    paymentFlowState.update({ currentStep: "consent" });
-    
-    // First show consent step
-    setStep("consent");
+    if (isAuthenticated && user) {
+      setStep("processing");
+      setProcessing(true);
+      setProcessingMsg("Checking profile...");
+      await handlePaymentFlow();
+    } else {
+      setStep("auth");
+    }
   };
 
   const handleConsentProceed = async () => {
@@ -246,20 +274,53 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   const handleAuthSuccess = async () => {
-    continuedAfterAuthRef.current = true;
-    // Continue the enhanced payment flow for both eMandate and one-time payments
-    console.log("🔍 Auth success - starting enhanced payment flow for", isEmandateFlow ? "eMandate" : "one-time payment");
+    console.log("✅ Auth success - proceeding to payment flow");
+    // Update payment flow state with current selections
     paymentFlowState.update({ 
-      currentStep: "processing", 
-      isAuthenticated: true 
+      isAuthenticated: true,
+      subscriptionType,
+      appliedCoupon
     });
+    setStep("processing");
+    setProcessing(true);
+    setProcessingMsg("Checking profile...");
     await handlePaymentFlow();
   };
 
 
   const handleDigioComplete = async () => {
     setShowDigio(false);
-    await continueAfterDigio();
+    
+    // Verify eSign completion
+    try {
+      setStep("processing");
+      setProcessing(true);
+      setProcessingMsg("Verifying eSign completion...");
+      
+      const verification = await paymentService.verifyESignCompletion("Bundle", bundle?._id || "");
+      
+      if (!verification.success) {
+        setStep("error");
+        setProcessing(false);
+        toast({
+          title: "eSign Verification Failed",
+          description: verification.message,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      console.log("✅ eSign verified - retrying payment API");
+      await continueAfterDigio();
+    } catch (error: any) {
+      setStep("error");
+      setProcessing(false);
+      toast({
+        title: "eSign Verification Error",
+        description: error?.message || "Failed to verify eSign",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEmandatePaymentFlow = async () => {
@@ -359,6 +420,28 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         }
       );
     } catch (error: any) {
+      // Check for eSign requirement (412 error)
+      if (error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
+        console.log("🔍 eSign required for eMandate - showing Digio verification");
+        const amount = subscriptionType === "yearly"
+          ? ((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0
+          : ((bundle as any).monthlyemandateprice as number) || bundle.monthlyPrice || 0;
+        const data: PaymentAgreementData = {
+          customerName: (user as any)?.fullName || user?.username || "User",
+          customerEmail: user?.email || "user@example.com",
+          customerMobile: user?.phone,
+          amount: amount,
+          subscriptionType: subscriptionType,
+          portfolioNames: bundle.portfolios.map((p) => p.name),
+          agreementDate: new Date().toLocaleDateString("en-IN"),
+        } as any;
+        
+        setAgreementData(data);
+        setShowDigio(true);
+        setProcessing(false);
+        return;
+      }
+      
       setStep("error");
       setProcessing(false);
       toast({
@@ -372,7 +455,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const handlePaymentFlow = async () => {
     if (!bundle) return;
 
-    console.log("🚀 Starting enhanced payment flow for bundle:", bundle.name);
+    console.log("🚀 Starting payment flow for bundle:", bundle.name);
     
     // Step 1: Check PAN details first
     console.log("🔍 Step 1: Checking PAN details...");
@@ -381,37 +464,114 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     
     if (!panCheck.hasPan) {
       console.log("❌ PAN details missing - showing PAN form");
-      // Pre-fill form with existing profile data
-      if (panCheck.profile) {
-        setPanFormData({
-          fullName: panCheck.profile.fullName || "",
-          dateofBirth: panCheck.profile.dateofBirth || "",
-          phone: panCheck.profile.phone || "",
-          pandetails: ""
-        });
+      console.log("🔍 Profile data:", panCheck.profile);
+      
+      // Try to get DOB from profile or user data
+      const dobFromProfile = panCheck.profile?.dateOfBirth || panCheck.profile?.dateofBirth;
+      const dobFromUser = (user as any)?.dateOfBirth || (user as any)?.dateofBirth;
+      let finalDob = dobFromProfile || dobFromUser || "";
+      
+      // Convert ISO date to YYYY-MM-DD format for HTML date input
+      if (finalDob && finalDob.includes('T')) {
+        finalDob = finalDob.split('T')[0]; // Extract YYYY-MM-DD part
       }
+      
+      console.log("🔍 DOB sources:", { dobFromProfile, dobFromUser, finalDob });
+      
+      setPanFormData({
+        fullName: panCheck.profile?.fullName || (user as any)?.fullName || "",
+        dateofBirth: finalDob,
+        phone: panCheck.profile?.phone || (user as any)?.phone || "",
+        pandetails: ""
+      });
       setStep("pan-form");
       setProcessing(false);
       return;
     }
     
-    console.log("✅ PAN details found - proceeding with Digio verification");
-
-    // Show Digio verification for all flows
-    const price = getPrice();
-    const data: PaymentAgreementData = {
-      customerName: (user as any)?.fullName || user?.username || "User",
-      customerEmail: user?.email || "user@example.com",
-      customerMobile: user?.phone,
-      amount: price,
-      subscriptionType: isEmandateFlow ? subscriptionType : "monthly",
-      portfolioNames: bundle.portfolios.map((p) => p.name),
-      agreementDate: new Date().toLocaleDateString("en-IN"),
-    } as any;
+    console.log("✅ PAN details found - proceeding with payment API");
     
-    setAgreementData(data);
-    setShowDigio(true);
-    setProcessing(false);
+    // Step 2: Try payment API directly
+    try {
+      setProcessingMsg("Creating order...");
+      
+      if (isEmandateFlow) {
+        await handleEmandatePaymentFlow();
+      } else {
+        const order = await paymentService.createOrder({
+          productType: "Bundle",
+          productId: bundle._id,
+          planType: "monthly",
+          subscriptionType: (bundle.category as any) || "premium",
+          couponCode: appliedCoupon?.code || undefined,
+        });
+        
+        setProcessingMsg("Opening payment gateway...");
+        await paymentService.openCheckout(
+          order,
+          {
+            name: (user as any)?.fullName || user?.username || "User",
+            email: user?.email || "user@example.com",
+          },
+          async (rp) => {
+            setProcessingMsg("Verifying payment...");
+            const verify = await paymentService.verifyPayment({
+              orderId: order.orderId,
+              paymentId: rp?.razorpay_payment_id,
+              signature: rp?.razorpay_signature,
+            });
+            
+            if (verify.success) {
+              const links = (verify as any)?.telegramInviteLinks;
+              if (links && Array.isArray(links) && links.length > 0) {
+                setTelegramLinks(links);
+              }
+              setStep("success");
+              setProcessing(false);
+              paymentFlowState.clear();
+              toast({ title: "Payment Successful", description: "Subscription activated" });
+            } else {
+              setStep("error");
+              setProcessing(false);
+              toast({ title: "Verification Failed", description: verify.message || "Please try again", variant: "destructive" });
+            }
+          },
+          (err) => {
+            setStep("error");
+            setProcessing(false);
+            toast({ title: "Payment Cancelled", description: err?.message || "Payment was cancelled", variant: "destructive" });
+          }
+        );
+      }
+    } catch (error: any) {
+      // Check for eSign requirement (412 error) - only for one-time payments
+      if (!isEmandateFlow && error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
+        console.log("🔍 eSign required for one-time payment - showing Digio verification");
+        const price = getPrice();
+        const data: PaymentAgreementData = {
+          customerName: (user as any)?.fullName || user?.username || "User",
+          customerEmail: user?.email || "user@example.com",
+          customerMobile: user?.phone,
+          amount: price,
+          subscriptionType: "monthly",
+          portfolioNames: bundle.portfolios.map((p) => p.name),
+          agreementDate: new Date().toLocaleDateString("en-IN"),
+        } as any;
+        
+        setAgreementData(data);
+        setShowDigio(true);
+        setProcessing(false);
+        return;
+      }
+      
+      setStep("error");
+      setProcessing(false);
+      toast({
+        title: "Payment Error",
+        description: error?.message || "Could not start payment",
+        variant: "destructive",
+      });
+    }
   };
 
   const continueAfterDigio = async () => {
@@ -506,7 +666,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
           onClick={(e) => {
             // Prevent closing modal when clicking on backdrop during form interactions
-            if (e.target === e.currentTarget && step !== "pan-form" && !panVerifying && !panFormLoading) {
+            if (e.target === e.currentTarget && step !== "pan-form" && !panFormLoading) {
               handleClose();
             }
           }}
@@ -515,10 +675,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="bg-white rounded-xl shadow-xl w-full max-w-lg sm:max-w-xl md:max-w-2xl max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-xl shadow-xl w-full max-w-lg sm:max-w-xl md:max-w-2xl max-h-[90vh] flex flex-col"
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b">
+            {/* Header - Sticky */}
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b bg-white rounded-t-xl sticky top-0 z-50 flex-shrink-0">
               <h2 className="text-xl font-bold">
                 {step === "success"
                   ? "Payment Successful!"
@@ -545,8 +705,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               </button>
             </div>
 
-            {/* Content */}
-            <div className="p-4 sm:p-6">
+            {/* Content - Scrollable */}
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1">
               {step === "plan" && (
                 <div className="space-y-6">
                   <div className="flex flex-col items-center">
@@ -568,7 +728,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         {/* Annual billed monthly (eMandate monthly) */}
                         <button
-                          onClick={() => setSubscriptionType("monthly")}
+                          onClick={() => {
+                            setSubscriptionType("monthly");
+                            paymentFlowState.update({ subscriptionType: "monthly" });
+                          }}
                           className={`p-4 sm:p-5 md:p-6 rounded-xl border-2 transition-all text-left relative overflow-hidden h-full flex flex-col ${
                             subscriptionType === "monthly"
                               ? "border-blue-500 bg-blue-50"
@@ -596,7 +759,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                           </div>
                           <div className="pt-9 sm:pt-10" />
                           <div className="font-semibold text-base sm:text-lg md:text-xl">
-                            Annual, butbilled monthly
+                            Annual, <br></br>billed monthly
                           </div>
                           <div className="text-xs sm:text-sm text-gray-600 line-through">
                             ₹
@@ -618,7 +781,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
                         {/* Annual prepaid (yearly) */}
                         <button
-                          onClick={() => setSubscriptionType("yearly")}
+                          onClick={() => {
+                            setSubscriptionType("yearly");
+                            paymentFlowState.update({ subscriptionType: "yearly" });
+                          }}
                           className={`p-4 sm:p-5 md:p-6 rounded-xl border-2 transition-all text-left relative overflow-hidden h-full flex flex-col ${
                             subscriptionType === "yearly"
                               ? "border-blue-500 bg-blue-50"
@@ -646,7 +812,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                           </div>
                           <div className="pt-9 sm:pt-10" />
                           <div className="font-semibold text-base sm:text-lg md:text-xl">
-                            Annual, prepaid
+                            Annual, billed Yearly
                           </div>
                           <div className="text-xs sm:text-sm text-gray-600 line-through">
                             ₹
@@ -792,7 +958,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     onClick={handleProceed}
                     className="w-full bg-[#001633] hover:bg-[#002244] text-white py-3"
                   >
-                    Proceed to Payment
+                    {isAuthenticated ? "Continue to Payment" : "Proceed to Payment"}
                   </Button>
                 </div>
               )}
@@ -913,15 +1079,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     setPanFormLoading(true);
                     
                     try {
-                      if (!panVerified) {
-                        toast({
-                          title: "PAN Not Verified",
-                          description: "Please verify your PAN details first",
-                          variant: "destructive",
-                        });
-                        setPanFormLoading(false);
-                        return;
-                      }
                       // Validate form data before sending
                       if (!panFormData.fullName.trim()) {
                         throw new Error("Full name is required");
@@ -1033,107 +1190,16 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                             type="text"
                             required
                             value={panFormData.pandetails}
-                            onChange={(e) => {
-                              setPanFormData({...panFormData, pandetails: e.target.value.toUpperCase()});
-                              setPanVerified(false);
-                            }}
-                            className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all font-mono text-lg tracking-wider ${
-                              panVerified 
-                                ? 'border-green-300 bg-green-50 focus:ring-green-500' 
-                                : 'border-gray-300 focus:ring-blue-500'
-                            }`}
+                            onChange={(e) => setPanFormData({...panFormData, pandetails: e.target.value.toUpperCase()})}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all font-mono text-lg tracking-wider"
                             placeholder="ABCDE1234F"
                             maxLength={10}
                             pattern={"[A-Z]{5}[0-9]{4}[A-Z]{1}"}
                           />
-                          {panVerified ? (
-                            <svg className="absolute right-3 top-3 w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                          ) : (
-                            <svg className="absolute right-3 top-3 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                          )}
+                          <svg className="absolute right-3 top-3 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
                         </div>
-                        
-                        <Button
-                          type="button"
-                          onClick={async () => {
-                            if (!panFormData.pandetails || !panFormData.fullName || !panFormData.dateofBirth) {
-                              toast({
-                                title: "Missing Information",
-                                description: "Please fill in PAN, name, and date of birth first",
-                                variant: "destructive",
-                              });
-                              return;
-                            }
-                            
-                            setPanVerifying(true);
-                            try {
-                              // Convert YYYY-MM-DD to DD/MM/YYYY
-                              const [year, month, day] = panFormData.dateofBirth.split('-');
-                              const dobFormatted = `${day}/${month}/${year}`;
-                              console.log('Date conversion:', panFormData.dateofBirth, '->', dobFormatted);
-                              const verifyResult = await paymentService.verifyPanDetails({
-                                id_no: panFormData.pandetails,
-                                name: panFormData.fullName,
-                                dob: dobFormatted
-                              });
-                              
-                              if (verifyResult.success === true) {
-                                setPanVerified(true);
-                                toast({
-                                  title: "PAN Verified",
-                                  description: "Your PAN details have been successfully verified",
-                                });
-                              } else {
-                                setPanVerified(false);
-                                toast({
-                                  title: "PAN Verification Failed",
-                                  description: verifyResult.message || "Please check your PAN details",
-                                  variant: "destructive",
-                                });
-                              }
-                            } catch (error: any) {
-                              setPanVerified(false);
-                              toast({
-                                title: "Verification Error",
-                                description: error.message || "Failed to verify PAN",
-                                variant: "destructive",
-                              });
-                            } finally {
-                              setPanVerifying(false);
-                            }
-                          }}
-                          disabled={panVerifying || !panFormData.pandetails || !panFormData.fullName || !panFormData.dateofBirth}
-                          className={`w-full ${
-                            panVerified 
-                              ? 'bg-green-600 hover:bg-green-700 text-white' 
-                              : 'bg-blue-600 hover:bg-blue-700 text-white'
-                          }`}
-                        >
-                          {panVerifying ? (
-                            <>
-                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                              Verifying PAN...
-                            </>
-                          ) : panVerified ? (
-                            <>
-                              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                              </svg>
-                              PAN Verified ✓
-                            </>
-                          ) : (
-                            <>
-                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              Verify PAN Details
-                            </>
-                          )}
-                        </Button>
                         
                         <p className="text-xs text-gray-500">
                           Format: 5 letters + 4 digits + 1 letter (e.g., ABCDE1234F)
@@ -1157,7 +1223,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       <Button
                         type="submit"
                         className="flex-1 bg-[#001633] hover:bg-[#002244] text-white py-3 relative"
-                        disabled={panFormLoading || !panVerified}
+                        disabled={panFormLoading}
                       >
                         {panFormLoading ? (
                           <>
