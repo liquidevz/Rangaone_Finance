@@ -20,7 +20,6 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            # Navigate to app directory
             cd /home/rangaone/htdocs/www.rangaone.finance/Rangaone_Finance
 
             # Ensure repo is clean & updated
@@ -29,10 +28,35 @@ jobs:
             git checkout main
             git pull origin main
 
-            # Stop and remove all containers from docker-compose
-            docker compose down || true
+            # Build new image with a unique tag
+            NEW_TAG=deploy-$(date +%s)
+            docker build -t nextjs-app:$NEW_TAG .
 
-            # Rebuild everything fresh and start in detached mode
-            docker compose up --build -d
+            # Run new container on a different port (e.g. 3001)
+            docker run -d --name nextjs-app-temp -p 3001:3000 nextjs-app:$NEW_TAG
 
-            echo "✅ Deployment to main branch completed successfully!"
+            # Wait for new container to become healthy (adjust if you add HEALTHCHECK in Dockerfile)
+            sleep 10
+
+            # If healthy, stop old container and start new one on correct port
+            if [ "$(docker ps -q -f name=nextjs-app-temp)" ]; then
+              # Stop old container
+              if [ "$(docker ps -q -f name=nextjs-app)" ]; then
+                docker stop nextjs-app
+                docker rm nextjs-app
+              fi
+
+              # Restart new container on port 3000
+              docker run -d --name nextjs-app -p 3000:3000 --restart unless-stopped nextjs-app:$NEW_TAG
+
+              # Remove temp container
+              docker stop nextjs-app-temp
+              docker rm nextjs-app-temp
+
+              echo "✅ Zero-downtime deployment successful!"
+            else
+              echo "❌ New container failed to start, keeping old one running."
+              docker stop nextjs-app-temp
+              docker rm nextjs-app-temp
+              exit 1
+            fi
