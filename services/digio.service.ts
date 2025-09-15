@@ -65,6 +65,9 @@ export interface PaymentAgreementData {
   subscriptionType: "monthly" | "quarterly" | "yearly";
   portfolioNames: string[];
   agreementDate: string;
+  productType?: string;
+  productId?: string;
+  productName?: string;
 }
 
 export const digioService = {
@@ -112,10 +115,13 @@ export const digioService = {
 
   // Create Digio document for signing
   createPaymentSignRequest: async (
-    agreementData: PaymentAgreementData
+    agreementData: PaymentAgreementData,
+    productType: string,
+    productId: string,
+    productName: string
   ): Promise<{ documentId: string; authenticationUrl?: string; }> => {
     try {
-      const response = await post('/digio/document/create', {
+      const response = await post('api/digio/document/create', {
         signerEmail: agreementData.customerEmail,
         signerName: agreementData.customerName,
         signerPhone: agreementData.customerMobile || "",
@@ -124,6 +130,9 @@ export const digioService = {
         displayOnPage: "all",
         notifySigners: true,
         sendSignLink: true,
+        productType,
+        productId,
+        productName,
       }) as any;
 
       if (response.success) {

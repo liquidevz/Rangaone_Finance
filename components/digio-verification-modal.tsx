@@ -39,7 +39,12 @@ export function DigioVerificationModal({
     try {
       setError(null)
       
-      const response = await digioService.createPaymentSignRequest(agreementData)
+      const response = await digioService.createPaymentSignRequest(
+        agreementData,
+        agreementData.productType || "Bundle",
+        agreementData.productId || "",
+        agreementData.productName || ""
+      )
       setDocumentId(response.documentId)
       setStep("signing")
       

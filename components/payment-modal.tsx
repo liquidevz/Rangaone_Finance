@@ -102,6 +102,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       subscriptionType: subscriptionType,
       portfolioNames: bundle.portfolios.map((p) => p.name),
       agreementDate: new Date().toLocaleDateString("en-IN"),
+      productType: "Bundle",
+      productId: bundle._id,
+      productName: bundle.name,
     } as any;
 
     setAgreementData(data);
@@ -434,6 +437,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           subscriptionType: subscriptionType,
           portfolioNames: bundle.portfolios.map((p) => p.name),
           agreementDate: new Date().toLocaleDateString("en-IN"),
+          productType: "Bundle",
+          productId: bundle._id,
+          productName: bundle.name,
         } as any;
         
         setAgreementData(data);
@@ -556,6 +562,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           subscriptionType: "monthly",
           portfolioNames: bundle.portfolios.map((p) => p.name),
           agreementDate: new Date().toLocaleDateString("en-IN"),
+          productType: "Bundle",
+          productId: bundle._id,
+          productName: bundle.name,
         } as any;
         
         setAgreementData(data);
