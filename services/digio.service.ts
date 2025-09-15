@@ -163,7 +163,6 @@ export const digioService = {
     onError: (error: any) => void,
     authenticationUrl?: string
   ): Promise<void> => {
-    // If authentication URL is provided, open it directly
     if (authenticationUrl) {
       console.log("Opening authentication URL:", authenticationUrl);
       const popup = window.open(authenticationUrl, 'digio-sign', 'width=800,height=600,scrollbars=yes,resizable=yes');
@@ -172,74 +171,54 @@ export const digioService = {
         return;
       }
 
-      // Skip polling, rely on demo interface message
-      const pollInterval = null;
-
-      // Listen for demo completion message
-      const messageHandler = (event: MessageEvent) => {
-        if (event.data.type === 'digio-success') {
-          window.removeEventListener('message', messageHandler);
-          popup.close();
-          onSuccess(event.data.data);
+      // Poll for document status
+      const pollInterval = setInterval(async () => {
+        try {
+          const status = await digioService.checkDocumentStatus(documentId);
+          if (status.agreement_status === 'completed') {
+            clearInterval(pollInterval);
+            popup.close();
+            onSuccess({ documentId, status: 'completed' });
+          } else if (status.agreement_status === 'failed' || status.agreement_status === 'expired') {
+            clearInterval(pollInterval);
+            popup.close();
+            onError(new Error(`Signing ${status.agreement_status}`));
+          }
+        } catch (error) {
+          console.error('Error polling document status:', error);
         }
-      };
-      window.addEventListener('message', messageHandler);
+      }, 3000);
+
+      // Clean up if popup is closed
+      const checkClosed = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(pollInterval);
+          clearInterval(checkClosed);
+        }
+      }, 1000);
 
       return;
     }
 
-    // Use demo interface for mock
-    digioService.showDemoESignInterface(documentId, customerEmail, onSuccess, onError);
+    onError(new Error('No authentication URL provided'));
   },
 
-  // Mock document status check without API call
+  // Check document status via API
   checkDocumentStatus: async (documentId: string): Promise<DigioSignResponse> => {
-    // Return requested status to keep polling
-    return {
-      id: documentId,
-      agreement_status: 'requested',
-      file_name: "agreement.pdf",
-      created_at: new Date().toISOString(),
-      signing_parties: [
-        {
-          name: "User",
-          identifier: "user@example.com",
-          status: "requested",
-          signature_type: "aadhaar"
-        }
-      ]
-    };
-  },
-
-  showDemoESignInterface: (
-    documentId: string,
-    customerEmail: string,
-    onSuccess: (response: any) => void,
-    onError: (error: any) => void
-  ) => {
-    const popup = window.open('', 'digio-demo', 'width=500,height=600');
-    if (!popup) {
-      onError(new Error('Popup blocked'));
-      return;
+    try {
+      const response = await get(`api/digio/document/status/${documentId}`) as any;
+      if (response.success) {
+        return response.data;
+      } else {
+        throw new Error(response.message || 'Failed to check document status');
+      }
+    } catch (error: any) {
+      console.error('Error checking document status:', error);
+      throw new Error(error.response?.message || error.message || 'Failed to check document status');
     }
-
-    popup.document.write(`<!DOCTYPE html><html><head><title>Aadhaar eSign</title><style>body{font-family:Arial;padding:20px;background:#f5f5f5}.container{background:white;padding:30px;border-radius:10px}.header{text-align:center;margin-bottom:30px}.logo{width:60px;height:60px;background:#2563eb;border-radius:50%;margin:0 auto 15px;display:flex;align-items:center;justify-content:center;color:white;font-size:24px}.form-group{margin-bottom:20px}label{display:block;margin-bottom:5px;font-weight:bold}input{width:100%;padding:10px;border:1px solid #ddd;border-radius:5px;box-sizing:border-box}button{width:100%;padding:12px;background:#2563eb;color:white;border:none;border-radius:5px;cursor:pointer}.step{margin-bottom:15px;padding:10px;background:#f8f9fa;border-left:4px solid #2563eb}</style></head><body><div class="container"><div class="header"><div class="logo">🔐</div><h2>Aadhaar eSign</h2><p>Demo - ${documentId}</p></div><div id="step1"><div class="step"><strong>Step 1:</strong> Enter Aadhaar</div><div class="form-group"><label>Aadhaar:</label><input type="text" id="aadhaar" placeholder="XXXX-XXXX-XXXX" maxlength="14"></div><button onclick="sendOTP()">Send OTP</button></div><div id="step2" style="display:none"><div class="step"><strong>Step 2:</strong> Enter OTP</div><div class="form-group"><label>OTP:</label><input type="text" id="otp" placeholder="6-digit OTP" maxlength="6"></div><button onclick="verifyOTP()">Verify & Sign</button></div><div id="step3" style="display:none"><div class="step"><strong>Step 3:</strong> Signed!</div><button onclick="closeAndComplete()">Complete</button></div></div><script>function sendOTP(){const a=document.getElementById('aadhaar').value;if(a.length<12){alert('Enter valid Aadhaar');return}document.getElementById('step1').style.display='none';document.getElementById('step2').style.display='block'}function verifyOTP(){const o=document.getElementById('otp').value;if(o.length!==6){alert('Enter valid OTP');return}document.getElementById('step2').style.display='none';document.getElementById('step3').style.display='block'}function closeAndComplete(){window.opener.postMessage({type:'digio-success',data:{document_id:'${documentId}',status:'completed',message:'Signed (demo)'}},'*');window.close()}</script></body></html>`);
-
-    const messageHandler = (event: MessageEvent) => {
-      if (event.data.type === 'digio-success') {
-        window.removeEventListener('message', messageHandler);
-        onSuccess(event.data.data);
-      }
-    };
-    window.addEventListener('message', messageHandler);
-    
-    const checkClosed = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(checkClosed);
-        window.removeEventListener('message', messageHandler);
-      }
-    }, 1000);
   },
+
+
 
   validateSignatureForPayment: async (documentId: string): Promise<boolean> => {
     try {
