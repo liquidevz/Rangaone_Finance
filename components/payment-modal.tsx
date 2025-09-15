@@ -243,38 +243,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     }
   };
 
-  const handleConsentProceed = async () => {
-    if (!bundle) return;
 
-    console.log("🚀 Consent proceed clicked - Flow type:", isEmandateFlow ? "eMandate" : "One-time");
-    
-    // Always check authentication before proceeding
-    if (!isAuthenticated || !user) {
-      console.log("⚠️ User not authenticated - showing auth form");
-      paymentFlowState.update({ currentStep: "auth" });
-      setStep("auth");
-      return;
-    }
-
-    // Verify token is still valid
-    const token =
-      (user as any)?.accessToken ||
-      localStorage.getItem("accessToken") ||
-      sessionStorage.getItem("accessToken");
-    if (!token) {
-      console.log("⚠️ No valid token found - showing auth form");
-      paymentFlowState.update({ currentStep: "auth" });
-      setStep("auth");
-      return;
-    }
-
-    console.log("✅ User authenticated with token");
-    
-    // Apply enhanced order flow to BOTH eMandate and one-time payments
-    console.log("🔍 Starting enhanced payment flow for", isEmandateFlow ? "eMandate" : "one-time payment");
-    paymentFlowState.update({ currentStep: "processing" });
-    await handlePaymentFlow();
-  };
 
   const handleAuthSuccess = async () => {
     console.log("✅ Auth success - proceeding to payment flow");
@@ -495,9 +464,20 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       return;
     }
     
-    console.log("✅ PAN details found - proceeding with payment API");
+    console.log("✅ PAN details found - showing video modal first");
     
-    // Step 2: Try payment API directly
+    // Step 2: Show video modal before payment
+    setStep("consent");
+    setProcessing(false);
+  };
+
+  const proceedAfterVideo = async () => {
+    if (!bundle) return;
+    
+    setStep("processing");
+    setProcessing(true);
+    
+    // Try payment API directly
     try {
       setProcessingMsg("Creating order...");
       
@@ -1023,7 +1003,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       Back to Plan
                     </Button>
                     <Button
-                      onClick={handleConsentProceed}
+                      onClick={proceedAfterVideo}
                       className="flex-1 bg-[#001633] hover:bg-[#002244] text-white disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
                       Proceed to Verification
@@ -1122,8 +1102,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                         title: "Profile Updated",
                         description: "Your PAN details have been verified and saved successfully",
                       });
-                      // Continue with payment flow
-                      await handlePaymentFlow();
+                      // Show video modal after PAN completion
+                      setStep("consent");
                     } catch (error: any) {
                       toast({
                         title: "Update Failed",

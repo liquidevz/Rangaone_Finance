@@ -38,6 +38,7 @@ export default function CartPage() {
   const [activatedPortfolioIds, setActivatedPortfolioIds] = useState<string[]>([])
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [showAuthForm, setShowAuthForm] = useState(false)
+  const [showVideoModal, setShowVideoModal] = useState(false)
   const [showDigioVerification, setShowDigioVerification] = useState(false)
   const [agreementData, setAgreementData] = useState<PaymentAgreementData | null>(null)
 
@@ -252,8 +253,8 @@ export default function CartPage() {
 
   const handleAuthSuccess = async () => {
     setShowAuthForm(false);
-    // After successful auth, show Digio verification
-    showDigioVerificationModal();
+    // After successful auth, show video modal first
+    setShowVideoModal(true);
   };
 
   const showDigioVerificationModal = () => {
@@ -488,8 +489,8 @@ export default function CartPage() {
       return;
     }
     
-    // For authenticated users, go directly to Digio verification
-    showDigioVerificationModal();
+    // For authenticated users, show video modal first
+    setShowVideoModal(true);
   };
 
   const subtotal = filteredItems.reduce((sum, item) => {
@@ -1220,6 +1221,87 @@ export default function CartPage() {
           router.push('/dashboard');
         }}
       />
+
+      {/* Video Modal */}
+      {showVideoModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+          >
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Digital Verification Process</h2>
+                <button 
+                  onClick={() => setShowVideoModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="space-y-6">
+                {/* YouTube Video */}
+                <div className="bg-gray-100 rounded-lg overflow-hidden">
+                  <iframe
+                    width="100%"
+                    height="315"
+                    src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                    title="Digital Verification Process"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="w-full"
+                  ></iframe>
+                </div>
+
+                {/* Content Below Video */}
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <h4 className="text-xl font-semibold text-gray-900 mb-4">
+                    Why Digital Verification is Required
+                  </h4>
+                  <div className="prose prose-gray max-w-none">
+                    <p className="text-gray-700 mb-4">
+                      As per SEBI regulations and RBI guidelines, all investment platforms must verify the identity 
+                      of their subscribers before processing any financial transactions. This digital verification 
+                      ensures the security of your investments and compliance with regulatory requirements.
+                    </p>
+                    <p className="text-gray-700 mb-4">
+                      The process is completely secure, government-approved, and takes only a few minutes to complete. 
+                      Your personal information is encrypted and protected throughout the verification process.
+                    </p>
+                    <p className="text-gray-700">
+                      Once verified, you'll have seamless access to all our premium investment services and 
+                      portfolio recommendations.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => setShowVideoModal(false)}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Back to Cart
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setShowVideoModal(false);
+                      showDigioVerificationModal();
+                    }}
+                    className="flex-1 bg-[#001633] hover:bg-[#002244] text-white"
+                  >
+                    Proceed to Verification
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Digio Verification Modal */}
       {agreementData && (
