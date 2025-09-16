@@ -6,7 +6,7 @@ import { MotionConfig, motion } from "framer-motion";
 import { FaYoutube } from "react-icons/fa";
 import { FiBookOpen } from "react-icons/fi";
 import { ShoppingCart, CreditCard, Check, Play, FileText, ChevronLeft, ChevronRight } from "lucide-react";
-import { twMerge } from "tailwind-merge";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
@@ -240,7 +240,7 @@ export default function ModelPortfolioSection() {
 
   const handleBuyNow = async (portfolio: UserPortfolio) => {
     try {
-      await addToCart(portfolio._id, 1, portfolio)
+      await addToCart(portfolio._id, 1)
       toast({
         title: "Added to Cart",
         description: `${portfolio.name} has been added to your cart.`,
@@ -258,7 +258,7 @@ export default function ModelPortfolioSection() {
 
   if (loading) {
     return (
-      <div className="bg-[#fefcea] dark:bg-gray-900">
+      <div className="bg-[#fefcea] dark:bg-gray-900" id="model-portfolio">
         <section className="py-8 sm:py-12">
           <div className="container mx-auto px-4">
             <div className="text-center mb-8 sm:mb-12">

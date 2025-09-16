@@ -4,9 +4,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { FiMenu, FiUser, FiLogOut, FiSettings, FiShoppingCart, FiX, FiChevronDown } from "react-icons/fi";
+import { FiMenu, FiUser, FiLogOut, FiSettings, FiShoppingCart, FiX, FiChevronDown, FiPlay } from "react-icons/fi";
 import { useAuth } from "./auth/auth-context";
 import { useCart } from "./cart/cart-context";
+
 
 
 const NavLinks = [
@@ -17,24 +18,11 @@ const NavLinks = [
   },
   {
     title: "Services",
-    href: "/#services",
-    sublinks: [],
-  },
-  {
-    title: "Policies",
-    href: "#",
-    sublinks: [
-      { title: "Privacy Policy", href: "/policies/privacy-policy" },
-      { title: "Terms & Conditions", href: "/policies/terms-conditions" },
-      { title: "Disclaimer", href: "/policies/disclaimer" },
-      { title: "Disclosure", href: "/policies/disclosure" },
-      { title: "Investor Charter", href: "/policies/investor-charter" },
-      { title: "Investor Complaints", href: "/policies/investor-complaints" },
-      { title: "Grievance Redressal", href: "/policies/grievance-redressal" },
-      { title: "PMLA AML Policy", href: "/policies/pmla-aml-policy" },
-      { title: "Complaint Data", href: "/policies/investor-complaints" },
-      { title: "Cancellation & Refund Policy", href: "/policies/cancellation-refund-policy" },
-    ],
+    href: "",
+    // id: "feature-compare",
+    sublinks: [{title: "RangaOne Wealth", href: "#feature-compare"},
+               {title: "Model Portfolio", href: "#model-portfolio"}
+            ],
   },
   {
     title: "About Us",
@@ -91,6 +79,7 @@ export const RoundedDrawerNav = ({
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
+
   const router = useRouter();
   const { user, isAuthenticated, logout, isLoading } = useAuth();
   const { cartItemCount } = useCart();
@@ -129,6 +118,11 @@ export const RoundedDrawerNav = ({
 
   const handleCartClick = () => {
     router.push("/cart");
+    setMobileNavOpen(false);
+  };
+
+  const handleDemoTour = () => {
+    router.push('/dashboard');
     setMobileNavOpen(false);
   };
 
@@ -223,6 +217,8 @@ export const RoundedDrawerNav = ({
 
           {/* Authentication & Cart Section */}
           <div className="flex items-center gap-1">
+
+
             {/* Cart Icon - Show for all users */}
             <button
               onClick={handleCartClick}
@@ -435,6 +431,8 @@ export const RoundedDrawerNav = ({
                   )}
                 </div>
               ))}
+
+
 
               {/* Mobile User Menu */}
               {isAuthenticated && user ? (

@@ -242,7 +242,10 @@ export default function PortfolioDetailsPage() {
       benchmarkValue: firstPoint.benchmarkValue,
     }));
     setChartData(baseline);
-    const timeoutId = setTimeout(() => setChartData(priceHistory), 60);
+    const timeoutId = setTimeout(() => {
+      setChartData(priceHistory);
+      calculatePnlFromPriceHistory();
+    }, 60);
     return () => clearTimeout(timeoutId);
   }, [priceHistory]);
 
@@ -250,13 +253,11 @@ export default function PortfolioDetailsPage() {
   useEffect(() => {
     if (!holdingsWithPrices || holdingsWithPrices.length === 0) return;
     try {
-      // Calculate current total value: sum of (currentPrice * quantity) for all holdings
       const currentTotalValue = holdingsWithPrices.reduce((sum, holding) => {
         const currentValue = (holding.currentPrice || 0) * (holding.quantity || 0);
         return sum + currentValue;
       }, 0);
       
-      // Calculate previous total value: sum of (previousPrice * quantity) for all holdings
       const previousTotalValue = holdingsWithPrices.reduce((sum, holding) => {
         const previousValue = (holding.previousPrice || holding.currentPrice || 0) * (holding.quantity || 0);
         return sum + previousValue;
@@ -264,16 +265,9 @@ export default function PortfolioDetailsPage() {
       
       const change = currentTotalValue - previousTotalValue;
       const percent = previousTotalValue > 0 ? (change / previousTotalValue) * 100 : 0;
-      const rounded = { value: Number(change.toFixed(2)), percent: Number(percent.toFixed(2)) };
-      setDailyPnl(rounded);
-      
-      const key = `dailyPnL:${portfolioId}`;
-      localStorage.setItem(key, JSON.stringify({
-        date: new Date().toISOString().slice(0, 10),
-        ...rounded,
-      }));
+      setDailyPnl({ value: Number(change.toFixed(2)), percent: Number(percent.toFixed(2)) });
     } catch (e) {
-      // ignore storage errors
+      // ignore errors
     }
   }, [holdingsWithPrices, portfolioId]);
 
@@ -402,6 +396,7 @@ export default function PortfolioDetailsPage() {
     value: number;
     color: string;
     sector: string;
+    tableCurrentValue?: number;
   }
 
   interface HoldingWithPrice extends Holding {
@@ -852,42 +847,29 @@ export default function PortfolioDetailsPage() {
     return data;
   };
 
-  const calculatePnlFromPriceHistory = async () => {
-    try {
-      const response = await axiosApi.get(`/api/chart-data?portfolioId=${portfolioId}`);
-      const data = response.data?.data || response.data;
-      
-      if (data && data.length >= 2) {
-        const sortedData = data.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        
-        const todayValue = Number(sortedData[sortedData.length - 1].portfolioValue);
-        const yesterdayValue = Number(sortedData[sortedData.length - 2].portfolioValue);
-        const firstValue = Number(sortedData[0].portfolioValue);
-        
-        alert(`Since Inception: ${sortedData[0].date} to ${sortedData[sortedData.length - 1].date}`);
-        
-        const dailyChange = todayValue - yesterdayValue;
-        const dailyPercent = yesterdayValue > 0 ? ((todayValue - yesterdayValue) / yesterdayValue) * 100 : 0;
-        
-        const inceptionChange = todayValue - firstValue;
-        const inceptionPercent = firstValue > 0 ? ((todayValue - firstValue) / firstValue) * 100 : 0;
-        
-        setChartDataPnl({
-          dailyPnl: { value: dailyChange, percent: dailyPercent },
-          sinceInceptionPnl: { value: inceptionChange, percent: inceptionPercent }
-        });
-      } else {
-        setChartDataPnl({
-          dailyPnl: { value: 30, percent: 0.12 },
-          sinceInceptionPnl: { value: -1000, percent: -5.5 }
-        });
-      }
-    } catch (error) {
+  const calculatePnlFromPriceHistory = () => {
+    if (!priceHistory || priceHistory.length < 2 || !portfolioMetrics) {
       setChartDataPnl({
-        dailyPnl: { value: 30, percent: 0.12 },
-        sinceInceptionPnl: { value: -1000, percent: -5.5 }
+        dailyPnl: { value: 0, percent: 0 },
+        sinceInceptionPnl: { value: 0, percent: 0 }
       });
+      return;
     }
+    
+    const currentPortfolioValue = portfolioMetrics.totalValue;
+    const yesterdayChartValue = priceHistory[priceHistory.length - 2].portfolioValue;
+    const minInvestment = portfolioMetrics.minInvestment;
+    
+    const dailyChange = currentPortfolioValue - yesterdayChartValue;
+    const dailyPercent = yesterdayChartValue > 0 ? (dailyChange / yesterdayChartValue) * 100 : 0;
+    
+    const inceptionChange = currentPortfolioValue - minInvestment;
+    const inceptionPercent = minInvestment > 0 ? (inceptionChange / minInvestment) * 100 : 0;
+    
+    setChartDataPnl({
+      dailyPnl: { value: parseFloat(dailyChange.toFixed(2)), percent: parseFloat(dailyPercent.toFixed(2)) },
+      sinceInceptionPnl: { value: parseFloat(inceptionChange.toFixed(2)), percent: parseFloat(inceptionPercent.toFixed(2)) }
+    });
   };
 
   // Fetch portfolio tips
@@ -985,7 +967,7 @@ export default function PortfolioDetailsPage() {
         fetchPortfolioTips(portfolioId);
         
         // Calculate P&L from price history
-        await calculatePnlFromPriceHistory();
+        calculatePnlFromPriceHistory();
         
       } catch (error) {
         console.error("Failed to load portfolio:", error);
@@ -1165,11 +1147,14 @@ export default function PortfolioDetailsPage() {
   const oneYearGainsValue = normalizePercent((portfolio as any)?.oneYearGains);
   const cagrSinceInceptionValue = normalizePercent((portfolio as any)?.CAGRSinceInception);
 
-  // Create portfolio allocation data from holdings
-  const portfolioAllocationData: PortfolioAllocationItem[] = holdingsWithPrices.length > 0 
-    ? holdingsWithPrices
-        .sort((a, b) => b.weight - a.weight)
+  // Create portfolio allocation data using ONLY Portfolio & Weights Table values
+  const portfolioAllocationData: PortfolioAllocationItem[] = portfolioMetrics.holdingsWithQuantities.length > 0 
+    ? portfolioMetrics.holdingsWithQuantities
         .map((holding, index) => {
+          // Use EXACT table calculation: currentPrice * quantity
+          const tableCurrentValue = (holding.currentPrice || 0) * (holding.quantity || 0);
+          const tablePercentage = portfolioMetrics.holdingsValue > 0 ? (tableCurrentValue / portfolioMetrics.holdingsValue) * 100 : 0;
+          
           const getColorForStock = (symbol: string, index: number) => {
             const stockColorMap: { [key: string]: string } = {
               'HDFCBANK': '#3B82F6',
@@ -1187,11 +1172,14 @@ export default function PortfolioDetailsPage() {
           
           return {
             name: holding.symbol,
-            value: holding.weight,
+            value: parseFloat(tablePercentage.toFixed(2)),
             color: getColorForStock(holding.symbol, index),
             sector: holding.sector || holding.marketCap || 'Banking',
+            tableCurrentValue: tableCurrentValue // Store table value for Holdings Detail
           };
         })
+        .filter(item => item.value > 0)
+        .sort((a, b) => b.value - a.value)
     : [
         { name: "HDFCBANK", value: 79.57, color: "#3B82F6", sector: "Banking" },
         { name: "IDFCFIRSTB", value: 20.43, color: "#10B981", sector: "Banking" }
@@ -1990,7 +1978,7 @@ export default function PortfolioDetailsPage() {
                         <div className={`text-xs lg:text-sm text-gray-500 transition-colors duration-300 ${
                           isSelected ? 'text-blue-600' : isHovered ? 'text-gray-600' : ''
                         }`}>
-                            ₹{parseFloat(((stock.value / 100) * portfolioMetrics.totalValue).toFixed(2)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                            ₹{(stock as any).tableCurrentValue ? (stock as any).tableCurrentValue.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '0'}
                         </div>
                       </div>
                     </div>

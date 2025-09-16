@@ -4,6 +4,7 @@ import type React from "react";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChevronDown, Menu, Search, X, PanelLeft } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -28,6 +29,7 @@ export default function DashboardLayout({
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     setIsMounted(true);
@@ -164,7 +166,7 @@ export default function DashboardLayout({
               <button
                 onClick={() => setShowTour(true)}
                 className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg ml-2 border-0"
-                title="Take a guided tour of all features"
+                title="Take a guided tour of the dashboard"
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />

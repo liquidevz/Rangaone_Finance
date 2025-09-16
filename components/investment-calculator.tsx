@@ -113,8 +113,17 @@ export function InvestmentCalculator() {
         holding.status &&
         !excludeFromBuying(holding) &&
         (holding.status.toLowerCase().includes('buy more') || 
+         holding.status.toLowerCase().includes('fresh-buy') ||
          (holding.status.toLowerCase().includes('buy') && !holding.status.toLowerCase().includes('fresh')))
       );
+      
+      if (buyableHoldings.length === 0) {
+        buyableHoldings = allValidHoldings.filter(holding => 
+          holding.status &&
+          !excludeFromBuying(holding) &&
+          holding.status.toLowerCase().includes('fresh-buy')
+        );
+      }
       
       if (buyableHoldings.length === 0) {
         throw new Error('No Buy or Buy More stocks available for investment below minimum amount');
@@ -130,7 +139,8 @@ export function InvestmentCalculator() {
         const s = status.toLowerCase();
         if (s.includes('buy more')) return 3;
         if (s.includes('buy') && !s.includes('fresh')) return 2;
-        return 1;
+        if (s.includes('fresh-buy')) return 1;
+        return 0;
       };
       
       const aPriority = getStatusPriority(a.status || '');
@@ -156,7 +166,8 @@ export function InvestmentCalculator() {
           const s = status.toLowerCase();
           if (s.includes('buy more')) return 3;
           if (s.includes('buy') && !s.includes('fresh')) return 2;
-          return 1;
+          if (s.includes('fresh-buy')) return 1;
+          return 0;
         };
         
         const aPriority = getStatusPriority(a.status || '');
