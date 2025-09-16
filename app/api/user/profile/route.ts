@@ -4,9 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 let userProfile = {
   fullName: "John Doe",
   email: "john@example.com", 
-  phone: "9876543210",
-  dateofBirth: "1990-01-01"
-  // pandetails will be added when user updates profile
+  phoneNumber: "9876543210",
+  dateOfBirth: "1990-01-01",
+  state: "Maharashtra",
+  panNumber: "ABCDE1234F"
 };
 
 export async function GET(request: NextRequest) {
@@ -41,9 +42,9 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     
     // Validate required fields
-    if (!body.fullName || !body.dateofBirth || !body.phone || !body.pandetails) {
+    if (!body.fullName || !body.dateOfBirth || !body.phoneNumber || !body.panNumber || !body.state) {
       return NextResponse.json(
-        { error: "All fields are required" },
+        { error: "All fields are required: fullName, dateOfBirth, phoneNumber, panNumber, state" },
         { status: 400 }
       );
     }
@@ -52,9 +53,10 @@ export async function PUT(request: NextRequest) {
     userProfile = {
       ...userProfile,
       fullName: body.fullName,
-      dateofBirth: body.dateofBirth,
-      phone: body.phone,
-      pandetails: body.pandetails
+      dateOfBirth: body.dateOfBirth,
+      phoneNumber: body.phoneNumber,
+      panNumber: body.panNumber,
+      state: body.state
     };
     
     // Mock successful update

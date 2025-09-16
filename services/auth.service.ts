@@ -136,7 +136,35 @@ export const authService = {
   },
 
   // User profile method
-  getCurrentUser: async (): Promise<UserProfile> => {
+  getCurrentUser: async (request?: any): Promise<UserProfile | null> => {
+    // Server-side: extract from request headers
+    if (request) {
+      try {
+        const authHeader = request.headers.get('authorization');
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+          return null;
+        }
+        
+        const token = authHeader.substring(7);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/user/profile`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          return null;
+        }
+        
+        return await response.json();
+      } catch (error) {
+        console.error('Error getting current user from request:', error);
+        return null;
+      }
+    }
+    
+    // Client-side: use existing method
     return await get<UserProfile>("/api/user/profile", {
       headers: {
         accept: "application/json",

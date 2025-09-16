@@ -1,16 +1,4 @@
 import { post, get } from "@/lib/axios";
-import { authService } from "./auth.service";
-
-// Digio Web SDK types
-declare global {
-  interface Window {
-    Digio: any;
-  }
-}
-
-// Digio SDK Configuration
-const DIGIO_SDK_URL = "https://ext.digio.in/sdk/v15/digio.js";
-const DIGIO_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production' : 'sandbox';
 
 // Digio API interfaces based on the documentation
 export interface DigioSigner {
@@ -71,91 +59,69 @@ export interface PaymentAgreementData {
 }
 
 export const digioService = {
-  // Load Digio SDK
-  loadDigioSDK: (): Promise<boolean> => {
-    return new Promise((resolve) => {
-      if (window.Digio) {
-        resolve(true);
-        return;
-      }
 
-      const script = document.createElement("script");
-      script.src = DIGIO_SDK_URL;
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.head.appendChild(script);
-    });
-  },
-
-  // Generate payment agreement PDF content
-  generatePaymentAgreementPDF: (data: PaymentAgreementData): string => {
-    const agreementContent = `
-      PAYMENT AGREEMENT
-      
-      Customer: ${data.customerName}
-      Email: ${data.customerEmail}
-      ${data.customerMobile ? `Mobile: ${data.customerMobile}` : ''}
-      
-      Agreement Date: ${data.agreementDate}
-      
-      SUBSCRIPTION DETAILS:
-      - Type: ${data.subscriptionType.toUpperCase()}
-      - Amount: Rs.${data.amount.toLocaleString('en-IN')}
-      - Portfolios: ${data.portfolioNames.join(', ')}
-      
-      By signing this agreement, the customer agrees to the subscription terms
-      and authorizes the payment for the selected portfolio services.
-      
-      Signature: ___________________
-      Date: ${data.agreementDate}
-    `;
-    
-    return btoa(unescape(encodeURIComponent(agreementContent)));
-  },
-
-  // Create Digio document for signing
+  // Create Digio document for signing via backend API
   createPaymentSignRequest: async (
-    agreementData: PaymentAgreementData,
+    agreementData: any,     // First parameter you're passing
+    productType: string,    // "Bundle" 
+    productId: string       // "686a629db4f9ab73bb2dba3d"
+  ): Promise<{ documentId: string; authenticationUrl?: string; }> => {
+    const response = await post('/api/digio/document/create', {
+      productType,
+      productId,
+      productName: agreementData.productName || productType
+    }) as any;
+
+    if (response.success) {
+      return {
+        documentId: response.data.documentId,
+        authenticationUrl: response.data.authenticationUrl
+      };
+    }
+    throw new Error(response.error || 'Failed to create document');
+  },
+
+  // Create document with profile check
+  createDocumentWithProfileCheck: async (
+    agreementData: any,
     productType: string,
     productId: string,
-    productName: string
+    onProfileIncomplete: () => Promise<void>
   ): Promise<{ documentId: string; authenticationUrl?: string; }> => {
     try {
-      const response = await post('api/digio/document/create', {
-        signerEmail: agreementData.customerEmail,
-        signerName: agreementData.customerName,
-        signerPhone: agreementData.customerMobile || "",
-        reason: "Document Agreement",
-        expireInDays: 1,
-        displayOnPage: "all",
-        notifySigners: true,
-        sendSignLink: true,
-        productType,
-        productId,
-        productName,
-      }) as any;
-
-      if (response.success) {
-        const { documentId } = response.data;
-        const authenticationUrl = response.data.digioResponse.signing_parties[0].authentication_url;
-        console.log("Digio document created:", {
-          documentId,
-          authenticationUrl,
-        });
-        return {
-          documentId,
-          authenticationUrl: authenticationUrl || undefined,
-        };
-      } else {
-        throw new Error(response.message || 'Failed to create document');
-      }
+      return await digioService.createPaymentSignRequest(agreementData, productType, productId);
     } catch (error: any) {
-      console.error('Error creating Digio document:', error);
-      throw new Error(error.response?.message || error.message || 'Failed to create document');
+      if (error.message?.includes('Missing required user data')) {
+        await onProfileIncomplete();
+        return await digioService.createPaymentSignRequest(agreementData, productType, productId);
+      }
+      throw error;
     }
   },
 
-  // Initialize Digio SDK and handle signing
+  // Open authentication URL for signing with mobile compatibility
+  openSigningPopup: (authenticationUrl: string): Window | null => {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      window.open(authenticationUrl, '_blank');
+      return null;
+    } else {
+      const popup = window.open(
+        authenticationUrl, 
+        'digio-sign', 
+        'width=800,height=600,scrollbars=yes,resizable=yes,status=yes,toolbar=no,menubar=no,location=no'
+      );
+      
+      if (!popup) {
+        window.open(authenticationUrl, '_blank');
+      }
+      
+      return popup;
+    }
+  },
+
+  // Initialize Digio signing (legacy method for compatibility)
   initializeDigioSigning: async (
     documentId: string,
     customerEmail: string,
@@ -164,43 +130,30 @@ export const digioService = {
     authenticationUrl?: string
   ): Promise<void> => {
     if (authenticationUrl) {
-      console.log("Opening authentication URL:", authenticationUrl);
-      const popup = window.open(authenticationUrl, 'digio-sign', 'width=800,height=600,scrollbars=yes,resizable=yes');
-      if (!popup) {
-        onError(new Error('Popup blocked. Please allow popups for this site.'));
-        return;
-      }
-
-      // Poll for document status
-      const pollInterval = setInterval(async () => {
-        try {
-          const status = await digioService.checkDocumentStatus(documentId);
-          if (status.agreement_status === 'completed') {
-            clearInterval(pollInterval);
-            popup.close();
-            onSuccess({ documentId, status: 'completed' });
-          } else if (status.agreement_status === 'failed' || status.agreement_status === 'expired') {
-            clearInterval(pollInterval);
-            popup.close();
-            onError(new Error(`Signing ${status.agreement_status}`));
-          }
-        } catch (error) {
-          console.error('Error polling document status:', error);
-        }
-      }, 3000);
-
-      // Clean up if popup is closed
-      const checkClosed = setInterval(() => {
-        if (popup.closed) {
-          clearInterval(pollInterval);
-          clearInterval(checkClosed);
-        }
-      }, 1000);
-
-      return;
+      digioService.openSigningPopup(authenticationUrl);
+      onSuccess({ documentId, authenticationUrl });
+    } else {
+      onError(new Error('No authentication URL provided'));
     }
+  },
 
-    onError(new Error('No authentication URL provided'));
+  // Verify signature after signing
+  verifySignature: async (payload: any): Promise<boolean> => {
+    // Skip verification in sandbox
+    if (process.env.NEXT_PUBLIC_DIGIO_ENVIRONMENT === 'sandbox') {
+      return true;
+    }
+    
+    try {
+      const response = await get('/digio/esign/verify', {
+        params: payload
+      }) as any;
+      
+      return response.success && response.verified;
+    } catch (error) {
+      console.error('Error verifying signature:', error);
+      return false;
+    }
   },
 
   // Check document status via API
@@ -217,8 +170,6 @@ export const digioService = {
       throw new Error(error.response?.message || error.message || 'Failed to check document status');
     }
   },
-
-
 
   validateSignatureForPayment: async (documentId: string): Promise<boolean> => {
     try {

@@ -46,12 +46,14 @@ export async function GET(
     const digioResponse = await response.json();
     
     return NextResponse.json({
-      documentId: digioResponse.id,
-      status: digioResponse.agreement_status,
-      isSigned: digioResponse.agreement_status === 'completed',
-      signingParties: digioResponse.signing_parties,
-      createdAt: digioResponse.created_at,
-      fileName: digioResponse.file_name
+      success: true,
+      data: {
+        id: digioResponse.id,
+        agreement_status: digioResponse.agreement_status,
+        file_name: digioResponse.file_name,
+        created_at: digioResponse.created_at,
+        signing_parties: digioResponse.signing_parties
+      }
     });
 
   } catch (error) {
