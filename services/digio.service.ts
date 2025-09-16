@@ -139,11 +139,6 @@ export const digioService = {
 
   // Verify signature after signing
   verifySignature: async (payload: any): Promise<boolean> => {
-    // Skip verification in sandbox
-    if (process.env.NEXT_PUBLIC_DIGIO_ENVIRONMENT === 'sandbox') {
-      return true;
-    }
-    
     try {
       const response = await get('/digio/esign/verify', {
         params: payload
