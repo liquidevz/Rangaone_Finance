@@ -263,36 +263,38 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const handleDigioComplete = async () => {
     setShowDigio(false);
     
-    // Verify eSign completion
-    try {
-      setStep("processing");
-      setProcessing(true);
-      setProcessingMsg("Verifying eSign completion...");
-      
-      const verification = await paymentService.verifyESignCompletion("Bundle", bundle?._id || "");
-      
-      if (!verification.success) {
-        setStep("error");
-        setProcessing(false);
-        toast({
-          title: "eSign Verification Failed",
-          description: verification.message,
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      console.log("✅ eSign verified - retrying payment API");
-      await continueAfterDigio();
-    } catch (error: any) {
-      setStep("error");
-      setProcessing(false);
-      toast({
-        title: "eSign Verification Error",
-        description: error?.message || "Failed to verify eSign",
-        variant: "destructive",
-      });
-    }
+    // // Verify eSign completion
+    // try {
+    //   setStep("processing");
+    //   setProcessing(true);
+    //   setProcessingMsg("Verifying eSign completion...");
+    //   
+    //   const verification = await paymentService.verifyESignCompletion("Bundle", bundle?._id || "");
+    //   
+    //   if (!verification.success) {
+    //     setStep("error");
+    //     setProcessing(false);
+    //     toast({
+    //       title: "eSign Verification Failed",
+    //       description: verification.message,
+    //       variant: "destructive",
+    //     });
+    //     return;
+    //   }
+    //   
+    //   console.log("✅ eSign verified - retrying payment API");
+    //   await continueAfterDigio();
+    // } catch (error: any) {
+    //   setStep("error");
+    //   setProcessing(false);
+    //   toast({
+    //     title: "eSign Verification Error",
+    //     description: error?.message || "Failed to verify eSign",
+    //     variant: "destructive",
+    //   });
+    // }
+    
+    await continueAfterDigio();
   };
 
   const handleEmandatePaymentFlow = async () => {

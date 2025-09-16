@@ -1027,13 +1027,13 @@ export default function PremiumSubscriptionPage() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Link
-                  href="/#pricing"
+                <button
+                  onClick={handleAddToCart}
                   className="bg-[#1a1a1a] text-[#FFFFF0] hover:bg-gray-800 font-bold py-4 px-10 rounded-full transition-all inline-flex items-center shadow-lg"
                 >
                   <span>Subscribe Now</span>
                   <ChevronRight className="ml-2 h-5 w-5" />
-                </Link>
+                </button>
               </motion.div>
             </div>
           </motion.div>
@@ -1111,6 +1111,7 @@ export default function PremiumSubscriptionPage() {
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
         bundle={premiumBundle}
+        isEmandateFlow={true}
       />
     </main>
   );

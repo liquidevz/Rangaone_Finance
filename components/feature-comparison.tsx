@@ -144,6 +144,7 @@ export default function FeatureComparison() {
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
         bundle={selectedBundle}
+        isEmandateFlow={true}
       />
     </div>
   )

@@ -960,6 +960,7 @@ export default function BasicSubscriptionPage() {
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
         bundle={basicBundle}
+        isEmandateFlow={true}
       />
     </main>
   );
