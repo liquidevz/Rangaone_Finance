@@ -3,13 +3,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Check, ChevronRight, Star, ShoppingCart, X } from "lucide-react";
+import { Check, ChevronRight, Star, ShoppingCart, X, ChevronDown } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/auth-context";
 import { useCart } from "@/components/cart/cart-context";
 import { useToast } from "@/components/ui/use-toast";
 import { bundleService, Bundle } from "@/services/bundle.service";
+import { faqService, FAQ } from "@/services/faq.service";
 import { Navbar } from "@/components/navbar";
 import PremiumStackedCardTestimonials from "@/components/premium-stacked-card-testimonials";
 import { PricingCompare } from "@/components/pricingComponents";
@@ -47,6 +48,9 @@ const ScrollToTop = () => {
 export default function PremiumSubscriptionPage() {
   const [premiumBundle, setPremiumBundle] = useState<Bundle | null>(null);
   const [loading, setLoading] = useState(true);
+  const [faqs, setFaqs] = useState<FAQ[]>([]);
+  const [faqLoading, setFaqLoading] = useState(true);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
   // Mobile slider state
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -98,7 +102,23 @@ export default function PremiumSubscriptionPage() {
   useEffect(() => {
     window.scrollTo(0, 0);
     loadPremiumBundle();
+    loadFAQs();
   }, []);
+
+  const loadFAQs = async () => {
+    try {
+      const premiumFAQs = await faqService.getFAQsByCategory('Premium');
+      setFaqs(premiumFAQs);
+    } catch (error) {
+      console.error('Error fetching FAQs:', error);
+    } finally {
+      setFaqLoading(false);
+    }
+  };
+
+  const toggleFAQ = (index: number) => {
+    setOpenFaqIndex(openFaqIndex === index ? null : index);
+  };
 
   const loadPremiumBundle = async () => {
     try {
@@ -354,48 +374,11 @@ export default function PremiumSubscriptionPage() {
                   className="flex transition-transform duration-500 ease-out"
                   style={{ transform: `translateX(${-currentSlide * 100}%)` }}
                 >
-                  {[
-                    {
-                      title: "Premium Quality Stocks",
-                      description:
-                        "20-25 meticulously researched stocks with exceptional potential",
-                      icon: "📈",
-                      id: "feature-1",
-                    },
-                    {
-                      title: "Short-Term/Swing Trades",
-                      description:
-                        "10 high-potential trade recommendations each month",
-                      icon: "⚡",
-                      id: "feature-2",
-                    },
-                    {
-                      title: "Exclusive Model Portfolios",
-                      description:
-                        "NiftyPlus & Multibagger portfolios for diverse strategies",
-                      icon: "💼",
-                      id: "feature-3",
-                    },
-                    {
-                      title: "IPO Recommendations",
-                      description:
-                        "Exclusive analysis of upcoming public offerings",
-                      icon: "🚀",
-                      id: "feature-4",
-                    },
-                    {
-                      title: "Call Support",
-                      description: "Direct access to our expert analysts",
-                      icon: "📞",
-                      id: "feature-5",
-                    },
-                    {
-                      title: "Free Live Webinars",
-                      description: "Interactive sessions with top analysts",
-                      icon: "🎓",
-                      id: "feature-6",
-                    },
-                  ].map((feature, index) => (
+                  {Array.from({ length: totalFeatures }, (_, index) => ({
+                    title: `Feature ${index + 1}`,
+                    description: `Feature ${index + 1} description`,
+                    id: `feature-${index + 1}`,
+                  })).map((feature, index) => (
                     <div key={index} className="flex-shrink-0 w-full px-4">
                       <div
                         className="bg-[#2a2a2a] rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow border border-[#7a8c3b]/10 group hover:border-[#7a8c3b]/30 cursor-pointer h-full"
@@ -481,47 +464,11 @@ export default function PremiumSubscriptionPage() {
 
           {/* Desktop Grid */}
           <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              {
-                title: "Premium Quality Stocks",
-                description:
-                  "20-25 meticulously researched stocks with exceptional potential",
-                icon: "📈",
-                id: "feature-1",
-              },
-              {
-                title: "Short-Term/Swing Trades",
-                description:
-                  "10 high-potential trade recommendations each month",
-                icon: "⚡",
-                id: "feature-2",
-              },
-              {
-                title: "Exclusive Model Portfolios",
-                description:
-                  "NiftyPlus & Multibagger portfolios for diverse strategies",
-                icon: "💼",
-                id: "feature-3",
-              },
-              {
-                title: "IPO Recommendations",
-                description: "Exclusive analysis of upcoming public offerings",
-                icon: "🚀",
-                id: "feature-4",
-              },
-              {
-                title: "Call Support",
-                description: "Direct access to our expert analysts",
-                icon: "📞",
-                id: "feature-5",
-              },
-              {
-                title: "Free Live Webinars",
-                description: "Interactive sessions with top analysts",
-                icon: "🎓",
-                id: "feature-6",
-              },
-            ].map((feature, index) => (
+            {Array.from({ length: totalFeatures }, (_, index) => ({
+              title: `Feature ${index + 1}`,
+              description: `Feature ${index + 1} description`,
+              id: `feature-${index + 1}`,
+            })).map((feature, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, y: 20 }}
@@ -959,10 +906,10 @@ export default function PremiumSubscriptionPage() {
           </p>
           <ul className="space-y-1 px-2">
             {[
-              "Exclusive IPO Recommendations",
-              "Allotment Maximisation Strategy",
-              "Apply-or-Avoid guidance",
-              "Expert Valuation Insights",
+              "Live Market Analysis",
+              "Interactive Q&A Sessions",
+              "Expert Market Insights",
+              "Real-time Strategy Updates",
             ].map((item, i) => (
               <li key={i} className="flex items-start">
                 <span className="flex-shrink-0 w-5 h-5 bg-[#FFC706] rounded-full flex items-center justify-center mr-3 mt-0.5">
@@ -1061,47 +1008,48 @@ export default function PremiumSubscriptionPage() {
           </motion.div>
 
           <div className="max-w-3xl mx-auto">
-            {[
-              {
-                question: "How do the model portfolios work?",
-                answer:
-                  "Our model portfolios are pre-built investment strategies that you can follow. We provide the exact allocation percentages, entry points, and regular updates. You can implement these in your own brokerage account.",
-              },
-              {
-                question: "How often can I schedule calls with analysts?",
-                answer:
-                  "Premium members can schedule up to two 30-minute calls per month with our expert analysts. Additional calls can be arranged for an extra fee.",
-              },
-              {
-                question: "Are the webinars recorded if I can't attend live?",
-                answer:
-                  "Yes, all webinars are recorded and made available in your member dashboard within 24 hours of the live session.",
-              },
-              {
-                question: "Can I switch between Basic and Premium plans?",
-                answer:
-                  "Yes, you can upgrade from Basic to Premium at any time. You can also downgrade during your renewal period.",
-              },
-              {
-                question: "Is there a trial period for the Premium plan?",
-                answer:
-                  "We offer a 14-day money-back guarantee for new Premium subscribers if you're not satisfied with the service.",
-              },
-            ].map((faq, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-                className="mb-6 border-b border-gray-700 pb-6 last:border-0"
-              >
-                <h3 className="text-xl font-bold mb-3 text-[#7a8c3b]">
-                  {faq.question}
-                </h3>
-                <p className="text-white">{faq.answer}</p>
-              </motion.div>
-            ))}
+            {faqLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FFC706] mx-auto"></div>
+                <p className="mt-2 text-gray-400">Loading FAQs...</p>
+              </div>
+            ) : faqs.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-400">No FAQs found for Premium category.</p>
+              </div>
+            ) : (
+              faqs.map((faq, index) => (
+                <motion.div
+                  key={faq.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                  className="mb-6 border-b border-gray-700 pb-6 last:border-0"
+                >
+                  <button
+                    className="flex justify-between items-center w-full text-left"
+                    onClick={() => toggleFAQ(index)}
+                  >
+                    <h3 className="text-xl font-bold text-[#7a8c3b] pr-4">
+                      {faq.question}
+                    </h3>
+                    <ChevronDown
+                      className={`h-5 w-5 text-[#7a8c3b] transition-transform duration-200 flex-shrink-0 ${
+                        openFaqIndex === index ? "transform rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+                  <div
+                    className={`overflow-hidden transition-all duration-200 ${
+                      openFaqIndex === index ? "max-h-96 mt-3" : "max-h-0"
+                    }`}
+                  >
+                    <p className="text-white">{faq.answer}</p>
+                  </div>
+                </motion.div>
+              ))
+            )}
           </div>
         </div>
       </section>

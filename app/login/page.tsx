@@ -30,10 +30,25 @@ export default function LoginPage() {
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
       const redirectPath = sessionStorage.getItem("redirectPath") || "/dashboard";
+      const wasAddingToCart = sessionStorage.getItem("addToCartAction") === "true";
+      
       sessionStorage.removeItem("redirectPath");
+      sessionStorage.removeItem("addToCartAction");
+      
+      // Show success message if user was adding to cart
+      const pendingPortfolioId = sessionStorage.getItem("pendingPortfolioId");
+      if ((wasAddingToCart || pendingPortfolioId) && redirectPath === "/cart") {
+        setTimeout(() => {
+          toast({
+            title: "Items Added to Cart",
+            description: "Your selected items have been added to your cart.",
+          });
+        }, 1000);
+      }
+      
       router.replace(redirectPath);
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, router, toast]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -72,7 +87,22 @@ export default function LoginPage() {
         searchParams.get("redirect") || 
         "/dashboard";
       
+      const wasAddingToCart = sessionStorage.getItem("addToCartAction") === "true";
+      
       sessionStorage.removeItem("redirectPath");
+      sessionStorage.removeItem("addToCartAction");
+      
+      // Show additional success message if user was adding to cart
+      const pendingPortfolioId = sessionStorage.getItem("pendingPortfolioId");
+      if ((wasAddingToCart || pendingPortfolioId) && redirectPath === "/cart") {
+        setTimeout(() => {
+          toast({
+            title: "Items Added to Cart",
+            description: "Your selected items have been added to your cart.",
+          });
+        }, 1000);
+      }
+      
       router.replace(redirectPath);
     } catch (error: any) {
       console.error("Login error:", error);

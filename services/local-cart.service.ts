@@ -351,7 +351,13 @@ export class LocalCartService {
 
   // Get local cart item count with error handling
   getLocalCartItemCount(): number {
-    return this.getLocalCart().items.reduce((count, item) => count + item.quantity, 0);
+    try {
+      const cart = this.getLocalCart();
+      return cart?.items?.reduce((count, item) => count + item.quantity, 0) || 0;
+    } catch (error) {
+      console.error("Error getting local cart item count:", error);
+      return 0;
+    }
   }
 
   // Check if item is in local cart with error handling

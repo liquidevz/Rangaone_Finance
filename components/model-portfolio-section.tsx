@@ -240,6 +240,23 @@ export default function ModelPortfolioSection() {
 
   const handleBuyNow = async (portfolio: UserPortfolio) => {
     try {
+      // Check if user is authenticated
+      if (!isAuthenticated) {
+        // Store portfolio info and redirect path for after login
+        sessionStorage.setItem("pendingPortfolioId", portfolio._id);
+        sessionStorage.setItem("redirectPath", "/cart");
+        
+        toast({
+          title: "Login Required",
+          description: "Please log in or sign up to add items to your cart.",
+          variant: "destructive",
+        });
+        
+        // Redirect to login page
+        router.push("/login");
+        return;
+      }
+
       await addToCart(portfolio._id, 1)
       toast({
         title: "Added to Cart",

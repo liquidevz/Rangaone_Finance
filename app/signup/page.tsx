@@ -160,6 +160,18 @@ export default function SignupPage() {
 
       // Store email for auto-filling login form
       sessionStorage.setItem("signupEmail", formData.email.trim());
+      
+      // Check if there was a pending cart action and preserve redirect path
+      const redirectPath = sessionStorage.getItem("redirectPath");
+      const pendingPortfolioId = sessionStorage.getItem("pendingPortfolioId");
+      
+      // If there's a pending action, show specific message
+      if (pendingPortfolioId && redirectPath === "/cart") {
+        toast({
+          title: "Account created! Please log in",
+          description: "Your account has been created. Please log in to complete adding items to your cart.",
+        });
+      }
 
       // Redirect to login page after successful signup
       router.push("/login");

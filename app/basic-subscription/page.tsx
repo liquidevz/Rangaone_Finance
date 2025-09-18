@@ -13,7 +13,9 @@ import { Navbar } from "@/components/navbar";
 import BasicStackedCardTestimonials from "@/components/basic-stacked-card-testimonials";
 import PricingTable from "@/components/pricingComponents";
 import { PaymentModal } from "@/components/payment-modal";
+import { faqService, FAQ } from "@/services/faq.service";
 import { useRouter } from "next/navigation";
+import { ChevronDown } from "lucide-react";
 
 // Animation variants
 const fadeIn = {
@@ -46,6 +48,9 @@ const ScrollToTop = () => {
 export default function BasicSubscriptionPage() {
   const [basicBundle, setBasicBundle] = useState<Bundle | null>(null);
   const [loading, setLoading] = useState(true);
+  const [faqs, setFaqs] = useState<FAQ[]>([]);
+  const [faqLoading, setFaqLoading] = useState(true);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
   // Mobile slider state
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -97,7 +102,23 @@ export default function BasicSubscriptionPage() {
   useEffect(() => {
     window.scrollTo(0, 0);
     loadBasicBundle();
+    loadFAQs();
   }, []);
+
+  const loadFAQs = async () => {
+    try {
+      const basicFAQs = await faqService.getFAQsByCategory('Basic');
+      setFaqs(basicFAQs);
+    } catch (error) {
+      console.error('Error fetching FAQs:', error);
+    } finally {
+      setFaqLoading(false);
+    }
+  };
+
+  const toggleFAQ = (index: number) => {
+    setOpenFaqIndex(openFaqIndex === index ? null : index);
+  };
 
   const loadBasicBundle = async () => {
     try {
@@ -363,35 +384,11 @@ export default function BasicSubscriptionPage() {
                   className="flex transition-transform duration-500 ease-out"
                   style={{ transform: `translateX(${-currentSlide * 100}%)` }}
                 >
-                  {[
-                    {
-                      title: "Quality Stocks",
-                      description:
-                        "10-15 carefully researched stocks with good potential",
-                      icon: "📈",
-                      id: "feature-1",
-                    },
-                    {
-                      title: "Short-Term Trades",
-                      description:
-                        "5 high-potential trade recommendations each month",
-                      icon: "⚡",
-                      id: "feature-2",
-                    },
-                    {
-                      title: "Timely Alerts",
-                      description:
-                        "Real-time notifications for market opportunities",
-                      icon: "🔔",
-                      id: "feature-3",
-                    },
-                    {
-                      title: "Market Updates",
-                      description: "Regular market analysis and insights",
-                      icon: "📊",
-                      id: "feature-4",
-                    },
-                  ].map((feature, index) => (
+                  {Array.from({ length: totalFeatures }, (_, index) => ({
+                    title: `Feature ${index + 1}`,
+                    description: `Feature ${index + 1} description`,
+                    id: `feature-${index + 1}`,
+                  })).map((feature, index) => (
                     <div key={index} className="flex-shrink-0 w-full px-4">
                       <div
                         className="rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow border bg-white group hover:border-purple-400 cursor-pointer h-full"
@@ -480,34 +477,11 @@ export default function BasicSubscriptionPage() {
 
           {/* Desktop Grid */}
           <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {[
-              {
-                title: "Quality Stocks",
-                description:
-                  "10-15 carefully researched stocks with good potential",
-                icon: "📈",
-                id: "feature-1",
-              },
-              {
-                title: "Short-Term Trades",
-                description:
-                  "5 high-potential trade recommendations each month",
-                icon: "⚡",
-                id: "feature-2",
-              },
-              {
-                title: "Timely Alerts",
-                description: "Real-time notifications for market opportunities",
-                icon: "🔔",
-                id: "feature-3",
-              },
-              {
-                title: "Market Updates",
-                description: "Regular market analysis and insights",
-                icon: "📊",
-                id: "feature-4",
-              },
-            ].map((feature, index) => (
+            {Array.from({ length: totalFeatures }, (_, index) => ({
+              title: `Feature ${index + 1}`,
+              description: `Feature ${index + 1} description`,
+              id: `feature-${index + 1}`,
+            })).map((feature, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, y: 20 }}
@@ -910,47 +884,48 @@ export default function BasicSubscriptionPage() {
           </motion.div>
 
           <div className="max-w-3xl mx-auto">
-            {[
-              {
-                question: "How many stocks do I get with the Basic plan?",
-                answer:
-                  "The Basic plan provides you with 10-15 carefully researched quality stocks that are perfect for beginners starting their investment journey.",
-              },
-              {
-                question: "How often do I receive trade recommendations?",
-                answer:
-                  "You receive 5 short-term/swing trade recommendations each month, along with regular market updates and timely alerts.",
-              },
-              {
-                question: "Can I upgrade to Premium later?",
-                answer:
-                  "Yes, you can upgrade from Basic to Premium at any time to access additional features and more comprehensive services.",
-              },
-              {
-                question: "Is there a trial period for the Basic plan?",
-                answer:
-                  "We offer a 14-day money-back guarantee for new Basic subscribers if you're not satisfied with the service.",
-              },
-              {
-                question: "What kind of support do I get with Basic?",
-                answer:
-                  "Basic subscribers receive email support and access to our educational content to help you understand the market better.",
-              },
-            ].map((faq, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-                className="mb-6 border-b border-gray-200 pb-6 last:border-0"
-              >
-                <h3 className="text-xl font-bold mb-3 text-[#8193ff]">
-                  {faq.question}
-                </h3>
-                <p className="text-black">{faq.answer}</p>
-              </motion.div>
-            ))}
+            {faqLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8193ff] mx-auto"></div>
+                <p className="mt-2 text-gray-600">Loading FAQs...</p>
+              </div>
+            ) : faqs.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-600">No FAQs found for Basic category.</p>
+              </div>
+            ) : (
+              faqs.map((faq, index) => (
+                <motion.div
+                  key={faq.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                  className="mb-6 border-b border-gray-200 pb-6 last:border-0"
+                >
+                  <button
+                    className="flex justify-between items-center w-full text-left"
+                    onClick={() => toggleFAQ(index)}
+                  >
+                    <h3 className="text-xl font-bold text-[#8193ff] pr-4">
+                      {faq.question}
+                    </h3>
+                    <ChevronDown
+                      className={`h-5 w-5 text-[#8193ff] transition-transform duration-200 flex-shrink-0 ${
+                        openFaqIndex === index ? "transform rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+                  <div
+                    className={`overflow-hidden transition-all duration-200 ${
+                      openFaqIndex === index ? "max-h-96 mt-3" : "max-h-0"
+                    }`}
+                  >
+                    <p className="text-black">{faq.answer}</p>
+                  </div>
+                </motion.div>
+              ))
+            )}
           </div>
         </div>
       </section>

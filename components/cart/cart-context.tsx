@@ -50,14 +50,14 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
   const [couponCode, setCouponCode] = useState("");
   const { isAuthenticated, user } = useAuth();
 
-  const cartItemCount = (() => {
+  const cartItemCount = React.useMemo(() => {
     if (!isAuthenticated) {
       const localCount = localCartService.getLocalCartItemCount();
       console.log("Local cart item count:", localCount);
       return localCount;
     }
-    return cart?.items.reduce((total, item) => total + item.quantity, 0) || 0;
-  })();
+    return cart?.items?.reduce((total, item) => total + item.quantity, 0) || 0;
+  }, [isAuthenticated, cart?.items]);
 
   const clearError = () => {
     setError(null);
@@ -114,6 +114,21 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
   useEffect(() => {
     const syncCartOnLogin = async () => {
       if (isAuthenticated && user) {
+        // Check if there's a pending portfolio to add
+        const pendingPortfolioId = sessionStorage.getItem("pendingPortfolioId");
+        if (pendingPortfolioId) {
+          try {
+            await cartService.addToCart({
+              portfolioId: pendingPortfolioId,
+              quantity: 1
+            });
+            sessionStorage.removeItem("pendingPortfolioId");
+            console.log("Pending portfolio added to cart:", pendingPortfolioId);
+          } catch (error) {
+            console.error("Failed to add pending portfolio:", error);
+          }
+        }
+        
         // Check if there's a local cart to sync
         const localCart = localCartService.getLocalCart();
         if (localCart.items.length > 0) {

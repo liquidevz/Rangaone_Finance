@@ -211,12 +211,24 @@ export default function ModelPortfoliosPage() {
 
       // Check if user is authenticated
       if (!isAuthenticated) {
-        console.log("User not authenticated, redirecting to login");
+        console.log("User not authenticated, adding to local cart and redirecting to login");
+        
+        // Add portfolio to local cart first
+        await addToCart(portfolio._id, 1, {
+          name: portfolio.name,
+          subscriptionFee: portfolio.subscriptionFee || []
+        });
+        
+        // Store the cart path for redirect after login
+        sessionStorage.setItem("redirectPath", "/cart");
+        sessionStorage.setItem("addToCartAction", "true");
+        
         toast({
           title: "Login Required",
-          description: "Please log in to add items to your cart.",
+          description: "Please log in to complete adding items to your cart.",
           variant: "destructive",
         });
+        
         // Redirect to login page
         router.push("/login");
         return;
