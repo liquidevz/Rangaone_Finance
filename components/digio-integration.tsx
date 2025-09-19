@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { digioService } from '@/services/digio.service';
 import { Button } from '@/components/ui/button';
-import DigioSigningModal from './digio-signing-modal';
+import DigioConsentWindow from './digio-consent-window';
 import DigioProfileCheck from './digio-profile-check';
 
 interface DigioIntegrationProps {
@@ -21,7 +21,7 @@ export default function DigioIntegration({
 }: DigioIntegrationProps) {
   const [loading, setLoading] = useState(false);
   const [showProfileCheck, setShowProfileCheck] = useState(false);
-  const [showSigningModal, setShowSigningModal] = useState(false);
+  const [showConsentWindow, setShowConsentWindow] = useState(false);
   const [signingData, setSigningData] = useState<any>(null);
 
   const handleStartSigning = async () => {
@@ -41,7 +41,7 @@ export default function DigioIntegration({
           documentId: response.documentId,
           originalPayload: { productType, productId, productName }
         });
-        setShowSigningModal(true);
+        setShowConsentWindow(true);
       }
     } catch (error: any) {
       if (error.message?.includes('Missing required user data')) {
@@ -72,16 +72,17 @@ export default function DigioIntegration({
         />
       )}
 
-      {showSigningModal && signingData && (
-        <DigioSigningModal
-          open={showSigningModal}
-          onClose={() => setShowSigningModal(false)}
+      {showConsentWindow && signingData && (
+        <DigioConsentWindow
+          open={showConsentWindow}
+          onClose={() => setShowConsentWindow(false)}
           authenticationUrl={signingData.authenticationUrl}
           documentId={signingData.documentId}
-          originalPayload={signingData.originalPayload}
-          onSigningComplete={() => {
-            setShowSigningModal(false);
-            onComplete();
+          onSigningComplete={(success) => {
+            setShowConsentWindow(false);
+            if (success) {
+              onComplete();
+            }
           }}
         />
       )}

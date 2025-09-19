@@ -99,22 +99,50 @@ export const digioService = {
     }
   },
 
-  // Open authentication URL for signing with mobile compatibility
+  // Open authentication URL for signing with Safari compatibility
   openSigningPopup: (authenticationUrl: string): Window | null => {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
     
     if (isMobile) {
-      window.open(authenticationUrl, '_blank');
+      // For mobile, open in same tab to avoid popup blockers
+      window.location.href = authenticationUrl;
       return null;
     } else {
+      // Enhanced popup settings for Safari compatibility
+      const windowFeatures = [
+        'width=800',
+        'height=700',
+        'left=' + (window.screen.width / 2 - 400),
+        'top=' + (window.screen.height / 2 - 350),
+        'scrollbars=yes',
+        'resizable=yes',
+        'status=no',
+        'toolbar=no',
+        'menubar=no',
+        'location=no'
+      ].join(',');
+      
       const popup = window.open(
         authenticationUrl, 
-        'digio-sign', 
-        'width=800,height=600,scrollbars=yes,resizable=yes,status=yes,toolbar=no,menubar=no,location=no'
+        'digio_verification_' + Date.now(), // Unique name for Safari
+        windowFeatures
       );
       
-      if (!popup) {
-        window.open(authenticationUrl, '_blank');
+      if (!popup || popup.closed) {
+        // Fallback for blocked popups
+        if (isSafari) {
+          // Safari-specific fallback
+          const userConfirmed = confirm(
+            'Popup was blocked. Click OK to open verification in a new tab.'
+          );
+          if (userConfirmed) {
+            window.open(authenticationUrl, '_blank');
+          }
+        } else {
+          window.open(authenticationUrl, '_blank');
+        }
+        return null;
       }
       
       return popup;

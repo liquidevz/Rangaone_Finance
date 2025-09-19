@@ -10,8 +10,10 @@ export interface UserProfile {
   createdAt: string;
   updatedAt: string;
   fullName?: string;
+  dateOfBirth?: string;
   dateofBirth?: string;
   phone?: string;
+  state?: string;
   pnadetails?: string;
   pandetails?: string;
   adharcard?: string;
@@ -137,6 +139,7 @@ class UserService {
       if (typeof profileData.dateofBirth !== 'undefined') allowedPayload.dateofBirth = profileData.dateofBirth;
       if (typeof (profileData as any).address !== 'undefined') allowedPayload.address = (profileData as any).address;
       if (typeof (profileData as any).adharcard !== 'undefined') allowedPayload.adharcard = (profileData as any).adharcard;
+      if (typeof (profileData as any).state !== 'undefined') allowedPayload.state = (profileData as any).state;
 
       const response = await axiosApi.put<UserProfile>(
         `${this.baseUrl}/profile`,

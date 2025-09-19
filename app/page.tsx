@@ -7,7 +7,7 @@ import Footer from "@/components/footer"
 import ModelPortfolioSection from "@/components/model-portfolio-section"
 import FAQContactSection from "@/components/faq-contact-section"
 import { Navbar } from "@/components/navbar"
-import StackedCardTestimonials from "@/components/stacked-card-testimonials"
+// import StackedCardTestimonials from "@/components/stacked-card-testimonials"
 
 export default function Home() {
   return (
@@ -17,7 +17,7 @@ export default function Home() {
       <PricingSection />
       <QuoteSection />
       <ModelPortfolioSection />
-      <StackedCardTestimonials />
+      {/* <StackedCardTestimonials /> */}
       <FAQContactSection />
       <Footer />
     </main>

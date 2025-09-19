@@ -57,6 +57,7 @@ export default function ProfileSettings() {
         dateofBirth: profile.dateofBirth,
         adharcard: profile.adharcard,
         address: profile.address,
+        state: profile.state,
       })
       
       setProfile(updatedProfile)
@@ -221,6 +222,19 @@ export default function ProfileSettings() {
                 <p className="text-xs text-red-600">Date of birth is required</p>
               )}
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="state">State</Label>
+            <Input 
+              id="state" 
+              name="state" 
+              value={profile?.state || ""} 
+              onChange={handleChange}
+              placeholder="Your state"
+              disabled={!isEditing}
+              className={!isEditing ? 'bg-gray-50' : ''}
+            />
           </div>
 
           <div className="space-y-2">

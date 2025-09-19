@@ -113,7 +113,7 @@ export default function PricingSection() {
     "font-bold rounded-lg py-3 w-28 hover:bg-slate-100 transition-colors relative";
 
   return (
-    <section className="w-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 px-4 lg:px-8 py-16 lg:py-24 relative overflow-hidden" id="pricing">
+    <section className="w-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 px-4 lg:px-8 py-16 lg:py-24 relative overflow-hidden">
       {/* Header */}
       <div className="text-center mb-12 lg:mb-16 relative z-10">
         <motion.div

@@ -289,7 +289,7 @@ export default function ModelPortfolioSection() {
 
 
   return (
-    <div className="bg-[#fefcea] dark:bg-gray-900">
+    <div className="bg-[#fefcea] dark:bg-gray-900" id="portfolio">
       {/* --- Features Section --- */}
       <section className="py-8 sm:py-12">
         <div className="container mx-auto px-4">

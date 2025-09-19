@@ -923,7 +923,7 @@ export default function CartPage() {
                                         <div className="flex items-center gap-2 mb-2">
                                           <span className="text-2xl">💡</span>
                                           <h4 className="text-lg font-bold text-yellow-900">
-                                            Save More with Premium Bundle!
+                                            Save More with Premium Subscription!
                                           </h4>
                                         </div>
                                         <p className="text-base font-semibold text-yellow-800 mb-1">

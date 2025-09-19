@@ -28,18 +28,18 @@ export default function Footer() {
           <div>
             <h3 className="text-[#001633] font-bold mb-4">Social Media</h3>
             <div className="space-y-2">
-              <div className="flex items-center">
+              <a href="https://www.instagram.com/onesanika" target="_blank" rel="noopener noreferrer" className="flex items-center hover:opacity-75">
                 <FaInstagram className="mr-2" size={16} />
                 <span className="text-sm">Instagram</span>
-              </div>
-              <div className="flex items-center">
+              </a>
+              <a href="https://youtube.com/@rangaonefinance" target="_blank" rel="noopener noreferrer" className="flex items-center hover:opacity-75">
                 <FaYoutube className="mr-2" size={16} />
                 <span className="text-sm">Youtube</span>
-              </div>
-              <div className="flex items-center">
+              </a>
+              <a href="https://www.linkedin.com/company/rangaone-finwala-private-limited/" target="_blank" rel="noopener noreferrer" className="flex items-center hover:opacity-75">
                 <FaLinkedin className="mr-2" size={16} />
                 <span className="text-sm">LinkedIn</span>
-              </div>
+              </a>
             </div>
           </div>
 
@@ -123,7 +123,7 @@ export default function Footer() {
               <p><span className="font-semibold">Phone</span></p>
               <p>+91-93261 99388</p>
               <p><span className="font-semibold">BSE Enlistment Number</span></p>
-              <p>0000</p>
+              <p>6662</p>
               <p><span className="font-semibold">CIN</span></p>
               <p>U85499MH2024PTC430892</p>
               <p><span className="font-semibold">GST</span></p>

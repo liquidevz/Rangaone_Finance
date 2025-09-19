@@ -12,10 +12,11 @@ import { useToast } from "@/components/ui/use-toast";
 import { bundleService, Bundle } from "@/services/bundle.service";
 import { faqService, FAQ } from "@/services/faq.service";
 import { Navbar } from "@/components/navbar";
-import PremiumStackedCardTestimonials from "@/components/premium-stacked-card-testimonials";
+// import PremiumStackedCardTestimonials from "@/components/premium-stacked-card-testimonials";
 import { PricingCompare } from "@/components/pricingComponents";
 import { PaymentModal } from "@/components/payment-modal";
 import { useRouter } from "next/navigation";
+import Footer from "@/components/footer";
 
 // Animation variants
 const fadeIn = {
@@ -209,14 +210,6 @@ export default function PremiumSubscriptionPage() {
                     with premium perks that set you apart from regular
                     investors.
                   </p>
-
-                  <p className="italic text-gray-200 mt-3 sm:mt-4">
-                    Here's what makes{" "}
-                    <span className="font-semibold">
-                      Rangaone Wealth Premium
-                    </span>{" "}
-                    truly special:
-                  </p>
                 </div>
               </motion.div>
             </div>
@@ -275,12 +268,6 @@ export default function PremiumSubscriptionPage() {
                   <strong>personalized roadmap to wealth creation</strong> with
                   premium perks that set you apart from regular investors.
                 </p>
-
-                <p className="italic text-gray-200 text-xl">
-                  Here's what makes{" "}
-                  <span className="font-semibold">Rangaone Wealth Premium</span>{" "}
-                  truly special
-                </p>
               </div>
 
               {/* Desktop Buttons */}
@@ -329,10 +316,16 @@ export default function PremiumSubscriptionPage() {
       <div className="w-full bg-[#fdba3c] py-3 border-t border-b border-[#7a8c3b]/30 overflow-hidden">
         <div className="whitespace-nowrap animate-marquee">
           <span className="inline-block mx-4 text-[#000000] font-semibold">
-            You will not regret buying this!
+            Get 2 Model Portfolios for Free in the Premium Subscription
           </span>
           <span className="inline-block mx-4 text-[#000000] font-semibold">
-            This is avery nice offer man!
+            Get 2 Model Portfolios for Free in the Premium Subscription
+          </span>
+          <span className="inline-block mx-4 text-[#000000] font-semibold">
+            Get 2 Model Portfolios for Free in the Premium Subscription
+          </span>
+          <span className="inline-block mx-4 text-[#000000] font-semibold">
+            Get 2 Model Portfolios for Free in the Premium Subscription
           </span>
         </div>
       </div>
@@ -389,7 +382,7 @@ export default function PremiumSubscriptionPage() {
                     },
                     {
                       title: "Model Portfolios",
-                      description: "2 exclusive portfolios: SIP & Multibagger",
+                      description: "2 exclusive portfolios: SXG & Multibagger",
                       icon: "💼",
                       id: "feature-3",
                     },
@@ -512,7 +505,7 @@ export default function PremiumSubscriptionPage() {
               },
               {
                 title: "Model Portfolios",
-                description: "2 exclusive portfolios: SIP & Multibagger",
+                description: "2 exclusive portfolios: SXG & Multibagger",
                 icon: "💼",
                 id: "feature-3",
               },
@@ -573,6 +566,13 @@ export default function PremiumSubscriptionPage() {
       {/* Main Content */}
       <section className="py-20">
         <div className="container mx-auto px-0">
+          <h2 className="text-3xl md:text-5xl font-bold mb-6 text-[#FFFFF0] p-5 md:p-6 text-left">
+              Here's what makes {" "}
+              <br></br>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FFD700] to-[#FFC706]">
+                Rangaone Wealth Premium truly special?
+              </span>
+            </h2>
           <motion.div
             initial="hidden"
             whileInView="visible"
@@ -740,7 +740,7 @@ export default function PremiumSubscriptionPage() {
                 <h3 className="text-3xl font-bold mb-6 md:text-transparent md:bg-clip-text md:bg-gradient-to-r md:from-[#FFD700] md:via-[#FFC107] md:to-[#D4AF37] text-[#333333]">
                   2 Exclusive Model Portfolios
                   <span className="block text-2xl mt-1 font-normal md:text-transparent md:bg-clip-text md:bg-gradient-to-r md:from-[#FFD700] md:via-[#FFC107] md:to-[#D4AF37] text-[#333333]">
-                    (SIP & Multibagger Portfolio)
+                    (SXG & Multibagger Portfolio)
                   </span>
                 </h3>
                 <div className="relative md:hidden mb-6 max-w-[250px]">
@@ -1002,12 +1002,12 @@ export default function PremiumSubscriptionPage() {
         </div>
       </motion.div>
 
-      {/* Testimonials */}
+      {/* Testimonials
       <section>
         <div className="container mx-auto px-0">
           <PremiumStackedCardTestimonials />
         </div>
-      </section>
+      </section> */}
 
       {/* Pricing Section */}
       <PricingCompare />
@@ -1127,6 +1127,7 @@ export default function PremiumSubscriptionPage() {
         bundle={premiumBundle}
         isEmandateFlow={true}
       />
+      <Footer />
     </main>
   );
 }

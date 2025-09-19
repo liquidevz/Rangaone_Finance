@@ -28,7 +28,7 @@ export const ImageTrailHero = () => {
           "/imgs/active/15.png",
         ]}
       >
-        <section className="h-[20rem] md:h-screen bg-[#bce7ff8c] op w-screen overflow-hidden">
+        <section className="h-[20rem] md:h-screen bg-[#bce7ff8c] op w-screen overflow-hidden relative">
           <Copy />
           <WatermarkWrapper />
         </section>

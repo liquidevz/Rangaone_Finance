@@ -19,14 +19,13 @@ const NavLinks = [
   {
     title: "Services",
     href: "",
-    // id: "feature-compare",
-    sublinks: [{title: "RangaOne Wealth", href: "#feature-compare"},
-               {title: "Model Portfolio", href: "#portfolio"}
+    sublinks: [{title: "RangaOne Wealth", href: "/#feature-compare"},
+               {title: "Model Portfolio", href: "/#portfolio"}
             ],
   },
   {
     title: "About Us",
-    href: "#",
+    href: "/about-us",
     sublinks: [],
   },
   {
@@ -126,6 +125,31 @@ export const RoundedDrawerNav = ({
     setMobileNavOpen(false);
   };
 
+  const handleSmoothScroll = (href: string, e: React.MouseEvent) => {
+    if (href.startsWith('/#')) {
+      e.preventDefault();
+      const sectionId = href.substring(2);
+      if (window.location.pathname === '/') {
+        const element = document.querySelector(`#${sectionId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      } else {
+        router.push(`/${href}`);
+      }
+      setMobileNavOpen(false);
+      setDropdownOpen(null);
+    } else if (href.startsWith('#')) {
+      e.preventDefault();
+      const element = document.querySelector(href);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      setMobileNavOpen(false);
+      setDropdownOpen(null);
+    }
+  };
+
   return (
     <>
       <nav className="px-2 py-3">
@@ -194,7 +218,10 @@ export const RoundedDrawerNav = ({
                               key={subIndex}
                               href={sublink.href}
                               className="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                              onClick={() => setDropdownOpen(null)}
+                              onClick={(e) => {
+                                handleSmoothScroll(sublink.href, e);
+                                setDropdownOpen(null);
+                              }}
                             >
                               {sublink.title}
                             </Link>
@@ -207,6 +234,7 @@ export const RoundedDrawerNav = ({
                   <Link
                     href={link.href}
                     className={`${textColor} hover:opacity-75 transition-opacity cursor-pointer`}
+                    onClick={(e) => handleSmoothScroll(link.href, e)}
                   >
                     {link.title}
                   </Link>
@@ -408,14 +436,18 @@ export const RoundedDrawerNav = ({
                       {dropdownOpen === link.title && (
                         <div className="ml-4 mt-2 space-y-2">
                           {link.sublinks.map((sublink, subIndex) => (
-                            <Link
+                            <a
                               key={subIndex}
                               href={sublink.href}
-                              onClick={() => setMobileNavOpen(false)}
+                              onClick={(e) => {
+                                handleSmoothScroll(sublink.href, e);
+                                setMobileNavOpen(false);
+                                setDropdownOpen(null);
+                              }}
                               className={`block ${textColor} text-base hover:opacity-75 transition-opacity`}
                             >
                               {sublink.title}
-                            </Link>
+                            </a>
                           ))}
                         </div>
                       )}
@@ -423,7 +455,10 @@ export const RoundedDrawerNav = ({
                   ) : (
                     <Link
                       href={link.href}
-                      onClick={() => setMobileNavOpen(false)}
+                      onClick={(e) => {
+                        handleSmoothScroll(link.href, e);
+                        setMobileNavOpen(false);
+                      }}
                       className={`block ${textColor} text-lg font-medium hover:opacity-75 transition-opacity`}
                     >
                       {link.title}

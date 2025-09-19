@@ -61,7 +61,7 @@ export default function SubscriptionSettings() {
             <Card key={subscription._id} className="overflow-hidden">
               <CardContent className="p-6">
                 <div className="flex items-center gap-2 mb-2">
-                  <h3 className="text-xl font-semibold">{subscription.portfolio.name}</h3>
+                  <h3 className="text-xl font-semibold">{subscription.portfolio?.name || 'Unknown Portfolio'}</h3>
                   <Badge variant={subscription.isActive ? "default" : "secondary"}>
                     {subscription.isActive ? "Active" : "Inactive"}
                   </Badge>

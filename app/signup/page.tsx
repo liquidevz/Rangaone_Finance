@@ -34,13 +34,17 @@ export default function SignupPage() {
     "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi", "Jammu and Kashmir", "Ladakh", "Puducherry", "Chandigarh", "Andaman and Nicobar Islands", "Dadra and Nagar Haveli and Daman and Diu", "Lakshadweep"
   ];
 
-  // Generate username from full name
+  // Generate username from full name with random suffix to prevent duplicates
   const generateUsername = (fullName: string): string => {
     const names = fullName.trim().toLowerCase().split(/\s+/);
-    if (names.length === 1) return names[0];
-    if (names.length === 2) return names[0] + names[1];
-    // For 3+ names, use first + last
-    return names[0] + names[names.length - 1];
+    let baseUsername;
+    if (names.length === 1) baseUsername = names[0];
+    else if (names.length === 2) baseUsername = names[0] + names[1];
+    else baseUsername = names[0] + names[names.length - 1];
+    
+    // Add random 4-digit suffix to prevent duplicates
+    const randomSuffix = Math.floor(Math.random() * 9000) + 1000;
+    return baseUsername + randomSuffix;
   };
 
   // Get generated username for display
@@ -155,7 +159,7 @@ export default function SignupPage() {
 
       toast({
         title: "Account created successfully!",
-        description: response.message || "Please check your email to verify your account, then login.",
+        description: "Please check your email to verify your account, then login.",
       });
 
       // Store email for auto-filling login form

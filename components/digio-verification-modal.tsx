@@ -48,13 +48,8 @@ export function DigioVerificationModal({
       setDocumentId(response.documentId)
       setStep("signing")
       
-      await digioService.initializeDigioSigning(
-        response.documentId,
-        agreementData.customerEmail,
-        handleSigningSuccess,
-        handleSigningError,
-        response.authenticationUrl
-      )
+      // Store the authentication URL for the consent window
+      // The actual signing will be handled by the consent window component
       
     } catch (err: any) {
       setError(err.message || "Failed to create signature request")

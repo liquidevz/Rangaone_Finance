@@ -2,19 +2,14 @@
 
 import type React from "react";
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Menu, Search, X, PanelLeft } from "lucide-react";
+import { ChevronDown, Menu, X, PanelLeft } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth/auth-context";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import Sidebar from "@/components/sidebar";
-
 import { GlobalSearch } from "@/components/global-search";
-import { DemoTour } from "@/components/demo-tour";
 
 export default function DashboardLayout({
   children,
@@ -27,14 +22,12 @@ export default function DashboardLayout({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showTour, setShowTour] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     setIsMounted(true);
     
-    // Load sidebar state from localStorage
     const savedCollapsedState = localStorage.getItem('sidebar-collapsed');
     if (savedCollapsedState !== null) {
       setSidebarCollapsed(JSON.parse(savedCollapsedState));
@@ -45,13 +38,9 @@ export default function DashboardLayout({
 
   useEffect(() => {
     if (isMounted && typeof window !== "undefined") {
-      // On desktop, sidebar should be open by default
-      // On mobile, it should be closed by default
       setSidebarOpen(window.innerWidth >= 1024);
     }
   }, [isMounted]);
-
-
 
   useEffect(() => {
     if (!isMounted) return;
@@ -94,7 +83,6 @@ export default function DashboardLayout({
     const newCollapsedState = !sidebarCollapsed;
     setSidebarCollapsed(newCollapsedState);
     
-    // Save to localStorage
     if (typeof window !== "undefined") {
       localStorage.setItem('sidebar-collapsed', JSON.stringify(newCollapsedState));
     }
@@ -114,9 +102,7 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#FFFFFF' }}>
-      {/* Desktop Layout */}
       <div className="flex h-screen">
-        {/* Sidebar - Full Height on Desktop */}
         <Sidebar 
           isOpen={sidebarOpen} 
           onClose={() => setSidebarOpen(false)}
@@ -124,12 +110,9 @@ export default function DashboardLayout({
           onToggleCollapse={toggleSidebarCollapse}
         />
 
-        {/* Main Content Area */}
         <div className="flex flex-col flex-1 min-w-0">
-          {/* Header - Positioned to the right of sidebar on desktop */}
           <header className="sticky top-0 z-20 w-full border-b border-gray-200/80 bg-white/90 backdrop-blur-xl shadow-sm">
             <div className="flex h-16 items-center px-4">
-              {/* Back to Home Button - Positioned first for left alignment */}
               <button
                 onClick={toggleSidebarCollapse}
                 className="hidden lg:flex rounded-xl p-2 gap-2 text-gray-500 hover:bg-gray-100/80 hover:text-gray-700 transition-all duration-200 ring-1 ring-gray-200/50 hover:ring-gray-300/50"
@@ -162,19 +145,6 @@ export default function DashboardLayout({
                 <span className="hidden sm:inline">Back to Home</span>
               </Link>
 
-              {/* Demo Tour Button */}
-              <button
-                onClick={() => setShowTour(true)}
-                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg ml-2 border-0"
-                title="Take a guided tour of the dashboard"
-              >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                <span className="hidden sm:inline">Demo Tour</span>
-              </button>
-
-              {/* Logo beside Back to Home button - Mobile only */}
               <div className="flex items-center px-7 ml-3 lg:hidden">
                 <img 
                   src="/landing-page/namelogodark.png" 
@@ -183,13 +153,6 @@ export default function DashboardLayout({
                 />
               </div>
 
-              {/* Mobile menu button */}
-              
-
-              {/* Desktop sidebar toggle */}
-             
-
-              {/* Logo for when sidebar is collapsed - Desktop only */}
               <div className={cn(
                 "hidden lg:flex items-center gap-2 transition-all duration-300",
                 "opacity-0 pointer-events-none",
@@ -207,19 +170,13 @@ export default function DashboardLayout({
                 />
               </div>
 
-              {/* Search */}
               <div className="hidden md:flex flex-1 items-center gap-4 max-w-3xl">
                 <GlobalSearch />
               </div>
               
-              {/* Mobile spacer */}
               <div className="flex-1 md:hidden"></div>
 
-              {/* Actions */}
               <div className="flex items-center gap-2">
-
-
-                {/* User menu */}
                 <div className="relative">
                   <button
                     onClick={() => setShowUserMenu(!showUserMenu)}
@@ -274,7 +231,6 @@ export default function DashboardLayout({
             </div>
           </header>
 
-          {/* Main content */}
           <main className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 sm:px-6">
             <div className="max-w-7xl mx-auto">
               {children}
@@ -282,12 +238,6 @@ export default function DashboardLayout({
           </main>
         </div>
       </div>
-
-      {/* Demo Tour Component */}
-      <DemoTour 
-        isOpen={showTour} 
-        onClose={() => setShowTour(false)} 
-      />
     </div>
   );
 }

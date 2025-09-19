@@ -10,12 +10,13 @@ import { useCart } from "@/components/cart/cart-context";
 import { useToast } from "@/components/ui/use-toast";
 import { bundleService, Bundle } from "@/services/bundle.service";
 import { Navbar } from "@/components/navbar";
-import BasicStackedCardTestimonials from "@/components/basic-stacked-card-testimonials";
+// import BasicStackedCardTestimonials from "@/components/basic-stacked-card-testimonials";
 import PricingTable from "@/components/pricingComponents";
 import { PaymentModal } from "@/components/payment-modal";
 import { faqService, FAQ } from "@/services/faq.service";
 import { useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
+import Footer from "@/components/footer";
 
 // Animation variants
 const fadeIn = {
@@ -343,10 +344,22 @@ export default function BasicSubscriptionPage() {
       <div className="w-full bg-[#001633] py-3 border-t border-b border-yellow-500/30 overflow-hidden">
         <div className="whitespace-nowrap animate-marquee">
           <span className="inline-block mx-4 text-white font-semibold">
-            You will not regret buying this!
+            Smart investing starts here
           </span>
           <span className="inline-block mx-4 text-white font-semibold">
-            This is a very nice offer!
+            Affordable plans for every investor.
+          </span>
+          <span className="inline-block mx-4 text-white font-semibold">
+            Smart investing starts here
+          </span>
+          <span className="inline-block mx-4 text-white font-semibold">
+            Affordable plans for every investor.
+          </span>
+          <span className="inline-block mx-4 text-white font-semibold">
+            Smart investing starts here
+          </span>
+          <span className="inline-block mx-4 text-white font-semibold">
+            Affordable plans for every investor.
           </span>
         </div>
       </div>
@@ -858,12 +871,12 @@ export default function BasicSubscriptionPage() {
         </div>
       </section>
 
-      {/* Testimonials */}
+      {/* Testimonials
       <section className="bg-white">
         <div className="container mx-auto px-4">
           <BasicStackedCardTestimonials />
         </div>
-      </section>
+      </section> */}
 
       {/* CTA Section */}
       <section className="py-10 bg-[#5B79FF] text-white">
@@ -971,7 +984,7 @@ export default function BasicSubscriptionPage() {
           </div>
         </div>
       </section>
-
+      
       {/* Payment Modal */}
       <PaymentModal
         isOpen={showPaymentModal}
@@ -979,6 +992,8 @@ export default function BasicSubscriptionPage() {
         bundle={basicBundle}
         isEmandateFlow={true}
       />
+      <Footer />
     </main>
   );
 }
+
