@@ -1,4 +1,4 @@
-import { Cart, CartItem, BundleCartItem } from "./cart.service";
+// No imports needed from cart.service for this local implementation
 
 export interface LocalCartItem {
   portfolioId: string;
@@ -7,6 +7,7 @@ export interface LocalCartItem {
   subscriptionType: "monthly" | "quarterly" | "yearly";
   itemType: "portfolio" | "bundle";
   addedAt: string;
+  planCategory?: "basic" | "premium" | "individual";
   // Store minimal item data for offline display
   itemData: {
     name: string;

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/components/auth/auth-context";
+import { cartRedirectState } from "@/lib/cart-redirect-state";
 import { ShoppingCart, User, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 
@@ -57,28 +58,14 @@ export const AuthPromptModal: React.FC<AuthPromptModalProps> = ({
           description: "Your cart items will be transferred to your account.",
         });
       } else {
-        // Handle signup
-        if (formData.password !== formData.confirmPassword) {
-          toast({
-            title: "Password Mismatch",
-            description: "Please ensure your passwords match.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        // Redirect to signup page with cart preservation
-        toast({
-          title: "Redirecting to Signup",
-          description: "Your cart items will be saved when you create your account.",
-        });
-        
-        // Close modal and redirect to signup page
+        // Handle signup - redirect to signup page with cart preservation
+        cartRedirectState.setPendingCartRedirect();
         onClose();
         window.location.href = "/signup";
+        return;
       }
 
-      // Call success callback and close modal
+      // Call success callback and close modal (only for login)
       onSuccessfulAuth?.();
       onClose();
     } catch (error: any) {

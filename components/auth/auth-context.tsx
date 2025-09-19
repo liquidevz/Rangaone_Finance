@@ -5,6 +5,7 @@ import { authService, UserProfile } from "@/services/auth.service";
 import { useRouter } from "next/navigation";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { setRedirectHandler } from "@/lib/axios";
+import { cartRedirectState } from "@/lib/cart-redirect-state";
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -104,6 +105,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     initializeAuth();
   }, []);
+
+  // Handle cart redirect after authentication state changes
+  useEffect(() => {
+    if (isAuthenticated && !isLoading && cartRedirectState.hasPendingCartRedirect()) {
+      cartRedirectState.clearPendingCartRedirect();
+      setTimeout(() => router.push("/cart"), 100);
+    }
+  }, [isAuthenticated, isLoading, router]);
 
   const login = async (identifier: string, password: string, rememberMe: boolean = false) => {
     try {

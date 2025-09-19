@@ -49,13 +49,13 @@ const features = [
     icon: "/icons/rebalancing.png",
     title: "Rebalancing",
     description:
-      "We don’t just give stock names and leave. Every quarter, we adjust based on market conditions—guiding you on exits, profit booking, upward averaging, and downward averaging.",
+      "We don’t just give stock names and leave. Every quarter, we adjust based on market conditions guiding you on exits, profit booking, upward averaging, and downward averaging.",
   },
   {
     icon: "/icons/diversification.png",
     title: "Diversification",
     description:
-      "Your money won’t sit in one basket. We spread it smartly—across large, mid and small cap stocks, multiple sectors, and even assets like ETFs and gold—balancing risk and maximizing opportunity.",
+      "Your money won’t sit in one basket. We spread it smartly across large, mid and small cap stocks, multiple sectors, and even assets like ETFs and gold balancing risk and maximizing opportunity.",
   },
   {
     icon: "/icons/goalBasedInvesting.png",
@@ -240,30 +240,22 @@ export default function ModelPortfolioSection() {
 
   const handleBuyNow = async (portfolio: UserPortfolio) => {
     try {
-      // Check if user is authenticated
-      if (!isAuthenticated) {
-        // Store portfolio info and redirect path for after login
-        sessionStorage.setItem("pendingPortfolioId", portfolio._id);
-        sessionStorage.setItem("redirectPath", "/cart");
-        
-        toast({
-          title: "Login Required",
-          description: "Please log in or sign up to add items to your cart.",
-          variant: "destructive",
-        });
-        
-        // Redirect to login page
-        router.push("/login");
-        return;
-      }
-
-      await addToCart(portfolio._id, 1)
-      toast({
-        title: "Added to Cart",
-        description: `${portfolio.name} has been added to your cart.`,
+      // Fetch full portfolio data to ensure we have descriptions
+      const fullPortfolios = await userPortfolioService.getAll()
+      const fullPortfolio = fullPortfolios.find(p => p._id === portfolio._id)
+      
+      await addToCart(portfolio._id, 1, {
+        name: portfolio.name,
+        subscriptionFee: portfolio.subscriptionFee,
+        description: fullPortfolio?.description || portfolio.description
       })
-      // Redirect to cart page
-      router.push('/cart')
+      
+      if (isAuthenticated) {
+        toast({
+          title: "Added to Cart",
+          description: `${portfolio.name} has been added to your cart.`,
+        })
+      }
     } catch (error: any) {
       toast({
         title: "Error",
@@ -275,7 +267,7 @@ export default function ModelPortfolioSection() {
 
   if (loading) {
     return (
-      <div className="bg-[#fefcea] dark:bg-gray-900" id="model-portfolio">
+      <div className="bg-[#fefcea] dark:bg-gray-900" id="portfolio">
         <section className="py-8 sm:py-12">
           <div className="container mx-auto px-4">
             <div className="text-center mb-8 sm:mb-12">
@@ -445,7 +437,10 @@ export default function ModelPortfolioSection() {
 
                    {/* Description Section */}
                    <div className="mb-4 flex-grow">
-                     <p className="text-gray-800 dark:text-gray-300 text-sm line-clamp-2">{homeDescription}</p>
+                     <div 
+                       className="text-gray-800 dark:text-gray-300 text-sm line-clamp-2 [&>p]:m-0 [&>p]:leading-relaxed [&>strong]:font-semibold [&>em]:italic [&>ul]:list-disc [&>ol]:list-decimal [&>li]:ml-4"
+                       dangerouslySetInnerHTML={{ __html: homeDescription || '' }}
+                     />
                    </div>
 
                    {/* Methodology and Investment Section */}
@@ -477,7 +472,7 @@ export default function ModelPortfolioSection() {
                        <h3 className="font-bold text-sm text-black dark:text-[#FFFFF0] mb-2">Min. Investment</h3>
                        <div className="flex items-center">
                          <span className="text-lg font-bold text-black dark:text-[#FFFFF0]">
-                           ₹{portfolio.minInvestment?.toLocaleString() || (monthlyFee * 12).toLocaleString()}
+                           ₹{portfolio.minInvestment?.toLocaleString() || (monthlyFee * 12)?.toLocaleString()}
                          </span>
                        </div>
                      </div>

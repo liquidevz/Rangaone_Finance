@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/components/auth/auth-context";
+import { cartRedirectState } from "@/lib/cart-redirect-state";
 import ForgotPasswordModal from "@/components/auth/forgot-password-modal";
 import Image from "next/image";
 import Link from "next/link";
@@ -29,26 +30,14 @@ export default function LoginPage() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
-      const redirectPath = sessionStorage.getItem("redirectPath") || "/dashboard";
-      const wasAddingToCart = sessionStorage.getItem("addToCartAction") === "true";
-      
-      sessionStorage.removeItem("redirectPath");
-      sessionStorage.removeItem("addToCartAction");
-      
-      // Show success message if user was adding to cart
-      const pendingPortfolioId = sessionStorage.getItem("pendingPortfolioId");
-      if ((wasAddingToCart || pendingPortfolioId) && redirectPath === "/cart") {
-        setTimeout(() => {
-          toast({
-            title: "Items Added to Cart",
-            description: "Your selected items have been added to your cart.",
-          });
-        }, 1000);
+      if (cartRedirectState.hasPendingCartRedirect()) {
+        cartRedirectState.clearPendingCartRedirect();
+        router.replace("/cart");
+      } else {
+        router.replace("/dashboard");
       }
-      
-      router.replace(redirectPath);
     }
-  }, [isAuthenticated, isLoading, router, toast]);
+  }, [isAuthenticated, isLoading, router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -81,29 +70,13 @@ export default function LoginPage() {
         description: "You have successfully logged in.",
       });
 
-      // Get redirect path from session storage or URL params
-      const redirectPath = 
-        sessionStorage.getItem("redirectPath") || 
-        searchParams.get("redirect") || 
-        "/dashboard";
-      
-      const wasAddingToCart = sessionStorage.getItem("addToCartAction") === "true";
-      
-      sessionStorage.removeItem("redirectPath");
-      sessionStorage.removeItem("addToCartAction");
-      
-      // Show additional success message if user was adding to cart
-      const pendingPortfolioId = sessionStorage.getItem("pendingPortfolioId");
-      if ((wasAddingToCart || pendingPortfolioId) && redirectPath === "/cart") {
-        setTimeout(() => {
-          toast({
-            title: "Items Added to Cart",
-            description: "Your selected items have been added to your cart.",
-          });
-        }, 1000);
+      // Handle cart redirect or default to dashboard
+      if (cartRedirectState.hasPendingCartRedirect()) {
+        cartRedirectState.clearPendingCartRedirect();
+        router.replace("/cart");
+      } else {
+        router.replace("/dashboard");
       }
-      
-      router.replace(redirectPath);
     } catch (error: any) {
       console.error("Login error:", error);
       

@@ -384,11 +384,32 @@ export default function BasicSubscriptionPage() {
                   className="flex transition-transform duration-500 ease-out"
                   style={{ transform: `translateX(${-currentSlide * 100}%)` }}
                 >
-                  {Array.from({ length: totalFeatures }, (_, index) => ({
-                    title: `Feature ${index + 1}`,
-                    description: `Feature ${index + 1} description`,
-                    id: `feature-${index + 1}`,
-                  })).map((feature, index) => (
+                  {[
+                    {
+                      title: "Quality Stocks",
+                      description: "10-15 carefully researched stocks with good potential",
+                      icon: "📈",
+                      id: "feature-1",
+                    },
+                    {
+                      title: "Short-Term Trades",
+                      description: "5 high-potential trade recommendations each month",
+                      icon: "⚡",
+                      id: "feature-2",
+                    },
+                    {
+                      title: "Timely Alerts",
+                      description: "Real-time notifications for market opportunities",
+                      icon: "🔔",
+                      id: "feature-3",
+                    },
+                    {
+                      title: "Market Updates",
+                      description: "Regular market analysis and insights",
+                      icon: "📊",
+                      id: "feature-4",
+                    },
+                  ].map((feature, index) => (
                     <div key={index} className="flex-shrink-0 w-full px-4">
                       <div
                         className="rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow border bg-white group hover:border-purple-400 cursor-pointer h-full"
@@ -477,11 +498,32 @@ export default function BasicSubscriptionPage() {
 
           {/* Desktop Grid */}
           <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {Array.from({ length: totalFeatures }, (_, index) => ({
-              title: `Feature ${index + 1}`,
-              description: `Feature ${index + 1} description`,
-              id: `feature-${index + 1}`,
-            })).map((feature, index) => (
+            {[
+              {
+                title: "Quality Stocks",
+                description: "10-15 carefully researched stocks with good potential",
+                icon: "📈",
+                id: "feature-1",
+              },
+              {
+                title: "Short-Term Trades",
+                description: "5 high-potential trade recommendations each month",
+                icon: "⚡",
+                id: "feature-2",
+              },
+              {
+                title: "Timely Alerts",
+                description: "Real-time notifications for market opportunities",
+                icon: "🔔",
+                id: "feature-3",
+              },
+              {
+                title: "Market Updates",
+                description: "Regular market analysis and insights",
+                icon: "📊",
+                id: "feature-4",
+              },
+            ].map((feature, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, y: 20 }}

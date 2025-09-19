@@ -374,11 +374,44 @@ export default function PremiumSubscriptionPage() {
                   className="flex transition-transform duration-500 ease-out"
                   style={{ transform: `translateX(${-currentSlide * 100}%)` }}
                 >
-                  {Array.from({ length: totalFeatures }, (_, index) => ({
-                    title: `Feature ${index + 1}`,
-                    description: `Feature ${index + 1} description`,
-                    id: `feature-${index + 1}`,
-                  })).map((feature, index) => (
+                  {[
+                    {
+                      title: "Premium Quality Stocks",
+                      description: "20-25 elite stocks with advanced research",
+                      icon: "🏆",
+                      id: "feature-1",
+                    },
+                    {
+                      title: "Advanced Swing Trades",
+                      description: "10 high-potential trade recommendations monthly",
+                      icon: "⚡",
+                      id: "feature-2",
+                    },
+                    {
+                      title: "Model Portfolios",
+                      description: "2 exclusive portfolios: SIP & Multibagger",
+                      icon: "💼",
+                      id: "feature-3",
+                    },
+                    {
+                      title: "IPO Recommendations",
+                      description: "Exclusive IPO analysis and recommendations",
+                      icon: "🚀",
+                      id: "feature-4",
+                    },
+                    {
+                      title: "Call Support",
+                      description: "Direct access to expert guidance",
+                      icon: "📞",
+                      id: "feature-5",
+                    },
+                    {
+                      title: "Live Webinars",
+                      description: "Interactive sessions with market experts",
+                      icon: "🎥",
+                      id: "feature-6",
+                    },
+                  ].map((feature, index) => (
                     <div key={index} className="flex-shrink-0 w-full px-4">
                       <div
                         className="bg-[#2a2a2a] rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow border border-[#7a8c3b]/10 group hover:border-[#7a8c3b]/30 cursor-pointer h-full"
@@ -464,11 +497,44 @@ export default function PremiumSubscriptionPage() {
 
           {/* Desktop Grid */}
           <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {Array.from({ length: totalFeatures }, (_, index) => ({
-              title: `Feature ${index + 1}`,
-              description: `Feature ${index + 1} description`,
-              id: `feature-${index + 1}`,
-            })).map((feature, index) => (
+            {[
+              {
+                title: "Premium Quality Stocks",
+                description: "20-25 elite stocks with advanced research",
+                icon: "🏆",
+                id: "feature-1",
+              },
+              {
+                title: "Advanced Swing Trades",
+                description: "10 high-potential trade recommendations monthly",
+                icon: "⚡",
+                id: "feature-2",
+              },
+              {
+                title: "Model Portfolios",
+                description: "2 exclusive portfolios: SIP & Multibagger",
+                icon: "💼",
+                id: "feature-3",
+              },
+              {
+                title: "IPO Recommendations",
+                description: "Exclusive IPO analysis and recommendations",
+                icon: "🚀",
+                id: "feature-4",
+              },
+              {
+                title: "Call Support",
+                description: "Direct access to expert guidance",
+                icon: "📞",
+                id: "feature-5",
+              },
+              {
+                title: "Live Webinars",
+                description: "Interactive sessions with market experts",
+                icon: "🎥",
+                id: "feature-6",
+              },
+            ].map((feature, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, y: 20 }}

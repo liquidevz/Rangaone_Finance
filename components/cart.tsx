@@ -1,8 +1,8 @@
 // components/cart.tsx
 "use client"
 
-import { useState, useEffect } from "react"
-import { Plus, Minus, X, ShoppingCart as CartIcon, CreditCard, ArrowLeft, Package, Sparkles, Trash2, Tag, Heart, Shield, AlertCircle, RefreshCw } from "lucide-react"
+import { useState, useEffect, useMemo } from "react"
+import { Plus, Minus, X, ShoppingCart as CartIcon, CreditCard, ArrowLeft, Package, Sparkles, Trash2, Tag, Heart, Shield, AlertCircle, RefreshCw, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -28,6 +28,8 @@ import { DigioVerificationModal } from "@/components/digio-verification-modal";
 import { PaymentAgreementData } from "@/services/digio.service";
 
 export default function CartPage() {
+  const { isAuthenticated } = useAuth()
+  
   const [loading, setLoading] = useState(true)
   const [subscriptionType, setSubscriptionType] = useState<"monthly" | "quarterly" | "yearly">("monthly")
   const [couponCode, setCouponCode] = useState("")
@@ -41,8 +43,9 @@ export default function CartPage() {
   const [showVideoModal, setShowVideoModal] = useState(false)
   const [showDigioVerification, setShowDigioVerification] = useState(false)
   const [agreementData, setAgreementData] = useState<PaymentAgreementData | null>(null)
-
-  const { isAuthenticated } = useAuth()
+  const [bundleRecommendations, setBundleRecommendations] = useState<any[]>([])
+  const [expandedItems, setExpandedItems] = useState<{[key: string]: boolean}>({})
+  const [portfolioDescriptions, setPortfolioDescriptions] = useState<{[key: string]: string}>({})
   const router = useRouter()
   const { 
     cart, 
@@ -62,15 +65,26 @@ export default function CartPage() {
     console.log("showProfileModal state changed:", showProfileModal);
   }, [showProfileModal]);
 
+
+
   useEffect(() => {
     const initializeCart = async () => {
       try {
-        await refreshCart()
+        // Fetch portfolio descriptions
+        const response = await fetch('https://api.rangaone.finance/api/user/portfolios')
+        const portfolios = await response.json()
+        const descriptions: {[key: string]: string} = {}
+        portfolios.forEach((p: any) => {
+          const checkoutDesc = p.description?.find((d: any) => d.key === "checkout card")?.value
+          if (checkoutDesc) descriptions[p._id] = checkoutDesc
+        })
+        setPortfolioDescriptions(descriptions)
+        
         if (isAuthenticated) {
           // Fetch subscribed portfolios for the user (but don't auto-remove items)
           try {
-            const portfolios = await userPortfolioService.getSubscribedPortfolios()
-            const activatedIds = portfolios.map((p) => p._id)
+            const subscribedPortfolios = await userPortfolioService.getSubscribedPortfolios()
+            const activatedIds = subscribedPortfolios.map((p: any) => p._id)
             console.log("Subscribed portfolio IDs:", activatedIds)
             setActivatedPortfolioIds(activatedIds)
           } catch (portfolioError) {
@@ -86,10 +100,25 @@ export default function CartPage() {
     }
 
     initializeCart()
-  }, [isAuthenticated, refreshCart, toast])
+  }, [isAuthenticated])
 
   const effectiveCart = getEffectiveCart()
-  const effectiveItems = effectiveCart?.items || []
+  const effectiveItems = useMemo(() => effectiveCart?.items || [], [effectiveCart])
+
+  // Load bundles once on mount
+  useEffect(() => {
+    const loadBundles = async () => {
+      try {
+        const bundles = await bundleService.getAll()
+        setBundleRecommendations(bundles)
+      } catch (error) {
+        console.error('Failed to load bundles:', error)
+      }
+    }
+    loadBundles()
+  }, [])
+
+
 
   // Filter out items with 0/null price for the selected period
   const filteredItems = effectiveItems.filter((item) => {
@@ -468,19 +497,7 @@ export default function CartPage() {
     }
   };
 
-  const getCheckoutDescription = (descriptions: any[]) => {
-    if (!descriptions || !Array.isArray(descriptions)) {
-      return null
-    }
-    
-    try {
-      const result = userPortfolioService.getDescriptionByKey(descriptions, "checkout card")
-      return result || null
-    } catch (error) {
-      console.error("Failed to get checkout description:", error)
-      return null
-    }
-  }
+
 
   const handleDirectCheckout = async () => {
     if (!isAuthenticated) {
@@ -592,6 +609,10 @@ export default function CartPage() {
                     </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+
+          
+
+          
           {cartItemCount === 0 ? (
             // Enhanced Empty Cart State
             <motion.div 
@@ -797,7 +818,6 @@ export default function CartPage() {
                       }
 
                       const isUpdating = updatingQuantity === item.portfolio._id
-                      const checkoutDescription = getCheckoutDescription(item.portfolio.description)
                       const isAlreadyPurchased = activatedPortfolioIds.includes(item.portfolio._id)
 
                       return (
@@ -838,15 +858,90 @@ export default function CartPage() {
                               </div>
                             </div>
 
-                            {/* Portfolio Details/Features */}
-                            {checkoutDescription && (
-                              <div className="mb-4 p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-100">
-                                <div 
-                                  className="checkout-description text-gray-600 text-sm prose prose-sm max-w-none"
-                                  dangerouslySetInnerHTML={{ __html: checkoutDescription }}
-                                />
-                              </div>
-                            )}
+                            {/* Portfolio Details Drawer */}
+                            <div className="mb-4">
+                              <button
+                                onClick={() => setExpandedItems(prev => ({
+                                  ...prev,
+                                  [item.portfolio._id]: !prev[item.portfolio._id]
+                                }))}
+                                className="flex items-center justify-between w-full p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100 transition-colors"
+                              >
+                                <span className="text-sm font-medium text-gray-700">Portfolio Details</span>
+                                <motion.div
+                                  animate={{ rotate: expandedItems[item.portfolio._id] ? 180 : 0 }}
+                                  transition={{ duration: 0.2 }}
+                                >
+                                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                                </motion.div>
+                              </button>
+                              
+                              <AnimatePresence>
+                                {expandedItems[item.portfolio._id] && (
+                                  <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="overflow-hidden"
+                                  >
+                                    <div className="p-4 bg-white border border-gray-100 rounded-b-lg space-y-3">
+                                      {portfolioDescriptions[item.portfolio._id] ? (
+                                        <div 
+                                          className="text-sm text-gray-700 prose prose-sm max-w-none [&>p]:m-0 [&>p]:leading-relaxed [&>strong]:font-semibold [&>em]:italic [&>ul]:list-disc [&>ol]:list-decimal [&>li]:ml-4"
+                                          dangerouslySetInnerHTML={{ __html: portfolioDescriptions[item.portfolio._id] }}
+                                        />
+                                      ) : (
+                                        <p className="text-sm text-gray-500 italic">No checkout card description available</p>
+                                      )}
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+
+                            {/* Bundle Recommendation Banner */}
+                            {(() => {
+                              console.log('Checking bundle for portfolio:', item.portfolio.name, item.portfolio._id)
+                              console.log('Available bundles:', bundleRecommendations)
+                              
+                              const premiumBundle = bundleRecommendations.find(bundle => 
+                                bundle.category === "premium" && bundle.portfolios.some((p: any) => p._id === item.portfolio._id)
+                              )
+                              
+                              console.log('Found premium bundle:', premiumBundle)
+                              
+                              if (premiumBundle) {
+                                return (
+                                  <div className="mb-6 p-5 sm:p-6 bg-gradient-to-br from-yellow-100 via-yellow-50 to-amber-100 rounded-2xl border-2 border-yellow-300 shadow-lg cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-300"
+                                       onClick={() => router.push('/premium-subscription')}>
+                                    <div className="flex items-start gap-4">
+                                      <div className="bg-yellow-400 p-2 rounded-full">
+                                        <Sparkles className="w-6 h-6 text-yellow-800" />
+                                      </div>
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-2">
+                                          <span className="text-2xl">💡</span>
+                                          <h4 className="text-lg font-bold text-yellow-900">
+                                            Save More with Premium Bundle!
+                                          </h4>
+                                        </div>
+                                        <p className="text-base font-semibold text-yellow-800 mb-1">
+                                          <span className="bg-yellow-300 px-2 py-1 rounded font-bold">{item.portfolio.name}</span> is available in {premiumBundle.name} at a cheaper price
+                                        </p>
+                                        <p className="text-sm text-yellow-700">
+                                          Click here to explore premium subscription bundles and maximize your savings
+                                        </p>
+                                        <div className="mt-3 inline-flex items-center text-sm font-medium text-yellow-800 bg-yellow-200 px-3 py-1 rounded-full">
+                                          View Premium Bundle →
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              }
+                              return null
+                            })()}
 
                             {/* Already Purchased Warning */}
                             {isAlreadyPurchased && (
@@ -927,6 +1022,8 @@ export default function CartPage() {
                   </AnimatePresence>
                 </div>
 
+
+
               </div>
 
               {/* Enhanced Right Side - Order Summary */}
@@ -941,14 +1038,11 @@ export default function CartPage() {
                     <Button 
                       variant="outline" 
                       className="w-full flex items-center justify-center gap-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-                      onClick={async () => {
+onClick={async () => {
                         try {
-                          // Assuming clearCart is available from useCart or needs to be imported
-                          // For now, we'll just remove all items from the cart
-                          if (cart) {
-                            for (const item of cart.items) {
-                              await removeFromCart(item.portfolio._id);
-                            }
+                          // Clear all items from cart
+                          for (const item of effectiveItems) {
+                            await removeFromCart(item.portfolio._id);
                           }
                           toast({
                             title: "Cart Cleared",
@@ -1118,11 +1212,10 @@ export default function CartPage() {
                          syncing ? "Syncing Cart..." :
                          processingCheckout ? "Processing Payment..." :
                          error ? "Error - Please Refresh" :
-                         !isAuthenticated ? "Sign In & Verify" :
-                         "Verify & Checkout"}
+                         "Proceed to Checkout"}
                       </Button>
                       
-                      {/* Test button for debugging */}
+                      {/* Test button for debugging
                       <Button
                         variant="outline"
                         className="w-full mt-2"
@@ -1132,7 +1225,7 @@ export default function CartPage() {
                         }}
                       >
                         Test Profile Modal
-                      </Button>
+                      </Button> */}
                       
                       {!isAuthenticated && (
                         <div className="text-center">

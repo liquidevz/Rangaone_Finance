@@ -5,6 +5,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { cartService, Cart } from "@/services/cart.service";
 import { localCartService, LocalCart } from "@/services/local-cart.service";
 import { useAuth } from "@/components/auth/auth-context";
+import { cartRedirectState } from "@/lib/cart-redirect-state";
 
 interface CartContextType {
   cart: Cart | null;
@@ -13,7 +14,7 @@ interface CartContextType {
   couponCode: string;
   setCouponCode: (code: string) => void;
   refreshCart: () => Promise<void>;
-  addToCart: (portfolioId: string, quantity?: number) => Promise<void>;
+  addToCart: (portfolioId: string, quantity?: number, portfolioData?: any) => Promise<void>;
   updateQuantity: (portfolioId: string, newQuantity: number) => Promise<void>;
   setQuantity: (portfolioId: string, exactQuantity: number) => Promise<void>;
   removeFromCart: (portfolioId: string) => Promise<void>;
@@ -48,6 +49,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [couponCode, setCouponCode] = useState("");
+
   const { isAuthenticated, user } = useAuth();
 
   const cartItemCount = React.useMemo(() => {
@@ -99,8 +101,27 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
       setLoading(true);
       setSyncing(true);
       setError(null);
-      const cartData = await cartService.getCart();
-      setCart(cartData);
+      const [cartData, allPortfolios] = await Promise.all([
+        cartService.getCart(),
+        userPortfolioService.getAll()
+      ]);
+      
+      // Enrich cart items with full portfolio descriptions
+      const enrichedCart = {
+        ...cartData,
+        items: cartData.items.map(item => {
+          const fullPortfolio = allPortfolios.find(p => p._id === item.portfolio._id);
+          return {
+            ...item,
+            portfolio: {
+              ...item.portfolio,
+              description: fullPortfolio?.description || item.portfolio.description || []
+            }
+          };
+        })
+      };
+      
+      setCart(enrichedCart);
     } catch (error) {
       console.error("Failed to fetch cart:", error);
       setError("Failed to load cart. Please try again.");
@@ -156,14 +177,13 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     };
     
     syncCartOnLogin();
-  }, [isAuthenticated, user, refreshCart]);
+  }, [isAuthenticated, user]);
 
   const addToCart = async (portfolioId: string, quantity: number = 1, portfolioData?: any) => {
     try {
       if (!isAuthenticated) {
-        console.log("Adding to local cart:", portfolioId, quantity, portfolioData);
-        
-        const localCart = localCartService.addPortfolioToLocalCart(
+        // Add to local cart and set redirect state
+        localCartService.addPortfolioToLocalCart(
           portfolioId,
           quantity,
           "monthly",
@@ -172,31 +192,15 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
             subscriptionFee: portfolioData?.subscriptionFee || []
           }
         );
-        console.log("Local cart after add:", localCart);
-        
-        // Convert local cart to display format
-        const displayCart: Cart = {
-          _id: "local",
-          userId: "local",
-          items: localCart.items.map(item => ({
-            _id: item.portfolioId,
-            portfolio: {
-              _id: item.portfolioId,
-              name: item.itemData.name,
-              subscriptionFee: item.itemData.subscriptionFee || []
-            } as any,
-            quantity: item.quantity
-          })),
-          createdAt: localCart.lastUpdated,
-          updatedAt: localCart.lastUpdated
-        };
-        console.log("Setting display cart:", displayCart);
-        setCart(displayCart);
+        cartRedirectState.setPendingCartRedirect();
+        window.location.href = "/cart";
         return;
       }
       
       const updatedCart = await cartService.addToCart({ portfolioId, quantity });
       setCart(updatedCart);
+      // Redirect to cart page after adding item
+      window.location.href = "/cart";
     } catch (error) {
       console.error("Failed to add to cart:", error);
       throw error;
@@ -283,7 +287,8 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
             portfolio: {
               _id: item.portfolioId,
               name: item.itemData.name,
-              subscriptionFee: item.itemData.subscriptionFee || []
+              subscriptionFee: item.itemData.subscriptionFee || [],
+              description: item.itemData.description || []
             } as any,
             quantity: item.quantity
           })),
@@ -383,6 +388,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     clearError,
     hasBundle,
     addBundleToCart,
+
   };
 
   return (

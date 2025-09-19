@@ -4,14 +4,16 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { ChevronDown } from "lucide-react"
 import { SectionHeading } from "@/components/ui/section-heading"
+
 import { contactService, ContactFormData } from "@/services/contact.service"
 import { faqService, FAQ } from "@/services/faq.service"
 import { useToast } from "@/components/ui/use-toast"
 
 export default function FAQContactSection() {
-  const [faqs, setFaqs] = useState<FAQ[]>([])
+  const [faqs, setFaqs] = useState<{[key: string]: FAQ[]}>({})
   const [loading, setLoading] = useState(true)
-  const [openIndex, setOpenIndex] = useState<number | null>(0)
+  const [openIndex, setOpenIndex] = useState<{[key: string]: number | null}>({General: 0, Premium: null, Basic: null})
+  const [activeCategory, setActiveCategory] = useState("General")
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -26,10 +28,20 @@ export default function FAQContactSection() {
     const fetchFAQs = async () => {
       try {
         setLoading(true)
-        console.log('Fetching FAQs for General category...')
-        const generalFAQs = await faqService.getFAQsByCategory('General')
-        console.log('Received FAQs:', generalFAQs)
-        setFaqs(generalFAQs)
+        const categories = ['General', 'Premium', 'Basic']
+        const faqData: {[key: string]: FAQ[]} = {}
+        
+        for (const category of categories) {
+          try {
+            const categoryFAQs = await faqService.getFAQsByCategory(category)
+            faqData[category] = categoryFAQs
+          } catch (error) {
+            console.error(`Error fetching ${category} FAQs:`, error)
+            faqData[category] = []
+          }
+        }
+        
+        setFaqs(faqData)
       } catch (error) {
         console.error('Error fetching FAQs:', error)
         toast({
@@ -46,7 +58,10 @@ export default function FAQContactSection() {
   }, [])
 
   const toggleFAQ = (index: number) => {
-    setOpenIndex(openIndex === index ? null : index)
+    setOpenIndex(prev => ({
+      ...prev,
+      [activeCategory]: prev[activeCategory] === index ? null : index
+    }))
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -99,27 +114,68 @@ export default function FAQContactSection() {
   }
 
   return (
-    <section className="py-16 bg-[#fefcea]" id="faq-contact">
+    <section className="py-16 bg-[#fefcea]" id="contact-us">
       <div className="container mx-auto px-4">
         <div className="grid md:grid-cols-2 gap-8">
           {/* FAQ Section */}
           <div>
             <SectionHeading title="FAQs" subtitle="Let's answer some questions" align="left" />
 
-            {/* FAQ Accordion */}
+            {/* Category Tabs */}
+            <div className="flex flex-wrap gap-2 mb-6">
+              <button
+                onClick={() => {
+                  setActiveCategory("General")
+                  setOpenIndex(prev => ({...prev, General: 0}))
+                }}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md border ${
+                  activeCategory === "General"
+                    ? "bg-[#001633] text-[#FFFFF0] border-[#001633]"
+                    : "bg-[#fefcea] text-gray-700 border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                Model Portfolio
+              </button>
+              <button
+                onClick={() => {
+                  setActiveCategory("Premium")
+                  setOpenIndex(prev => ({...prev, Premium: 0}))
+                }}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md border ${
+                  activeCategory === "Premium"
+                    ? "bg-[#001633] text-[#FFFFF0] border-[#001633]"
+                    : "bg-[#fefcea] text-gray-700 border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                Premium
+              </button>
+              <button
+                onClick={() => {
+                  setActiveCategory("Basic")
+                  setOpenIndex(prev => ({...prev, Basic: 0}))
+                }}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md border ${
+                  activeCategory === "Basic"
+                    ? "bg-[#001633] text-[#FFFFF0] border-[#001633]"
+                    : "bg-[#fefcea] text-gray-700 border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                Basic
+              </button>
+            </div>
+
             <div className="space-y-4">
               {loading ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#001633] mx-auto"></div>
                   <p className="mt-2 text-gray-600">Loading FAQs...</p>
                 </div>
-              ) : faqs.length === 0 ? (
+              ) : !faqs[activeCategory] || faqs[activeCategory].length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-gray-600">No FAQs found for General category.</p>
-                  <p className="text-sm text-gray-500 mt-2">Check console for API response details.</p>
+                  <p className="text-gray-600">No FAQs found for {activeCategory} category.</p>
                 </div>
               ) : (
-                faqs.map((faq, index) => (
+                faqs[activeCategory].map((faq, index) => (
                   <div
                     key={faq.id}
                     className="border border-gray-300 rounded-lg overflow-hidden transition-all duration-200"
@@ -131,13 +187,13 @@ export default function FAQContactSection() {
                       <span className="font-medium text-gray-900">{faq.question}</span>
                       <ChevronDown
                         className={`h-5 w-5 text-gray-500 transition-transform duration-200 ${
-                          openIndex === index ? "transform rotate-180" : ""
+                          openIndex[activeCategory] === index ? "transform rotate-180" : ""
                         }`}
                       />
                     </button>
                     <div
                       className={`px-4 overflow-hidden transition-all duration-200 ${
-                        openIndex === index ? "max-h-40 py-3" : "max-h-0"
+                        openIndex[activeCategory] === index ? "max-h-40 py-3" : "max-h-0"
                       }`}
                     >
                       <p className="text-gray-600">{faq.answer}</p>

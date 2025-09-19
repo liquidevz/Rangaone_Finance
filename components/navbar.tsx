@@ -21,7 +21,7 @@ const NavLinks = [
     href: "",
     // id: "feature-compare",
     sublinks: [{title: "RangaOne Wealth", href: "#feature-compare"},
-               {title: "Model Portfolio", href: "#model-portfolio"}
+               {title: "Model Portfolio", href: "#portfolio"}
             ],
   },
   {
@@ -31,7 +31,7 @@ const NavLinks = [
   },
   {
     title: "Contact Us",
-    href: "/contact-us",
+    href: "#contact-us",
     sublinks: [],
   },
 ];

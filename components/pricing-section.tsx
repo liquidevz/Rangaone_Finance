@@ -191,7 +191,7 @@ export default function PricingSection() {
                 }`}
               >
                 <p className="text-xm sm:text-2xl font-bold font-serif">
-                  Monthly
+                  Yearly
                 </p>
                 <div className="overflow-hidden">
                   <motion.p
@@ -248,7 +248,7 @@ export default function PricingSection() {
                 <p className={`text-xm sm:text-2xl font-bold font-serif ${
                   selected === "A" ? "text-transparent bg-clip-text bg-[linear-gradient(270deg,_#D4AF37_0%,_#FFC107_50%,_#FFD700_100%)]" : ""
                 }`}>
-                  Yearly
+                  Monthly
                 </p>
                 <div className="overflow-hidden">
                   <motion.p
