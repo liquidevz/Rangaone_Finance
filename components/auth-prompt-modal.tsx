@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/components/auth/auth-context";
+import { authService } from "@/services/auth.service";
+import { generateUsernameFromParts } from "@/lib/username-generator";
 import { cartRedirectState } from "@/lib/cart-redirect-state";
 import { ShoppingCart, User, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
@@ -35,8 +37,16 @@ export const AuthPromptModal: React.FC<AuthPromptModalProps> = ({
     password: "",
     confirmPassword: "",
     firstName: "",
-    lastName: ""
+    lastName: "",
+    phone: "",
+    dateOfBirth: "",
+    state: ""
   });
+
+  // Indian states list
+  const indianStates = [
+    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi", "Jammu and Kashmir", "Ladakh", "Puducherry", "Chandigarh", "Andaman and Nicobar Islands", "Dadra and Nagar Haveli and Daman and Diu", "Lakshadweep"
+  ];
 
   const { login } = useAuth();
   const { toast } = useToast();
@@ -58,11 +68,47 @@ export const AuthPromptModal: React.FC<AuthPromptModalProps> = ({
           description: "Your cart items will be transferred to your account.",
         });
       } else {
-        // Handle signup - redirect to signup page with cart preservation
-        cartRedirectState.setPendingCartRedirect();
-        onClose();
-        window.location.href = "/signup";
-        return;
+        // Handle signup with proper validation
+        if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone || !formData.dateOfBirth || !formData.state) {
+          toast({
+            title: "Missing Information",
+            description: "Please fill in all required fields for signup.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (formData.password !== formData.confirmPassword) {
+          toast({
+            title: "Password Mismatch",
+            description: "Passwords do not match.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Generate username and create account
+        const generatedUsername = generateUsernameFromParts(formData.firstName, formData.lastName);
+        const fullName = `${formData.firstName} ${formData.lastName}`.trim();
+        
+        const signupData = {
+          username: generatedUsername,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password,
+          fullName: fullName,
+          dateOfBirth: formData.dateOfBirth,
+          state: formData.state
+        };
+        
+        // Signup first, then login
+        await authService.signup(signupData);
+        await login(generatedUsername, formData.password);
+        
+        toast({
+          title: "Account Created!",
+          description: "Welcome! Your cart items are now saved to your account.",
+        });
       }
 
       // Call success callback and close modal (only for login)
@@ -85,7 +131,10 @@ export const AuthPromptModal: React.FC<AuthPromptModalProps> = ({
       password: "",
       confirmPassword: "",
       firstName: "",
-      lastName: ""
+      lastName: "",
+      phone: "",
+      dateOfBirth: "",
+      state: ""
     });
   };
 
@@ -124,30 +173,71 @@ export const AuthPromptModal: React.FC<AuthPromptModalProps> = ({
           {/* Auth Form */}
           <form onSubmit={handleAuth} className="space-y-4">
             {!isLogin && (
-              <div className="grid grid-cols-2 gap-3">
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input
+                      id="firstName"
+                      type="text"
+                      value={formData.firstName}
+                      onChange={(e) => handleInputChange("firstName", e.target.value)}
+                      required={!isLogin}
+                      placeholder="John"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input
+                      id="lastName"
+                      type="text"
+                      value={formData.lastName}
+                      onChange={(e) => handleInputChange("lastName", e.target.value)}
+                      required={!isLogin}
+                      placeholder="Doe"
+                    />
+                  </div>
+                </div>
+                
                 <div>
-                  <Label htmlFor="firstName">First Name</Label>
+                  <Label htmlFor="phone">Phone Number</Label>
                   <Input
-                    id="firstName"
-                    type="text"
-                    value={formData.firstName}
-                    onChange={(e) => handleInputChange("firstName", e.target.value)}
+                    id="phone"
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => handleInputChange("phone", e.target.value)}
                     required={!isLogin}
-                    placeholder="John"
+                    placeholder="+91-9876543210"
                   />
                 </div>
+                
                 <div>
-                  <Label htmlFor="lastName">Last Name</Label>
+                  <Label htmlFor="dateOfBirth">Date of Birth</Label>
                   <Input
-                    id="lastName"
-                    type="text"
-                    value={formData.lastName}
-                    onChange={(e) => handleInputChange("lastName", e.target.value)}
+                    id="dateOfBirth"
+                    type="date"
+                    value={formData.dateOfBirth}
+                    onChange={(e) => handleInputChange("dateOfBirth", e.target.value)}
                     required={!isLogin}
-                    placeholder="Doe"
                   />
                 </div>
-              </div>
+                
+                <div>
+                  <Label htmlFor="state">State</Label>
+                  <select
+                    id="state"
+                    value={formData.state}
+                    onChange={(e) => handleInputChange("state", e.target.value)}
+                    required={!isLogin}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select your state</option>
+                    {indianStates.map((state) => (
+                      <option key={state} value={state}>{state}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
             )}
 
             <div>
@@ -204,6 +294,11 @@ export const AuthPromptModal: React.FC<AuthPromptModalProps> = ({
                     placeholder="Confirm your password"
                   />
                 </div>
+                {formData.firstName && formData.lastName && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Username will be: <span className="font-medium">{generateUsernameFromParts(formData.firstName, formData.lastName)}</span>
+                  </p>
+                )}
               </div>
             )}
 

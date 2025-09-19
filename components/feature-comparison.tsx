@@ -8,6 +8,7 @@ import { useEffect, useState } from "react"
 import { bundleService, type Bundle } from "@/services/bundle.service"
 import { useRouter } from "next/navigation"
 import { PaymentModal } from "@/components/payment-modal"
+import SupportSection from "@/components/support-section"
 
 const wealthPlans = [
   {
@@ -118,25 +119,10 @@ export default function FeatureComparison() {
           ))}
         </div>
 
-        {/* Bottom CTA */}
-        <motion.div 
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-          className="text-center mt-8 sm:mt-12 lg:mt-16"
-        >
-          <p className="text-sm sm:text-base text-gray-600">
-            Still have questions? We're here to help you choose the right plan.
-          </p>
-          <Link href="/contact-us">
-            <Button 
-              variant="outline" 
-              className="px-6 sm:px-8 py-2 sm:py-3 text-sm sm:text-base font-medium rounded-xl border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all duration-300"
-            >
-              Contact Support
-            </Button>
-          </Link>
-        </motion.div>
+        {/* Support Section */}
+        <div className="mt-1 sm:mt-1 lg:mt-1">
+          <SupportSection />
+        </div>
       </div>
       
       {/* Payment Modal with 5-step process and quarterly/yearly toggle */}

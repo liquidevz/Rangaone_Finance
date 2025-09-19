@@ -13,6 +13,7 @@ import { useAuth } from "@/components/auth/auth-context";
 import { authService } from "@/services/auth.service";
 import { emailCheckService } from "@/services/email-check.service";
 import { userService } from "@/services/user.service";
+import { generateUsernameFromParts } from "@/lib/username-generator";
 import { useToast } from "@/components/ui/use-toast";
 
 interface CartAuthFormProps {
@@ -48,15 +49,6 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
     "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi", "Jammu and Kashmir", "Ladakh", "Puducherry", "Chandigarh", "Andaman and Nicobar Islands", "Dadra and Nagar Haveli and Daman and Diu", "Lakshadweep"
   ];
 
-  // Generate username from name parts
-  const generateUsername = (firstName: string, lastName: string): string => {
-    const first = firstName.trim().toLowerCase();
-    const last = lastName.trim().toLowerCase();
-    if (!first) return "";
-    if (!last) return first;
-    return first + last;
-  };
-
   // Get full name from parts
   const getFullName = (): string => {
     const parts = [formData.firstName, formData.middleName, formData.lastName]
@@ -66,7 +58,9 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
   };
 
   // Get generated username for display
-  const generatedUsername = generateUsername(formData.firstName, formData.lastName);
+  const generatedUsername = formData.firstName && formData.lastName 
+    ? generateUsernameFromParts(formData.firstName, formData.lastName, formData.middleName)
+    : "";
   const [profileData, setProfileData] = useState({
     fullName: "",
     phone: "",
@@ -167,7 +161,11 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
       try {
         if (isSignupMode) {
           // Generate username and full name
-          const generatedUsername = generateUsername(formData.firstName, formData.lastName);
+          const generatedUsername = generateUsernameFromParts(
+            formData.firstName, 
+            formData.lastName, 
+            formData.middleName
+          );
           const fullName = getFullName();
           
           const signupData = {

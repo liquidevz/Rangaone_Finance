@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { authService } from "@/services/auth.service";
 import { useAuth } from "@/components/auth/auth-context";
+import { generateUniqueUsername } from "@/lib/username-generator";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -34,21 +35,8 @@ export default function SignupPage() {
     "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi", "Jammu and Kashmir", "Ladakh", "Puducherry", "Chandigarh", "Andaman and Nicobar Islands", "Dadra and Nagar Haveli and Daman and Diu", "Lakshadweep"
   ];
 
-  // Generate username from full name with random suffix to prevent duplicates
-  const generateUsername = (fullName: string): string => {
-    const names = fullName.trim().toLowerCase().split(/\s+/);
-    let baseUsername;
-    if (names.length === 1) baseUsername = names[0];
-    else if (names.length === 2) baseUsername = names[0] + names[1];
-    else baseUsername = names[0] + names[names.length - 1];
-    
-    // Add random 4-digit suffix to prevent duplicates
-    const randomSuffix = Math.floor(Math.random() * 9000) + 1000;
-    return baseUsername + randomSuffix;
-  };
-
   // Get generated username for display
-  const generatedUsername = formData.name ? generateUsername(formData.name) : "";
+  const generatedUsername = formData.name ? generateUniqueUsername(formData.name) : "";
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -146,7 +134,7 @@ export default function SignupPage() {
 
     try {
       // Generate username and call the signup API
-      const generatedUsername = generateUsername(formData.name);
+      const generatedUsername = generateUniqueUsername(formData.name);
       const response = await authService.signup({
         username: generatedUsername,
         email: formData.email.trim(),
