@@ -13,6 +13,8 @@ import { portfolioService } from "@/services/portfolio.service"
 import { subscriptionService, SubscriptionAccess } from "@/services/subscription.service"
 import { stockSymbolCacheService } from "@/services/stock-symbol-cache.service"
 import { stockPriceService, StockPriceData } from "@/services/stock-price.service"
+import { marketDataService, MarketIndexData } from "@/services/market-data.service"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Portfolio } from "@/lib/types"
 import { useAuth } from "@/components/auth/auth-context"
 import { useRouter } from "next/navigation"
@@ -21,6 +23,7 @@ import { authService } from "@/services/auth.service"
 import axiosApi from "@/lib/axios"
 import { cache } from "@/lib/cache"
 import MarketIndices from "@/components/market-indices"
+
 
 // Mobile Global Search Component
 function MobileGlobalSearch() {
@@ -65,362 +68,119 @@ function StockSymbolDisplay({ stockId }: { stockId?: string }) {
 
 // Market Indices Component
 export function MarketIndicesSection() {
-  const [isExpanded, setIsExpanded] = useState(true)
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [touchStart, setTouchStart] = useState(0)
-  const [touchEnd, setTouchEnd] = useState(0)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null)
-  const [indices, setIndices] = useState<StockPriceData[]>([])
+  const [marketData, setMarketData] = useState<MarketIndexData[]>([])
   const [loading, setLoading] = useState(true)
-  
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (window.innerWidth < 768) {
-        setIsExpanded(false)
-      }
-    }, 5000)
-    
-    return () => clearTimeout(timer)
-  }, [])
+  const [lastUpdated, setLastUpdated] = useState<string>('')
+  const [isExpanded, setIsExpanded] = useState(true)
 
   useEffect(() => {
-    const fetchIndicesData = async () => {
+    const fetchMarketData = async () => {
       try {
         setLoading(true)
-        
-        const cachedIndices = cache.get<StockPriceData[]>('market_indices')
-        if (cachedIndices) {
-          setIndices(cachedIndices)
-          setLoading(false)
-          return
-        }
-        
-        // Define index symbols with proper display names
-        // Try multiple symbol variations to ensure NIFTY 50 is found
-        const indexConfig = [
-          { symbol: 'NIFTY 50', displayName: 'NIFTY 50', alternatives: ['NIFTY50', 'NIFTY_50', 'NIFTY', 'NIFTY INDEX', 'NSE:NIFTY50'] },
-          { symbol: 'MIDCAP150', displayName: 'NIFTY MIDCAP 150', alternatives: ['NIFTY MIDCAP 150', 'MIDCAP_150'] },
-          { symbol: 'NIFTYSMLCAP250', displayName: 'NIFTY 250', alternatives: ['NIFTY 250', 'NIFTY_250', 'SMLCAP250'] }
-        ]
-        
-        // Try primary symbols first
-        const indexSymbols = indexConfig.map(config => config.symbol)
-        const results = await stockPriceService.getMultipleStockPrices(indexSymbols)
-        
-        let validIndices = Array.from(results.entries())
-          .filter(([symbol, result]) => result.success && result.data)
-          .map(([symbol, result]) => {
-            const config = indexConfig.find(c => c.symbol === symbol)
-            const data = result.data!
-            // Override the name with our display name
-            return {
-              ...data,
-              name: config?.displayName || data.name || data.symbol
-            }
-          })
-
-        // If we're missing indices, try alternative symbols
-        const missingConfigs = indexConfig.filter(config => 
-          !validIndices.some(idx => idx.name === config.displayName)
-        )
-
-        if (missingConfigs.length > 0) {
-          console.log(`🔍 Trying alternative symbols for missing indices:`, 
-            missingConfigs.map(c => c.displayName))
-          
-          for (const config of missingConfigs) {
-            let found = false
-            for (const altSymbol of config.alternatives) {
-              if (found) break
-              try {
-                console.log(`🔄 Trying alternative symbol: ${altSymbol} for ${config.displayName}`)
-                const altResult = await stockPriceService.getStockPrice(altSymbol)
-                if (altResult.success && altResult.data) {
-                  console.log(`✅ Found data for ${config.displayName} using symbol: ${altSymbol}`)
-                  validIndices.push({
-                    ...altResult.data,
-                    name: config.displayName
-                  })
-                  found = true
-                } else {
-                  console.log(`❌ No data for ${altSymbol}: ${altResult.error || 'Unknown error'}`)
-                }
-              } catch (error) {
-                console.warn(`⚠️ Failed to fetch ${altSymbol}:`, error)
-              }
-            }
-            
-            // If still no data found, skip this index (no placeholders)
-            if (!found) {
-              console.warn(`⚠️ No API data found for ${config.displayName}, skipping (no placeholders)`)
-            }
-          }
-        }
-
-        console.log(`📊 Market Indices fetched: ${validIndices.length}/${indexConfig.length}`, 
-          validIndices.map(idx => idx.name))
-        
-        // Only show indices with real API data - no placeholders
-        if (validIndices.length > 0) {
-          // Sort to ensure consistent order: NIFTY 50, NIFTY MIDCAP 150, NIFTY 250
-          const sortedIndices = validIndices.sort((a, b) => {
-            const order = ['NIFTY 50', 'NIFTY MIDCAP 150', 'NIFTY 250']
-            return order.indexOf(a.name || '') - order.indexOf(b.name || '')
-          })
-          
-          console.log(`✅ Displaying ${sortedIndices.length} indices with real data:`, sortedIndices.map(idx => idx.name))
-          setIndices(sortedIndices)
-          cache.set('market_indices', sortedIndices, 1)
-        } else {
-          console.warn('⚠️ No market indices data available from API')
-          setIndices([])
+        // Clear cache to ensure fresh data
+        marketDataService.clearCache()
+        const data = await marketDataService.getMarketIndices(true)
+        if (data?.success && data.data) {
+          setMarketData(data.data)
+          setLastUpdated(new Date(data.timestamp).toLocaleTimeString())
         }
       } catch (error) {
-        console.error('Failed to fetch indices data:', error)
-        // On error, show empty array (no placeholders)
-        setIndices([])
+        console.error('Failed to fetch market data:', error)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchIndicesData()
-    const interval = setInterval(fetchIndicesData, 30000)
+    fetchMarketData()
+    
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchMarketData, 30000)
     return () => clearInterval(interval)
   }, [])
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(0)
-    setTouchStart(e.targetTouches[0].clientX)
-    setSwipeDirection(null)
-    setIsAnimating(false)
-  }
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX)
-  }
-
-  const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) return
-    
-    const distance = touchStart - touchEnd
-    const isLeftSwipe = distance > 50
-    const isRightSwipe = distance < -50
-
-    if (isLeftSwipe) {
-      setSwipeDirection('left')
-      setIsAnimating(true)
-      setTimeout(() => {
-        setCurrentIndex(prev => prev === indices.length - 1 ? 0 : prev + 1)
-        setSwipeDirection(null)
-        setIsAnimating(false)
-      }, 300)
-    }
-    if (isRightSwipe) {
-      setSwipeDirection('right')
-      setIsAnimating(true)
-      setTimeout(() => {
-        setCurrentIndex(prev => prev === 0 ? indices.length - 1 : prev - 1)
-        setSwipeDirection(null)
-        setIsAnimating(false)
-      }, 300)
-    }
-  }
+  // Auto-collapse after 10 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => setIsExpanded(false), 10000)
+    return () => clearTimeout(timer)
+  }, [])
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-      <div 
-        className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        <h2 className="text-xl font-semibold text-gray-900">Market Indices</h2>
-        <ArrowDown className={`h-5 w-5 text-gray-500 transition-transform duration-300 ${
-          isExpanded ? 'rotate-180' : ''
-        }`} />
-      </div>
-      
-      <div className={`transition-all duration-500 ease-in-out ${
-        isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-      } overflow-hidden`}>
-        <div className="px-4 pb-2">
-          <div className="hidden md:grid md:grid-cols-3 gap-4">
-            {loading ? (
-              [...Array(3)].map((_, i) => (
-                <div 
-                  key={i} 
-                  className="bg-white rounded-xl p-5 animate-pulse"
-                  style={{ 
-                    boxShadow: '0 8px 25px rgba(0, 0, 0, 0.12)',
-                    background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)'
-                  }}
-                >
-                  <div className="space-y-3">
-                    <div className="h-4 bg-gray-200 rounded w-24"></div>
-                    <div className="h-8 bg-gray-200 rounded w-20"></div>
-                    <div className="h-6 bg-gray-200 rounded w-16"></div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              indices.map((index) => (
-                <div 
-                  key={index.symbol} 
-                  className="bg-white rounded-xl p-5 transition-all duration-300"
-                  style={{ 
-                    boxShadow: '0 8px 25px rgba(0, 0, 0, 0.12)',
-                    background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)'
-                  }}
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                        {index.name || index.symbol}
-                      </h3>
-                      <div className={`w-2 h-2 rounded-full ${
-                        index.change < 0 ? 'bg-red-400' : 'bg-green-400'
-                      }`}></div>
-                    </div>
-                    
-                    <div className="text-3xl font-bold text-gray-900 leading-none">
-                      ₹{index.currentPrice.toLocaleString()}
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm font-semibold ${
-                        index.change < 0 
-                          ? 'bg-red-100 text-red-700' 
-                          : 'bg-green-100 text-green-700'
-                      }`}>
-                        {index.change < 0 ? (
-                          <ArrowDown className="h-3.5 w-3.5" />
-                        ) : (
-                          <ArrowUp className="h-3.5 w-3.5" />
-                        )}
-                        <span>{index.change < 0 ? '' : '+'}₹{index.change.toFixed(2)}</span>
-                      </div>
-                      <div className={`text-sm font-medium ${
-                        index.change < 0 ? 'text-red-600' : 'text-green-600'
-                      }`}>
-                        ₹ ({index.change < 0 ? '' : '+'}{index.changePercent.toFixed(2)}%)
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))
+      <div className="p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-900 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>Market Indices</h2>
+          <div className="flex items-center gap-2">
+            {lastUpdated && (
+              <span className="text-xs text-gray-500">Last updated: {lastUpdated}</span>
             )}
-          </div>
-
-          <div className="md:hidden relative">
-            {loading ? (
-              <div className="flex justify-center">
-                <div 
-                  className="bg-white rounded-xl p-5 w-full max-w-sm animate-pulse"
-                  style={{ 
-                    boxShadow: '0 8px 25px rgba(0, 0, 0, 0.12)',
-                    background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)'
-                  }}
-                >
-                  <div className="space-y-3">
-                    <div className="h-4 bg-gray-200 rounded w-24"></div>
-                    <div className="h-8 bg-gray-200 rounded w-20"></div>
-                    <div className="h-6 bg-gray-200 rounded w-16"></div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div 
-                  className="flex justify-center overflow-hidden"
-                  onTouchStart={onTouchStart}
-                  onTouchMove={onTouchMove}
-                  onTouchEnd={onTouchEnd}
-                >
-                  <div 
-                    className={`bg-white rounded-xl p-5 w-full max-w-sm cursor-grab active:cursor-grabbing ${
-                      isAnimating 
-                        ? swipeDirection === 'left' 
-                          ? 'animate-slide-out-left' 
-                          : swipeDirection === 'right' 
-                            ? 'animate-slide-out-right' 
-                            : ''
-                        : 'animate-slide-in'
-                    }`}
-                    style={{ 
-                      boxShadow: '0 8px 25px rgba(0, 0, 0, 0.12)',
-                      background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-                      transform: isAnimating 
-                        ? swipeDirection === 'left' 
-                          ? 'translateX(-100%)' 
-                          : swipeDirection === 'right' 
-                            ? 'translateX(100%)' 
-                            : 'translateX(0)'
-                        : 'translateX(0)',
-                      transition: 'transform 0.3s ease-in-out'
-                    }}
-                  >
-                    {indices.length > 0 && indices[currentIndex] ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                            {indices[currentIndex].name || indices[currentIndex].symbol}
-                          </h3>
-                          <div className={`w-2 h-2 rounded-full ${
-                            indices[currentIndex].change < 0 ? 'bg-red-400' : 'bg-green-400'
-                          }`}></div>
-                        </div>
-                        
-                        <div className="text-3xl font-bold text-gray-900 leading-none">
-                          ₹{indices[currentIndex].currentPrice.toLocaleString()}
-                        </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm font-semibold ${
-                            indices[currentIndex].change < 0 
-                              ? 'bg-red-100 text-red-700' 
-                              : 'bg-green-100 text-green-700'
-                          }`}>
-                            {indices[currentIndex].change < 0 ? (
-                              <ArrowDown className="h-3.5 w-3.5" />
-                            ) : (
-                              <ArrowUp className="h-3.5 w-3.5" />
-                            )}
-                            <span>{indices[currentIndex].change < 0 ? '' : '+'}₹{indices[currentIndex].change.toFixed(2)}</span>
-                          </div>
-                          <div className={`text-sm font-medium ${
-                            indices[currentIndex].change < 0 ? 'text-red-600' : 'text-green-600'
-                          }`}>
-                            ₹ ({indices[currentIndex].change < 0 ? '' : '+'}{indices[currentIndex].changePercent.toFixed(2)}%)
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-3 text-center">
-                        <h3 className="text-sm font-medium text-gray-500">No market data available</h3>
-                        <p className="text-xs text-gray-400">Please check your connection and try again</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex justify-center mt-4">
-                  <div className="flex space-x-1">
-                    {indices.map((_, index) => (
-                      <div
-                        key={index}
-                        className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${
-                          index === currentIndex 
-                            ? 'bg-blue-500' 
-                            : 'bg-gray-300'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-gray-600"
+            >
+              {isExpanded ? 'Collapse' : 'Expand'}
+            </Button>
           </div>
         </div>
+        
+        <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="bg-gray-200 rounded-lg p-6">
+                    <div className="h-4 bg-gray-300 rounded mb-2"></div>
+                    <div className="h-8 bg-gray-300 rounded mb-2"></div>
+                    <div className="h-4 bg-gray-300 rounded w-2/3"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : marketData.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {marketData.map((index) => {
+                const currentPrice = parseFloat(index.currentPrice)
+                const priceChange = parseFloat(index.priceChange)
+                const priceChangePercent = parseFloat(index.priceChangePercent)
+                const isNegative = priceChange < 0
+                
+                return (
+                  <Card key={index.symbol} className="bg-white shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="space-y-2">
+                        <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 truncate">{index.symbol === 'NIFTY' ? 'NIFTY 50' : index.symbol === 'NIFTYMIDCAP150' ? 'NIFTY MIDCAP 150' : index.symbol === 'NIFTYSMLCAP250' ? 'NIFTY SMALLCAP 250' : index.name}</h3>
+                        <div className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 truncate">₹{currentPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        <div
+                          className={cn(
+                            "flex items-center text-sm font-medium",
+                            isNegative ? "text-red-500" : "text-green-500",
+                          )}
+                        >
+                          {isNegative ? (
+                            <ArrowDown className="h-4 w-4 mr-1" />
+                          ) : (
+                            <ArrowUp className="h-4 w-4 mr-1" />
+                          )}
+                          <span className="truncate">
+                            {priceChange >= 0 ? '+' : ''}{priceChange.toFixed(2)} ({priceChangePercent >= 0 ? '+' : ''}{priceChangePercent.toFixed(2)}%)
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              Unable to load market data. Please try again later.
+            </div>
+          )}
+        </div>
+        
+        
+
       </div>
     </div>
   )

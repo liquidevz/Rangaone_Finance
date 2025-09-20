@@ -15,8 +15,6 @@ import { useCart } from "@/components/cart/cart-context";
 import { useRouter } from "next/navigation";
 import { userPortfolioService, UserPortfolio } from "@/services/user-portfolio.service";
 import { fetchPortfolios } from "@/components/portfolio-api";
-import { CheckoutModal } from "@/components/checkout-modal";
-import { SectionHeading } from "@/components/ui/section-heading";
 
 
 
@@ -240,14 +238,10 @@ export default function ModelPortfolioSection() {
 
   const handleBuyNow = async (portfolio: UserPortfolio) => {
     try {
-      // Fetch full portfolio data to ensure we have descriptions
-      const fullPortfolios = await userPortfolioService.getAll()
-      const fullPortfolio = fullPortfolios.find(p => p._id === portfolio._id)
-      
       await addToCart(portfolio._id, 1, {
         name: portfolio.name,
         subscriptionFee: portfolio.subscriptionFee,
-        description: fullPortfolio?.description || portfolio.description
+        description: portfolio.description
       })
       
       if (isAuthenticated) {

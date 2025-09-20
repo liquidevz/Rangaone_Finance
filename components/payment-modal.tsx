@@ -12,7 +12,8 @@ import { paymentService } from "@/services/payment.service";
 import CartAuthForm from "@/components/cart-auth-form";
 import { DigioVerificationModal } from "@/components/digio-verification-modal";
 import { paymentFlowState } from "@/lib/payment-flow-state";
-
+import { CouponInput } from "@/components/coupon-input";
+import type { CouponValidationResponse } from "@/services/coupon.service";
 import type { PaymentAgreementData } from "@/services/digio.service";
 
 interface PaymentModalProps {
@@ -36,11 +37,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [subscriptionType, setSubscriptionType] = useState<
     "monthly" | "yearly"
   >("monthly");
-  const [couponCode, setCouponCode] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState<{
-    code: string;
-    discount: number;
-  } | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<CouponValidationResponse["coupon"] | null>(null);
   const [processing, setProcessing] = useState(false);
   const [processingMsg, setProcessingMsg] = useState(
     "Preparing secure payment…"
@@ -85,7 +82,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     }
 
     if (appliedCoupon) {
-      return Math.round(basePrice * (1 - appliedCoupon.discount / 100));
+      const discountAmount = appliedCoupon.discountType === "percentage" 
+        ? Math.min((basePrice * appliedCoupon.discountValue) / 100, appliedCoupon.maxDiscountAmount || Infinity)
+        : appliedCoupon.discountValue;
+      return Math.max(0, basePrice - discountAmount);
     }
     return basePrice;
   }, [bundle, isEmandateFlow, subscriptionType, appliedCoupon]);
@@ -191,29 +191,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     return bundle.monthlyPrice || 0;
   };
 
-  const applyCoupon = () => {
-    const code = couponCode.toUpperCase();
-    if (code === "WELCOME10") {
-      const coupon = { code, discount: 10 };
-      setAppliedCoupon(coupon);
-      paymentFlowState.update({ appliedCoupon: coupon });
-    } else if (code === "SAVE20") {
-      const coupon = { code, discount: 20 };
-      setAppliedCoupon(coupon);
-      paymentFlowState.update({ appliedCoupon: coupon });
-    } else {
-      toast({
-        title: "Invalid Coupon",
-        description: "Coupon code not found",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const removeCoupon = () => {
-    setAppliedCoupon(null);
-    setCouponCode("");
-    paymentFlowState.update({ appliedCoupon: null });
+  const handleCouponApplied = (coupon: CouponValidationResponse["coupon"] | null) => {
+    setAppliedCoupon(coupon);
+    paymentFlowState.update({ appliedCoupon: coupon });
   };
 
   const handleClose = () => {
@@ -907,43 +887,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     <label className="text-sm font-medium text-gray-700">
                       Coupon Code (Optional)
                     </label>
-                    {appliedCoupon ? (
-                      <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-md">
-                        <div className="flex items-center gap-2">
-                          <span className="text-green-600 font-medium">
-                            {appliedCoupon.code}
-                          </span>
-                          <span className="text-green-600 text-sm">
-                            ({appliedCoupon.discount}% off)
-                          </span>
-                        </div>
-                        <button
-                          onClick={removeCoupon}
-                          className="text-red-500 hover:text-red-700 text-sm"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={couponCode}
-                          onChange={(e) =>
-                            setCouponCode(e.target.value.toUpperCase())
-                          }
-                          placeholder="Enter coupon code"
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                        <button
-                          onClick={applyCoupon}
-                          disabled={!couponCode.trim()}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                        >
-                          Apply
-                        </button>
-                      </div>
-                    )}
+                    <CouponInput
+                      onCouponApplied={handleCouponApplied}
+                      originalAmount={getOriginalPrice()}
+                      disabled={processing}
+                    />
                   </div>
 
                   <Button

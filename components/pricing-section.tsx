@@ -9,7 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
 import { bundleService, Bundle } from "@/services/bundle.service";
 import { PaymentModal } from "./payment-modal";
-import FeatureComparison from "./feature-comparison";
+
 import { useAuth } from "@/components/auth/auth-context";
 import { useCart } from "@/components/cart/cart-context";
 import { postLoginState } from "@/lib/post-login-state";
@@ -113,7 +113,7 @@ export default function PricingSection() {
     "font-bold rounded-lg py-3 w-28 hover:bg-slate-100 transition-colors relative";
 
   return (
-    <section className="w-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 px-4 lg:px-8 py-16 lg:py-24 relative overflow-hidden">
+    <section className="w-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 px-4 lg:px-8 pt-16 lg:pt-24 relative overflow-hidden">
       {/* Header */}
       <div className="text-center mb-12 lg:mb-16 relative z-10">
         <motion.div
@@ -295,8 +295,7 @@ export default function PricingSection() {
         }
       </div>
 
-      {/* Feature Comparison Cards */}
-      <FeatureComparison />
+
 
       {/* Background Elements */}
       <TopLeftCircle />

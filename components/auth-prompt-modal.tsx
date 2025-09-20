@@ -37,6 +37,7 @@ export const AuthPromptModal: React.FC<AuthPromptModalProps> = ({
     password: "",
     confirmPassword: "",
     firstName: "",
+    middleName: "",
     lastName: "",
     phone: "",
     dateOfBirth: "",
@@ -88,8 +89,10 @@ export const AuthPromptModal: React.FC<AuthPromptModalProps> = ({
         }
 
         // Generate username and create account
-        const generatedUsername = generateUsernameFromParts(formData.firstName, formData.lastName);
-        const fullName = `${formData.firstName} ${formData.lastName}`.trim();
+        const generatedUsername = generateUsernameFromParts(formData.firstName, formData.lastName, formData.middleName);
+        const fullName = [formData.firstName, formData.middleName, formData.lastName]
+          .filter(part => part.trim())
+          .join(" ");
         
         const signupData = {
           username: generatedUsername,
@@ -131,6 +134,7 @@ export const AuthPromptModal: React.FC<AuthPromptModalProps> = ({
       password: "",
       confirmPassword: "",
       firstName: "",
+      middleName: "",
       lastName: "",
       phone: "",
       dateOfBirth: "",
@@ -174,29 +178,39 @@ export const AuthPromptModal: React.FC<AuthPromptModalProps> = ({
           <form onSubmit={handleAuth} className="space-y-4">
             {!isLogin && (
               <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="firstName">First Name</Label>
-                    <Input
-                      id="firstName"
-                      type="text"
-                      value={formData.firstName}
-                      onChange={(e) => handleInputChange("firstName", e.target.value)}
-                      required={!isLogin}
-                      placeholder="John"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="lastName">Last Name</Label>
-                    <Input
-                      id="lastName"
-                      type="text"
-                      value={formData.lastName}
-                      onChange={(e) => handleInputChange("lastName", e.target.value)}
-                      required={!isLogin}
-                      placeholder="Doe"
-                    />
-                  </div>
+                <div>
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input
+                    id="firstName"
+                    type="text"
+                    value={formData.firstName}
+                    onChange={(e) => handleInputChange("firstName", e.target.value)}
+                    required={!isLogin}
+                    placeholder="John"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="middleName">Middle Name (Optional)</Label>
+                  <Input
+                    id="middleName"
+                    type="text"
+                    value={formData.middleName}
+                    onChange={(e) => handleInputChange("middleName", e.target.value)}
+                    placeholder="Middle name"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input
+                    id="lastName"
+                    type="text"
+                    value={formData.lastName}
+                    onChange={(e) => handleInputChange("lastName", e.target.value)}
+                    required={!isLogin}
+                    placeholder="Doe"
+                  />
                 </div>
                 
                 <div>
@@ -296,7 +310,7 @@ export const AuthPromptModal: React.FC<AuthPromptModalProps> = ({
                 </div>
                 {formData.firstName && formData.lastName && (
                   <p className="text-xs text-gray-500 mt-1">
-                    Username will be: <span className="font-medium">{generateUsernameFromParts(formData.firstName, formData.lastName)}</span>
+                    Username will be: <span className="font-medium">{generateUsernameFromParts(formData.firstName, formData.lastName, formData.middleName)}</span>
                   </p>
                 )}
               </div>

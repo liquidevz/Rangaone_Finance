@@ -128,23 +128,40 @@ export const cartService = {
   // Remove item from cart
   removeFromCart: async (portfolioId: string): Promise<Cart> => {
     const token = authService.getAccessToken();
-    return await del<Cart>(`/api/user/cart/${portfolioId}`, {
-      headers: {
-        accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    try {
+      return await del<Cart>(`/api/user/cart/${portfolioId}`, {
+        headers: {
+          accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        // Item already removed or doesn't exist, return current cart
+        return await cartService.getCart();
+      }
+      throw error;
+    }
   },
 
   // Clear cart
   clearCart: async (): Promise<{ message: string; cart: Cart }> => {
     const token = authService.getAccessToken();
-    return await del<{ message: string; cart: Cart }>("/api/user/cart", {
-      headers: {
-        accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    try {
+      return await del<{ message: string; cart: Cart }>("/api/user/cart", {
+        headers: {
+          accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        // Cart already empty, return empty cart structure
+        const emptyCart = await cartService.getCart();
+        return { message: "Cart cleared", cart: emptyCart };
+      }
+      throw error;
+    }
   },
 
   // Get cart item count

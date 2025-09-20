@@ -75,7 +75,7 @@ export const digioService = {
     if (response.success) {
       return {
         documentId: response.data.documentId,
-        authenticationUrl: response.data.authenticationUrl
+        authenticationUrl: response.data.authenticationUrl || response.data.signUrl
       };
     }
     throw new Error(response.error || 'Failed to create document');
@@ -99,54 +99,10 @@ export const digioService = {
     }
   },
 
-  // Open authentication URL for signing with Safari compatibility
-  openSigningPopup: (authenticationUrl: string): Window | null => {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-    
-    if (isMobile) {
-      // For mobile, open in same tab to avoid popup blockers
-      window.location.href = authenticationUrl;
-      return null;
-    } else {
-      // Enhanced popup settings for Safari compatibility
-      const windowFeatures = [
-        'width=800',
-        'height=700',
-        'left=' + (window.screen.width / 2 - 400),
-        'top=' + (window.screen.height / 2 - 350),
-        'scrollbars=yes',
-        'resizable=yes',
-        'status=no',
-        'toolbar=no',
-        'menubar=no',
-        'location=no'
-      ].join(',');
-      
-      const popup = window.open(
-        authenticationUrl, 
-        'digio_verification_' + Date.now(), // Unique name for Safari
-        windowFeatures
-      );
-      
-      if (!popup || popup.closed) {
-        // Fallback for blocked popups
-        if (isSafari) {
-          // Safari-specific fallback
-          const userConfirmed = confirm(
-            'Popup was blocked. Click OK to open verification in a new tab.'
-          );
-          if (userConfirmed) {
-            window.open(authenticationUrl, '_blank');
-          }
-        } else {
-          window.open(authenticationUrl, '_blank');
-        }
-        return null;
-      }
-      
-      return popup;
-    }
+  // Open authentication URL for signing - now returns URL for iframe usage
+  openSigningPopup: (authenticationUrl: string): string => {
+    // Return URL for iframe modal usage instead of opening popup
+    return authenticationUrl;
   },
 
   // Initialize Digio signing (legacy method for compatibility)
@@ -158,8 +114,7 @@ export const digioService = {
     authenticationUrl?: string
   ): Promise<void> => {
     if (authenticationUrl) {
-      digioService.openSigningPopup(authenticationUrl);
-      onSuccess({ documentId, authenticationUrl });
+      onSuccess({ documentId, authenticationUrl, digioUrl: authenticationUrl });
     } else {
       onError(new Error('No authentication URL provided'));
     }
@@ -201,6 +156,24 @@ export const digioService = {
     } catch (error) {
       console.error("Error validating signature:", error);
       return false;
+    }
+  },
+
+  // Check signature status for polling
+  checkSignatureStatus: async (documentId: string): Promise<{ completed: boolean; failed: boolean; error?: string }> => {
+    try {
+      const response = await digioService.checkDocumentStatus(documentId);
+      
+      if (response.agreement_status === "completed") {
+        return { completed: true, failed: false };
+      } else if (response.agreement_status === "failed" || response.agreement_status === "expired") {
+        return { completed: false, failed: true, error: `Document ${response.agreement_status}` };
+      } else {
+        return { completed: false, failed: false };
+      }
+    } catch (error: any) {
+      console.error("Error checking signature status:", error);
+      return { completed: false, failed: true, error: error.message || "Failed to check status" };
     }
   }
 };

@@ -271,7 +271,7 @@ export const paymentService = {
     console.log("🔍 Verifying eSign completion for:", { productType, productId });
     
     try {
-      const response = await get(`/digio/esign/verify?productType=${productType}&productId=${productId}`, {
+      const response = await get(`/api/digio/esign/verify?productType=${productType}&productId=${productId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -286,7 +286,7 @@ export const paymentService = {
       console.log("🔍 eSign completion verification error:", error);
       return {
         success: false,
-        message: error.message || "eSign verification failed"
+        message: error.response?.data?.message || error.message || "eSign verification failed"
       };
     }
   },
@@ -772,6 +772,9 @@ export const paymentService = {
     payload: CreateOrderPayload
   ): Promise<CreateEMandateResponse> => {
     const token = authService.getAccessToken();
+
+    console.log("🔍 PAYMENT SERVICE - Received payload:", JSON.stringify(payload, null, 2));
+    console.log("🔍 PAYMENT SERVICE - payload.planType:", payload.planType);
 
     // Transform payload to match backend API expectations
     const emandatePayload = {

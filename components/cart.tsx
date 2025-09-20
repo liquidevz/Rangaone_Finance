@@ -24,25 +24,27 @@ import { motion, AnimatePresence } from "framer-motion"
 import { PageHeader } from "@/components/page-header";
 import { ProfileCompletionModal } from "@/components/profile-completion-modal";
 import CartAuthForm from "@/components/cart-auth-form";
-import { DigioVerificationModal } from "@/components/digio-verification-modal";
-import { PaymentAgreementData } from "@/services/digio.service";
+import { CartPaymentModal } from "@/components/cart-payment-modal";
 
 export default function CartPage() {
   const { isAuthenticated } = useAuth()
   
   const [loading, setLoading] = useState(true)
   const [subscriptionType, setSubscriptionType] = useState<"monthly" | "quarterly" | "yearly">("monthly")
+  
+  // Debug subscription type changes
+  useEffect(() => {
+    console.log("🔍 CART - subscriptionType changed to:", subscriptionType);
+  }, [subscriptionType]);
   const [couponCode, setCouponCode] = useState("")
   const [appliedCoupon, setAppliedCoupon] = useState("")
   const [discount, setDiscount] = useState(0)
-  const [processingCheckout, setProcessingCheckout] = useState(false)
+
   const [updatingQuantity, setUpdatingQuantity] = useState<string | null>(null)
   const [activatedPortfolioIds, setActivatedPortfolioIds] = useState<string[]>([])
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [showAuthForm, setShowAuthForm] = useState(false)
-  const [showVideoModal, setShowVideoModal] = useState(false)
-  const [showDigioVerification, setShowDigioVerification] = useState(false)
-  const [agreementData, setAgreementData] = useState<PaymentAgreementData | null>(null)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [bundleRecommendations, setBundleRecommendations] = useState<any[]>([])
   const [expandedItems, setExpandedItems] = useState<{[key: string]: boolean}>({})
   const [portfolioDescriptions, setPortfolioDescriptions] = useState<{[key: string]: string}>({})
@@ -146,13 +148,13 @@ export default function CartPage() {
       } else if (item.portfolio && item.portfolio.subscriptionFee) {
         switch (subscriptionType) {
           case "yearly":
-            price = item.portfolio.subscriptionFee.find((fee: any) => fee.type === "yearly")?.price || 0
+            price = (item.portfolio as any).yearlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "yearly")?.price || 0
             break
           case "quarterly":
-            price = item.portfolio.subscriptionFee.find((fee: any) => fee.type === "quarterly")?.price || 0
+            price = (item.portfolio as any).quarterlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "quarterly")?.price || 0
             break
           default:
-            price = item.portfolio.subscriptionFee.find((fee: any) => fee.type === "monthly")?.price || 0
+            price = (item.portfolio as any).monthlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "monthly")?.price || 0
             break
         }
       }
@@ -282,232 +284,26 @@ export default function CartPage() {
 
   const handleAuthSuccess = async () => {
     setShowAuthForm(false);
-    // After successful auth, show video modal first
-    setShowVideoModal(true);
+    createCartBundleAndShowModal();
   };
 
-  const showDigioVerificationModal = () => {
-    // Prepare agreement data
-    const agreement: PaymentAgreementData = {
-      customerName: "User", // Get from auth context
-      customerEmail: "user@example.com", // Get from auth context
-      amount: total,
-      subscriptionType,
-      portfolioNames: filteredItems.map(item => item.portfolio.name),
-      agreementDate: new Date().toLocaleDateString('en-IN')
-    };
-    
-    setAgreementData(agreement);
-    setShowDigioVerification(true);
+  const createCartBundleAndShowModal = () => {
+    console.log("🔍 CART - Opening payment modal with subscriptionType:", subscriptionType);
+    setShowPaymentModal(true);
   };
 
-  const handleDigioVerificationComplete = () => {
-    setShowDigioVerification(false);
-    // Proceed with payment after verification
-    handlePaymentTrigger();
-  };
 
-  const handlePaymentTrigger = async () => {
-    // Step 1: Check PAN details first
-    const panCheck = await paymentService.checkPanDetails();
-    if (!panCheck.hasPan) {
-      toast({
-        title: "PAN Details Required",
-        description: "Please update your PAN details first",
-        variant: "destructive",
-      });
-      router.push("/settings?tab=profile");
-      return;
-    }
-
-    // Check for already-purchased items before checkout
-    const alreadyPurchasedItems = filteredItems.filter(item => 
-      activatedPortfolioIds.includes(item.portfolio._id)
-    )
-    
-    if (alreadyPurchasedItems.length > 0) {
-      toast({
-        title: "Cannot Checkout",
-        description: "Please remove already-purchased items from your cart before proceeding.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setProcessingCheckout(true);
-    clearError();
-
-    try {
-      console.log("Starting direct checkout for subscription type:", subscriptionType);
-      
-      let orderResponse;
-      
-      // Use eMandate for yearly and quarterly subscriptions
-      if (subscriptionType === "yearly" || subscriptionType === "quarterly") {
-        console.log(`Creating cart eMandate for ${subscriptionType} subscription`);
-        console.log("Cart items:", cart?.items);
-        console.log("First cart item:", cart?.items?.[0]);
-        
-        // Check if cart has items
-        const cartItems = cart?.items ?? [];
-        if (cartItems.length === 0) {
-          throw new Error("Cart is empty. Please add items before checkout.");
-        }
-        
-        // Prepare cart data for eMandate API with subscription type and pricing
-        const cartData = {
-          productType: "Portfolio", // Can be any product type
-          productId: cartItems[0].portfolio._id, // Use first item's product ID
-          planType: subscriptionType, // Add subscription type (yearly/quarterly)
-          subscriptionType: "premium", // Add subscription category
-          amount: total, // Add total amount to ensure correct pricing
-          totalAmount: total, // Alternative field name
-          // Add individual item pricing for the API to use correct pricing
-          items: cartItems.map(item => ({
-            portfolioId: item.portfolio._id,
-            quantity: item.quantity,
-            price: subscriptionType === "yearly" 
-              ? item.portfolio.subscriptionFee.find(fee => fee.type === "yearly")?.price || 0
-              : item.portfolio.subscriptionFee.find(fee => fee.type === "quarterly")?.price || 0
-          }))
-        };
-        
-        console.log("eMandate payload:", cartData);
-        console.log("Total amount being sent:", total);
-        console.log("Subscription type:", subscriptionType);
-        orderResponse = await paymentService.cartCheckoutEmandate(cartData);
-        console.log("Cart eMandate created:", orderResponse);
-      } else {
-        // Use regular checkout for monthly subscriptions
-        orderResponse = await paymentService.cartCheckout({
-          planType: subscriptionType,
-          subscriptionType: "premium",
-        });
-        console.log("Cart checkout created:", orderResponse);
-      }
-
-      // Initialize payment with Razorpay
-      await paymentService.openCheckout(
-        orderResponse,
-        {
-          name: "User", // You might want to get this from auth context
-          email: "user@example.com", // You might want to get this from auth context
-        },
-        async (response: any) => {
-          console.log("Payment success response:", response);
-          
-          // Handle payment verification
-          try {
-            const isEmandate = (subscriptionType === "yearly" || subscriptionType === "quarterly") && 'subscriptionId' in orderResponse;
-            
-            if (isEmandate) {
-              console.log("Processing eMandate verification");
-              const verificationResponse = await paymentService.verifyEmandate(
-                (orderResponse as any).subscriptionId
-              );
-              
-              if (verificationResponse.success || verificationResponse.message.includes("not authenticated yet")) {
-                const isNotAuthenticated = verificationResponse.message.includes("not authenticated yet");
-                
-                // After successful verification, chain external subscribe API calls
-                // External subscribe chaining is handled inside the payment service after successful verification
-
-                // Check profile completion after successful payment
-                await checkProfileCompletionAfterPayment();
-                
-                toast({
-                  title: `${subscriptionType === "yearly" ? "Yearly" : "Quarterly"} ${isNotAuthenticated ? "eMandate Created" : "Subscription Activated"}`,
-                  description: isNotAuthenticated 
-                    ? `Your ${subscriptionType} subscription has been created. Please complete the eMandate authentication to activate it.`
-                    : `Your ${subscriptionType} subscription with eMandate has been activated successfully`,
-                });
-                // Clear cart after successful payment
-                await refreshCart();
-              } else {
-                throw new Error(verificationResponse.message || "eMandate verification failed");
-              }
-            } else {
-              // Regular payment verification
-              const verificationResponse = await paymentService.verifyPayment({
-                orderId: response.razorpay_order_id,
-                paymentId: response.razorpay_payment_id,
-                signature: response.razorpay_signature
-              });
-              
-              if (verificationResponse.success) {
-                // After successful verification, chain external subscribe API calls
-                // External subscribe chaining is handled inside the payment service after successful verification
-
-                // Check profile completion after successful payment
-                await checkProfileCompletionAfterPayment();
-                
-                toast({
-                  title: "Payment Successful",
-                  description: "Your subscription has been activated",
-                });
-                // Clear cart after successful payment
-                await refreshCart();
-              } else {
-                throw new Error(verificationResponse.message || "Payment verification failed");
-              }
-            }
-          } catch (error: any) {
-            console.error("Payment verification failed:", error);
-            toast({
-              title: "Payment Verification Failed",
-              description: error.message || "Please contact support if payment was deducted",
-              variant: "destructive",
-            });
-          }
-        },
-        (error: any) => {
-          console.error("Payment failed:", error);
-          toast({
-            title: "Payment Failed",
-            description: error.message || "Payment was cancelled or failed",
-            variant: "destructive",
-          });
-        }
-      );
-    } catch (error: any) {
-      console.error("Checkout failed:", error);
-      console.error("Error details:", {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message
-      });
-      
-      let errorMessage = "Failed to initiate checkout";
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.response?.data?.error) {
-        errorMessage = error.response.data.error;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      toast({
-        title: "Checkout Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setProcessingCheckout(false);
-    }
-  };
 
 
 
   const handleDirectCheckout = async () => {
     if (!isAuthenticated) {
-      // Show auth form for unauthenticated users
       setShowAuthForm(true);
       return;
     }
     
-    // For authenticated users, show video modal first
-    setShowVideoModal(true);
+    // For authenticated users, show payment modal directly
+    createCartBundleAndShowModal();
   };
 
   const subtotal = filteredItems.reduce((sum, item) => {
@@ -529,13 +325,13 @@ export default function CartPage() {
       } else {
         switch (subscriptionType) {
           case "yearly":
-            price = item.portfolio.subscriptionFee.find((fee: any) => fee.type === "yearly")?.price || 0
+            price = (item.portfolio as any).yearlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "yearly")?.price || 0
             break
           case "quarterly":
-            price = item.portfolio.subscriptionFee.find((fee: any) => fee.type === "quarterly")?.price || 0
+            price = (item.portfolio as any).quarterlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "quarterly")?.price || 0
             break
           default:
-            price = item.portfolio.subscriptionFee.find((fee: any) => fee.type === "monthly")?.price || 0
+            price = (item.portfolio as any).monthlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "monthly")?.price || 0
             break
         }
       }
@@ -683,7 +479,7 @@ export default function CartPage() {
                         
                         // Check monthly price
                         const monthlyPrice = cart?.items.reduce((total, item) => {
-                          const price = item.portfolio.subscriptionFee.find(fee => fee.type === "monthly")?.price || 0;
+                          const price = (item.portfolio as any).monthlyemandateprice || item.portfolio.subscriptionFee.find(fee => fee.type === "monthly")?.price || 0;
                           return total + (price * item.quantity);
                         }, 0) || 0;
                         
@@ -698,7 +494,7 @@ export default function CartPage() {
                         
                         // Check quarterly price
                         const quarterlyPrice = cart?.items.reduce((total, item) => {
-                          const price = item.portfolio.subscriptionFee.find(fee => fee.type === "quarterly")?.price || 0;
+                          const price = (item.portfolio as any).quarterlyemandateprice || item.portfolio.subscriptionFee.find(fee => fee.type === "quarterly")?.price || 0;
                           return total + (price * item.quantity);
                         }, 0) || 0;
                         
@@ -713,7 +509,7 @@ export default function CartPage() {
                         
                         // Check yearly price
                         const yearlyPrice = cart?.items.reduce((total, item) => {
-                          const price = item.portfolio.subscriptionFee.find(fee => fee.type === "yearly")?.price || 0;
+                          const price = (item.portfolio as any).yearlyemandateprice || item.portfolio.subscriptionFee.find(fee => fee.type === "yearly")?.price || 0;
                           return total + (price * item.quantity);
                         }, 0) || 0;
                         
@@ -798,15 +594,15 @@ export default function CartPage() {
                         } else {
                           switch (subscriptionType) {
                             case "yearly":
-                              price = item.portfolio.subscriptionFee.find((fee: any) => fee.type === "yearly")?.price || 0
+                              price = (item.portfolio as any).yearlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "yearly")?.price || 0
                               period = "Yearly"
                               break
                             case "quarterly":
-                              price = item.portfolio.subscriptionFee.find((fee: any) => fee.type === "quarterly")?.price || 0
+                              price = (item.portfolio as any).quarterlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "quarterly")?.price || 0
                               period = "Quarterly"
                               break
                             default:
-                              price = item.portfolio.subscriptionFee.find((fee: any) => fee.type === "monthly")?.price || 0
+                              price = (item.portfolio as any).monthlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "monthly")?.price || 0
                               period = "Monthly"
                               break
                           }
@@ -1205,12 +1001,11 @@ onClick={async () => {
                       <Button
                         className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-3 sm:py-4 text-sm sm:text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={handleDirectCheckout}
-                        disabled={updatingQuantity !== null || syncing || !!error || processingCheckout}
+                        disabled={updatingQuantity !== null || syncing || !!error}
                       >
                         <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3" />
                         {updatingQuantity ? "Updating Cart..." : 
                          syncing ? "Syncing Cart..." :
-                         processingCheckout ? "Processing Payment..." :
                          error ? "Error - Please Refresh" :
                          "Proceed to Checkout"}
                       </Button>
@@ -1296,7 +1091,7 @@ onClick={async () => {
               </div>
               <CartAuthForm 
                 onAuthSuccess={handleAuthSuccess}
-                onPaymentTrigger={handlePaymentTrigger}
+                onPaymentTrigger={() => {}}
                 cartTotal={total}
                 cartItemCount={cartItemCount}
               />
@@ -1315,96 +1110,18 @@ onClick={async () => {
         }}
       />
 
-      {/* Video Modal */}
-      {showVideoModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-          >
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Digital Verification Process</h2>
-                <button 
-                  onClick={() => setShowVideoModal(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-              
-              <div className="space-y-6">
-                {/* YouTube Video */}
-                <div className="bg-gray-100 rounded-lg overflow-hidden">
-                  <iframe
-                    width="100%"
-                    height="315"
-                    src="https://www.youtube.com/embed/dQw4w9WgXcQ"
-                    title="Digital Verification Process"
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    className="w-full"
-                  ></iframe>
-                </div>
-
-                {/* Content Below Video */}
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                  <h4 className="text-xl font-semibold text-gray-900 mb-4">
-                    Why Digital Verification is Required
-                  </h4>
-                  <div className="prose prose-gray max-w-none">
-                    <p className="text-gray-700 mb-4">
-                      As per SEBI regulations and RBI guidelines, all investment platforms must verify the identity 
-                      of their subscribers before processing any financial transactions. This digital verification 
-                      ensures the security of your investments and compliance with regulatory requirements.
-                    </p>
-                    <p className="text-gray-700 mb-4">
-                      The process is completely secure, government-approved, and takes only a few minutes to complete. 
-                      Your personal information is encrypted and protected throughout the verification process.
-                    </p>
-                    <p className="text-gray-700">
-                      Once verified, you'll have seamless access to all our premium investment services and 
-                      portfolio recommendations.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-3">
-                  <Button
-                    onClick={() => setShowVideoModal(false)}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    Back to Cart
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setShowVideoModal(false);
-                      showDigioVerificationModal();
-                    }}
-                    className="flex-1 bg-[#001633] hover:bg-[#002244] text-white"
-                  >
-                    Proceed to Verification
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      )}
-
-      {/* Digio Verification Modal */}
-      {agreementData && (
-        <DigioVerificationModal
-          isOpen={showDigioVerification}
-          onClose={() => setShowDigioVerification(false)}
-          onVerificationComplete={handleDigioVerificationComplete}
-          agreementData={agreementData}
-        />
-      )}
+      {/* Cart Payment Modal */}
+      <CartPaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        cartItems={filteredItems}
+        subscriptionType={subscriptionType}
+        total={total}
+        onPaymentSuccess={async () => {
+          await refreshCart();
+          router.push('/thanks');
+        }}
+      />
 
 
     </>

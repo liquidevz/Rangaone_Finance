@@ -11,6 +11,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    const { productType, productId, planType, couponCode } = body;
+    
+    console.log("📦 eMandate creation request:", {
+      productType,
+      productId, 
+      planType,
+      couponCode: couponCode || "none"
+    });
     
     // Always require eSign for eMandate products to test the enhanced flow
     return NextResponse.json(

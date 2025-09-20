@@ -20,7 +20,7 @@ interface CartContextType {
   removeFromCart: (portfolioId: string) => Promise<void>;
   clearCart: () => Promise<void>;
   getItemQuantity: (portfolioId: string) => number;
-  calculateTotal: (subscriptionType: "monthly" | "quarterly" | "yearly") => number;
+  calculateTotal: (subscriptionType: "monthly" | "quarterly" | "yearly", isEmandate?: boolean) => number;
   getEffectiveCart: () => Cart | null;
   syncing: boolean;
   error: string | null;
@@ -101,27 +101,9 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
       setLoading(true);
       setSyncing(true);
       setError(null);
-      const [cartData, allPortfolios] = await Promise.all([
-        cartService.getCart(),
-        userPortfolioService.getAll()
-      ]);
+      const cartData = await cartService.getCart();
       
-      // Enrich cart items with full portfolio descriptions
-      const enrichedCart = {
-        ...cartData,
-        items: cartData.items.map(item => {
-          const fullPortfolio = allPortfolios.find(p => p._id === item.portfolio._id);
-          return {
-            ...item,
-            portfolio: {
-              ...item.portfolio,
-              description: fullPortfolio?.description || item.portfolio.description || []
-            }
-          };
-        })
-      };
-      
-      setCart(enrichedCart);
+      setCart(cartData);
     } catch (error) {
       console.error("Failed to fetch cart:", error);
       setError("Failed to load cart. Please try again.");
@@ -299,16 +281,10 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         return;
       }
       
-      // Optimistically update the UI
-      if (cart) {
-        const optimisticCart = { ...cart };
-        optimisticCart.items = optimisticCart.items.filter(item => item.portfolio._id !== portfolioId);
-        setCart(optimisticCart);
-      }
-
-      // Then update on server
-      const updatedCart = await cartService.removeFromCart(portfolioId);
-      setCart(updatedCart);
+      // Update on server first, then refresh
+      await cartService.removeFromCart(portfolioId);
+      // Force refresh to ensure sync
+      await refreshCart();
     } catch (error) {
       console.error("Failed to remove from cart:", error);
       // Revert optimistic update by refreshing cart
@@ -319,15 +295,10 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
 
   const clearCart = async () => {
     try {
-      // Optimistically update the UI
-      if (cart) {
-        const optimisticCart = { ...cart, items: [] };
-        setCart(optimisticCart);
-      }
-
-      // Then update on server
-      const result = await cartService.clearCart();
-      setCart(result.cart);
+      // Update on server first, then refresh
+      await cartService.clearCart();
+      // Force refresh to ensure sync
+      await refreshCart();
     } catch (error) {
       console.error("Failed to clear cart:", error);
       // Revert optimistic update by refreshing cart
@@ -341,9 +312,9 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     return item?.quantity || 0;
   };
 
-  const calculateTotal = (subscriptionType: "monthly" | "quarterly" | "yearly"): number => {
+  const calculateTotal = (subscriptionType: "monthly" | "quarterly" | "yearly", isEmandate: boolean = false): number => {
     if (!cart) return 0;
-    return cartService.calculateCartTotal(cart, subscriptionType);
+    return cartService.calculateCartTotal(cart, subscriptionType, isEmandate);
   };
 
   const getEffectiveCart = (): Cart | null => {

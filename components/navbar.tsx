@@ -135,7 +135,7 @@ export const RoundedDrawerNav = ({
           element.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       } else {
-        router.push(`/${href}`);
+        window.location.href = href;
       }
       setMobileNavOpen(false);
       setDropdownOpen(null);
@@ -147,6 +147,10 @@ export const RoundedDrawerNav = ({
       }
       setMobileNavOpen(false);
       setDropdownOpen(null);
+    } else if (href && href !== '') {
+      setMobileNavOpen(false);
+      setDropdownOpen(null);
+      router.push(href);
     }
   };
 
@@ -214,17 +218,19 @@ export const RoundedDrawerNav = ({
                           className="absolute top-full left-0 mt-2 w-56 bg-white/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50"
                         >
                           {link.sublinks.map((sublink, subIndex) => (
-                            <Link
+                            <a
                               key={subIndex}
                               href={sublink.href}
-                              className="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                              onClick={(e) => {
-                                handleSmoothScroll(sublink.href, e);
+                              onClick={() => {
+                                if (sublink.href === '/#feature-compare') {
+                                  window.location.href = '/#feature-compare';
+                                }
                                 setDropdownOpen(null);
                               }}
+                              className="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                             >
                               {sublink.title}
-                            </Link>
+                            </a>
                           ))}
                         </motion.div>
                       )}
@@ -439,8 +445,10 @@ export const RoundedDrawerNav = ({
                             <a
                               key={subIndex}
                               href={sublink.href}
-                              onClick={(e) => {
-                                handleSmoothScroll(sublink.href, e);
+                              onClick={() => {
+                                if (sublink.href === '/#feature-compare') {
+                                  window.location.href = '/#feature-compare';
+                                }
                                 setMobileNavOpen(false);
                                 setDropdownOpen(null);
                               }}

@@ -9,10 +9,6 @@ import { FiSend, FiMessageCircle, FiHeart } from "react-icons/fi"
 if (typeof document !== 'undefined') {
   const style = document.createElement('style')
   style.textContent = `
-    @keyframes gridMove {
-      0% { transform: translate(0, 0); }
-      100% { transform: translate(50px, 50px); }
-    }
     @keyframes float {
       0%, 100% { transform: translateY(0px); }
       50% { transform: translateY(-20px); }
@@ -47,36 +43,23 @@ const SupportSection = () => {
     <div
       ref={sectionRef}
       onMouseMove={handleMouseMove}
-      className="bg-gradient-to-br from-slate-50 via-blue-50/30 to-violet-50/50 py-2 px-4 relative overflow-hidden font-sans min-h-[150px] flex items-center"
+      className="bg-gradient-to-br from-slate-50 via-blue-50/30 to-violet-50/50 pt-6 sm:pt-8 md:pt-12 lg:pt-16 pb-0 px-3 sm:px-4 md:px-6 lg:px-8 relative overflow-hidden font-sans mb-0"
     >
 
 
-      {/* Animated background grid */}
-      <div className="absolute inset-0 opacity-[0.02]">
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `
-            linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0,0,0,0.1) 1px, transparent 1px)
-          `,
-            backgroundSize: "50px 50px",
-            animation: "gridMove 20s linear infinite",
-          }}
-        />
-      </div>
 
-      <div className="max-w-6xl mx-auto text-center relative z-10 w-full">
+
+      <div className="max-w-4xl mx-auto text-center relative z-10 w-full">
         {/* Floating icons */}
-        <div className="absolute -top-8 left-1/4 opacity-20">
+        <div className="absolute -top-4 sm:-top-8 left-1/4 opacity-20">
           <FiMessageCircle
-            className={`text-violet-400 text-2xl transition-all duration-1000 ${isVisible ? "animate-bounce" : ""}`}
+            className={`text-violet-400 text-lg sm:text-xl md:text-2xl transition-all duration-1000 ${isVisible ? "animate-bounce" : ""}`}
             style={{ animationDelay: "2s", animationDuration: "3s" }}
           />
         </div>
-        <div className="absolute -top-6 right-1/3 opacity-20">
-          <FiHeart
-            className={`text-pink-400 text-xl transition-all duration-1000 ${isVisible ? "animate-pulse" : ""}`}
+        <div className="absolute -top-3 sm:-top-6 right-1/3 opacity-20">
+          <FiMessageCircle
+            className={`text-pink-400 text-sm sm:text-lg md:text-xl transition-all duration-1000 ${isVisible ? "animate-pulse" : ""}`}
             style={{ animationDelay: "3s" }}
           />
         </div>
@@ -85,7 +68,7 @@ const SupportSection = () => {
         <div className="relative">
           <h2
             className={`
-              text-2xl md:text-3xl lg:text-4xl font-light text-slate-800 leading-[1.1] tracking-tight
+              text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-light text-slate-800 leading-tight tracking-tight
               transition-all duration-1200 ease-out
               ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"}
             `}
@@ -97,7 +80,7 @@ const SupportSection = () => {
           >
             <span
               className={`
-                block mb-2 text-slate-500 font-extralight text-lg md:text-xl lg:text-2xl tracking-wider
+                block mb-1 sm:mb-2 md:mb-3 text-slate-500 font-extralight text-sm sm:text-lg md:text-xl lg:text-2xl tracking-wider
                 transition-all duration-1000 ease-out
                 ${isVisible ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-8"}
               `}
@@ -130,20 +113,20 @@ const SupportSection = () => {
               </span>
 
               {/* Enhanced animated underline with glow */}
-              <div className="relative">
+              <div className="relative mt-2 sm:mt-3 md:mt-4">
                 <div
                   className={`
-                    absolute -bottom-3 left-1/2 transform -translate-x-1/2 h-1.5 bg-gradient-to-r from-violet-500 to-blue-500 rounded-full
+                    absolute -bottom-3 sm:-bottom-4 left-1/2 transform -translate-x-1/2 h-1.5 sm:h-2 bg-gradient-to-r from-violet-500 to-blue-500 rounded-full
                     transition-all duration-1500 ease-out
-                    ${isVisible ? "w-40 opacity-100" : "w-0 opacity-0"}
+                    ${isVisible ? "w-32 sm:w-48 md:w-64 lg:w-80 opacity-100" : "w-0 opacity-0"}
                   `}
                   style={{ transitionDelay: "1200ms" }}
                 />
                 <div
                   className={`
-                    absolute -bottom-3 left-1/2 transform -translate-x-1/2 h-1.5 bg-gradient-to-r from-violet-400 to-blue-400 rounded-full blur-sm
+                    absolute -bottom-3 sm:-bottom-4 left-1/2 transform -translate-x-1/2 h-1.5 sm:h-2 bg-gradient-to-r from-violet-400 to-blue-400 rounded-full blur-sm
                     transition-all duration-1500 ease-out
-                    ${isVisible ? "w-40 opacity-60" : "w-0 opacity-0"}
+                    ${isVisible ? "w-32 sm:w-48 md:w-64 lg:w-80 opacity-60" : "w-0 opacity-0"}
                   `}
                   style={{ transitionDelay: "1200ms" }}
                 />
@@ -155,6 +138,7 @@ const SupportSection = () => {
         {/* Enhanced button container with better positioning */}
         <div
           className={`
+            mt-4 sm:mt-6 md:mt-8 lg:mt-10 mb-4 sm:mb-6
             transition-all duration-1200 ease-out
             ${isVisible ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-12 scale-95"}
           `}
@@ -163,48 +147,12 @@ const SupportSection = () => {
           <EnhancedNeumorphismButton />
         </div>
 
-        {/* Subtle help text */}
-        <p
-          className={`
-            mt-4 text-slate-400 text-xs tracking-wide
-            transition-all duration-1000 ease-out
-            ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}
-          `}
-          style={{ transitionDelay: "1400ms" }}
-        >
-          Our support team typically responds within 2 hours
-        </p>
+
       </div>
 
-      {/* Enhanced floating particles with better distribution */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(12)].map((_, i) => (
-          <div
-            key={i}
-            className={`
-              absolute bg-gradient-to-r from-violet-300 to-blue-300 rounded-full
-              animate-float opacity-25
-              ${i % 3 === 0 ? "w-2 h-2" : i % 3 === 1 ? "w-1.5 h-1.5" : "w-1 h-1"}
-            `}
-            style={{
-              left: `${10 + i * 8}%`,
-              top: `${20 + (i % 4) * 20}%`,
-              animationDelay: `${i * 0.8}s`,
-              animationDuration: `${5 + i * 0.2}s`,
-            }}
-          />
-        ))}
-      </div>
 
-      {/* Ambient light effects */}
-      <div
-        className="absolute top-0 left-1/4 w-96 h-96 bg-violet-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"
-        style={{ animationDuration: "4s" }}
-      />
-      <div
-        className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"
-        style={{ animationDuration: "6s", animationDelay: "2s" }}
-      />
+
+
     </div>
   )
 }
@@ -230,10 +178,10 @@ const EnhancedNeumorphismButton = () => {
   return (
     <button
       className={`
-        px-10 py-5 rounded-full 
-        flex items-center gap-4 mx-auto
-        text-slate-700 font-semibold text-xl tracking-wide
-        shadow-[-8px_-8px_16px_rgba(255,_255,_255,_0.8),_8px_8px_16px_rgba(0,_0,_0,_0.25)]
+        px-4 sm:px-6 md:px-8 lg:px-10 py-2 sm:py-3 md:py-4 rounded-full 
+        flex items-center gap-2 sm:gap-3 mx-auto
+        text-slate-700 font-semibold text-xs sm:text-sm md:text-base lg:text-lg tracking-wide
+        shadow-[-6px_-6px_12px_rgba(255,_255,_255,_0.8),_6px_6px_12px_rgba(0,_0,_0,_0.25)] md:shadow-[-8px_-8px_16px_rgba(255,_255,_255,_0.8),_8px_8px_16px_rgba(0,_0,_0,_0.25)]
         transition-all duration-300 ease-out
         hover:shadow-[-3px_-3px_8px_rgba(255,_255,_255,_0.6),_3px_3px_8px_rgba(0,_0,_0,_0.3),inset_-4px_-4px_8px_rgba(255,_255,_255,_1),inset_4px_4px_8px_rgba(0,_0,_0,_0.3)]
         active:shadow-[inset_-2px_-2px_4px_rgba(255,_255,_255,_1),inset_2px_2px_4px_rgba(0,_0,_0,_0.3)]
@@ -254,7 +202,7 @@ const EnhancedNeumorphismButton = () => {
     >
       <FiSend
         className={`
-          transition-all duration-300 ease-out text-2xl
+          transition-all duration-300 ease-out text-base sm:text-lg md:text-xl
           ${isHovered ? "rotate-12 scale-110 text-violet-600" : "rotate-0 scale-100"}
         `}
       />

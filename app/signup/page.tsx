@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { authService } from "@/services/auth.service";
 import { useAuth } from "@/components/auth/auth-context";
-import { generateUniqueUsername } from "@/lib/username-generator";
+import { generateUsernameFromParts } from "@/lib/username-generator";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -20,7 +20,9 @@ export default function SignupPage() {
   const { isAuthenticated, isLoading } = useAuth();
   const [formLoading, setFormLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: "",
+    firstName: "",
+    middleName: "",
+    lastName: "",
     email: "",
     phone: "",
     password: "",
@@ -35,8 +37,18 @@ export default function SignupPage() {
     "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi", "Jammu and Kashmir", "Ladakh", "Puducherry", "Chandigarh", "Andaman and Nicobar Islands", "Dadra and Nagar Haveli and Daman and Diu", "Lakshadweep"
   ];
 
+  // Get full name from parts
+  const getFullName = (): string => {
+    const parts = [formData.firstName, formData.middleName, formData.lastName]
+      .filter(part => part.trim())
+      .map(part => part.trim());
+    return parts.join(" ");
+  };
+
   // Get generated username for display
-  const generatedUsername = formData.name ? generateUniqueUsername(formData.name) : "";
+  const generatedUsername = formData.firstName && formData.lastName 
+    ? generateUsernameFromParts(formData.firstName, formData.lastName, formData.middleName)
+    : "";
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -45,7 +57,7 @@ export default function SignupPage() {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -58,10 +70,19 @@ export default function SignupPage() {
     e.preventDefault();
 
     // Client-side validation
-    if (!formData.name.trim()) {
+    if (!formData.firstName.trim()) {
       toast({
-        title: "Name required",
-        description: "Please enter your name.",
+        title: "First name required",
+        description: "Please enter your first name.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.lastName.trim()) {
+      toast({
+        title: "Last name required",
+        description: "Please enter your last name.",
         variant: "destructive",
       });
       return;
@@ -133,14 +154,20 @@ export default function SignupPage() {
     setFormLoading(true);
 
     try {
-      // Generate username and call the signup API
-      const generatedUsername = generateUniqueUsername(formData.name);
+      // Generate username and full name
+      const generatedUsername = generateUsernameFromParts(
+        formData.firstName, 
+        formData.lastName, 
+        formData.middleName
+      );
+      const fullName = getFullName();
+      
       const response = await authService.signup({
         username: generatedUsername,
         email: formData.email.trim(),
         phone: formData.phone.trim(),
         password: formData.password,
-        fullName: formData.name.trim(),
+        fullName: fullName,
         dateOfBirth: formData.dateOfBirth,
         state: formData.state.trim(),
       });
@@ -248,17 +275,50 @@ export default function SignupPage() {
           {/* Signup Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                Full Name
+              <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
+                First Name
               </label>
               <Input
-                id="name"
-                name="name"
+                id="firstName"
+                name="firstName"
                 type="text"
                 required
-                value={formData.name}
+                value={formData.firstName}
                 onChange={handleChange}
-                placeholder="Enter your full name"
+                placeholder="Enter your first name"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#001633] focus:border-transparent"
+                disabled={formLoading}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="middleName" className="block text-sm font-medium text-gray-700 mb-2">
+                Middle Name (Optional)
+              </label>
+              <Input
+                id="middleName"
+                name="middleName"
+                type="text"
+                value={formData.middleName}
+                onChange={handleChange}
+                placeholder="Enter your middle name"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#001633] focus:border-transparent"
+                disabled={formLoading}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
+                Last Name
+              </label>
+              <Input
+                id="lastName"
+                name="lastName"
+                type="text"
+                required
+                value={formData.lastName}
+                onChange={handleChange}
+                placeholder="Enter your last name"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#001633] focus:border-transparent"
                 disabled={formLoading}
               />
@@ -362,7 +422,7 @@ export default function SignupPage() {
                 name="state"
                 required
                 value={formData.state}
-                onChange={handleChange}
+                onChange={(e) => handleChange(e)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#001633] focus:border-transparent"
                 disabled={formLoading}
               >

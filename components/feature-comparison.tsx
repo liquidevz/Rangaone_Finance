@@ -61,7 +61,7 @@ export default function FeatureComparison() {
   }
 
   return (
-    <div className="w-full">
+    <section id="feature-compare" className="w-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 px-4 lg:px-8 pt-0 pb-16 lg:pb-24 relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-8 sm:mb-12 lg:mb-16">
@@ -132,6 +132,6 @@ export default function FeatureComparison() {
         bundle={selectedBundle}
         isEmandateFlow={true}
       />
-    </div>
+    </section>
   )
 }
