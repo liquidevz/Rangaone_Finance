@@ -1,4 +1,4 @@
-name: Build & Deploy Next.js App on Server
+name: Simple Deploy with Docker Compose
 
 on:
   push:
@@ -9,112 +9,49 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        
       - name: Deploy to server via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          timeout: 300s
+          timeout: 600s
           script: |
             set -e
             
-            echo "Starting deployment..."
+            echo "Starting Docker Compose deployment..."
             
             # Navigate to app directory
             cd /home/rangaone/htdocs/www.rangaone.finance/Rangaone_Finance
             
-            # Clean git repo and pull latest
-            echo "Updating code..."
-            git fetch --all
-            git stash push -m "auto-stash-$(date +%Y%m%d-%H%M%S)" || true
-            git reset --hard origin/main
-            git clean -fd
+            # Pull latest code
+            echo "Pulling latest code..."
+            git stash || true
             git pull origin main --force
             
-            # Docker variables
-            IMAGE_NAME=nextjs-app
-            CONTAINER_NAME=nextjs-app
-            TEMP_CONTAINER_NAME=nextjs-app-temp
+            # Stop and remove existing containers
+            echo "Stopping existing containers..."
+            docker-compose down
             
-            echo "Building new Docker image..."
-            # Build new image with no-cache to ensure latest code
-            docker build --no-cache --pull -t $IMAGE_NAME:latest .
-            
-            echo "Starting new container on port 3001..."
-            # Start new container on different port first
-            docker run -d \
-              --name $TEMP_CONTAINER_NAME \
-              -p 3001:3000 \
-              --restart unless-stopped \
-              $IMAGE_NAME:latest
-            
-            # Wait for container to be ready
-            echo "Waiting for new container to start..."
-            sleep 10
-            
-            # Health check on new container
-            count=0
-            max_attempts=30
-            while [ $count -lt $max_attempts ]; do
-              if curl -f -s http://localhost:3001/ > /dev/null 2>&1; then
-                echo "New container is healthy"
-                break
-              fi
-              echo "Waiting for container... ($count/$max_attempts)"
-              sleep 2
-              count=$((count + 1))
-            done
-            
-            if [ $count -eq $max_attempts ]; then
-              echo "New container failed to start properly"
-              docker logs $TEMP_CONTAINER_NAME
-              docker stop $TEMP_CONTAINER_NAME 2>/dev/null || true
-              docker rm $TEMP_CONTAINER_NAME 2>/dev/null || true
-              exit 1
-            fi
-            
-            # Stop old container if exists
-            echo "Switching to new container..."
-            if [ "$(docker ps -q -f name=^${CONTAINER_NAME}$)" ]; then
-              docker stop $CONTAINER_NAME
-              docker rm $CONTAINER_NAME
-            fi
-            
-            # Remove temp container and start final one on port 3000
-            docker stop $TEMP_CONTAINER_NAME
-            docker rm $TEMP_CONTAINER_NAME
-            
-            # Start final container on port 3000
-            docker run -d \
-              --name $CONTAINER_NAME \
-              -p 3000:3000 \
-              --restart unless-stopped \
-              $IMAGE_NAME:latest
-            
-            # Final health check
-            echo "Final health check..."
-            sleep 5
-            if curl -f -s http://localhost:3000/ > /dev/null 2>&1; then
-              echo "Deployment successful!"
-            else
-              echo "Final health check failed"
-              exit 1
-            fi
-            
-            # Cleanup old images (keep last 2)
+            # Remove old images
             echo "Cleaning up old images..."
             docker image prune -f
-            OLD_IMAGES=$(docker images $IMAGE_NAME --format "{{.ID}}" | tail -n +3)
-            if [ ! -z "$OLD_IMAGES" ]; then
-              docker rmi $OLD_IMAGES 2>/dev/null || true
-            fi
             
-            echo "Deployment completed successfully!"
-            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep $CONTAINER_NAME
+            # Build and start with Docker Compose
+            echo "Building and starting with Docker Compose..."
+            docker-compose build --no-cache
+            docker-compose up -d
+            
+            # Check if container is running
+            sleep 5
+            if docker-compose ps | grep -q "Up"; then
+              echo "Deployment successful!"
+              docker-compose ps
+            else
+              echo "Deployment failed!"
+              docker-compose logs
+              exit 1
+            fi
