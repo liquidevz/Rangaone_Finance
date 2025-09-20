@@ -1,4 +1,4 @@
-name: Production CI/CD - Zero Downtime Deployment
+name: Build & Deploy Next.js App on Server
 
 on:
   push:
@@ -6,236 +6,115 @@ on:
       - main
   workflow_dispatch:
 
-env:
-  IMAGE_NAME: nextjs-app
-  CONTAINER_NAME: nextjs-app
-  BACKUP_CONTAINER_NAME: nextjs-app-backup
-  PORT: 3000
-  HEALTH_CHECK_TIMEOUT: 60
-
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         
-      - name: Set up Docker Context for Remote
-        run: |
-          echo "Setting up deployment context"
-          
-      - name: Zero Downtime Deploy
-        uses: appleboy/ssh-action@v0.1.8
+      - name: Deploy to server via SSH
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          timeout: 1800s
+          timeout: 300s
           script: |
-            set -e  # Exit on any error
+            set -e
             
-            echo "🚀 Starting Zero Downtime Deployment..."
-            
-            # Configuration
-            APP_DIR="/home/rangaone/htdocs/www.rangaone.finance/Rangaone_Finance"
-            IMAGE_NAME="nextjs-app"
-            CONTAINER_NAME="nextjs-app"
-            BACKUP_CONTAINER_NAME="nextjs-app-backup"
-            NEW_CONTAINER_NAME="nextjs-app-new"
-            PORT="3000"
-            HEALTH_CHECK_TIMEOUT=60
+            echo "Starting deployment..."
             
             # Navigate to app directory
-            cd $APP_DIR
+            cd /home/rangaone/htdocs/www.rangaone.finance/Rangaone_Finance
             
-            echo "📁 Current directory: $(pwd)"
-            
-            # Git operations - Force pull latest code
-            echo "🔄 Updating code from GitHub..."
+            # Clean git repo and pull latest
+            echo "Updating code..."
             git fetch --all
+            git stash push -m "auto-stash-$(date +%Y%m%d-%H%M%S)" || true
             git reset --hard origin/main
             git clean -fd
             git pull origin main --force
             
-            echo "✅ Code updated successfully"
+            # Docker variables
+            IMAGE_NAME=nextjs-app
+            CONTAINER_NAME=nextjs-app
+            TEMP_CONTAINER_NAME=nextjs-app-temp
             
-            # Function to check if container is healthy
-            check_container_health() {
-                local container_name=$1
-                local timeout=$2
-                local count=0
-                
-                echo "🏥 Checking health of container: $container_name"
-                
-                while [ $count -lt $timeout ]; do
-                    if docker ps | grep -q "$container_name"; then
-                        # Check if the app is responding
-                        if curl -f http://localhost:$PORT/api/health 2>/dev/null || curl -f http://localhost:$PORT 2>/dev/null; then
-                            echo "✅ Container $container_name is healthy"
-                            return 0
-                        fi
-                    fi
-                    echo "⏳ Waiting for container to be ready... ($count/$timeout)"
-                    sleep 2
-                    count=$((count + 2))
-                done
-                
-                echo "❌ Container $container_name health check failed"
-                return 1
-            }
+            echo "Building new Docker image..."
+            # Build new image with no-cache to ensure latest code
+            docker build --no-cache --pull -t $IMAGE_NAME:latest .
             
-            # Function to cleanup old images
-            cleanup_old_images() {
-                echo "🧹 Cleaning up old images..."
-                docker image prune -f
-                # Keep only the last 2 images to save space
-                docker images $IMAGE_NAME --format "table {{.ID}}\t{{.CreatedAt}}" | tail -n +3 | awk '{print $1}' | xargs -r docker rmi -f 2>/dev/null || true
-            }
+            echo "Starting new container on port 3001..."
+            # Start new container on different port first
+            docker run -d \
+              --name $TEMP_CONTAINER_NAME \
+              -p 3001:3000 \
+              --restart unless-stopped \
+              $IMAGE_NAME:latest
             
-            # Build new image with timestamp tag
-            TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-            NEW_IMAGE_TAG="$IMAGE_NAME:$TIMESTAMP"
-            LATEST_IMAGE_TAG="$IMAGE_NAME:latest"
-            
-            echo "🔨 Building new Docker image: $NEW_IMAGE_TAG"
-            
-            if ! docker build --no-cache --pull -t $NEW_IMAGE_TAG -t $LATEST_IMAGE_TAG .; then
-                echo "❌ Docker build failed"
-                exit 1
-            fi
-            
-            echo "✅ Docker image built successfully"
-            
-            # Start new container
-            echo "🆕 Starting new container: $NEW_CONTAINER_NAME"
-            
-            if ! docker run -d \
-                --name $NEW_CONTAINER_NAME \
-                -p 3001:3000 \
-                --restart unless-stopped \
-                --health-cmd="curl -f http://localhost:3000/ || exit 1" \
-                --health-interval=10s \
-                --health-timeout=5s \
-                --health-retries=3 \
-                $LATEST_IMAGE_TAG; then
-                echo "❌ Failed to start new container"
-                docker logs $NEW_CONTAINER_NAME 2>/dev/null || true
-                exit 1
-            fi
-            
-            echo "✅ New container started"
-            
-            # Wait for new container to be healthy
-            echo "⏳ Waiting for new container to be ready..."
+            # Wait for container to be ready
+            echo "Waiting for new container to start..."
             sleep 10
             
-            # Check new container health on port 3001
+            # Health check on new container
             count=0
-            while [ $count -lt $HEALTH_CHECK_TIMEOUT ]; do
-                if docker ps | grep -q "$NEW_CONTAINER_NAME"; then
-                    if curl -f http://localhost:3001/api/health 2>/dev/null || curl -f http://localhost:3001 2>/dev/null; then
-                        echo "✅ New container is healthy and ready"
-                        break
-                    fi
-                fi
-                echo "⏳ Waiting for new container to be ready... ($count/$HEALTH_CHECK_TIMEOUT)"
-                sleep 2
-                count=$((count + 2))
+            max_attempts=30
+            while [ $count -lt $max_attempts ]; do
+              if curl -f -s http://localhost:3001/ > /dev/null 2>&1; then
+                echo "New container is healthy"
+                break
+              fi
+              echo "Waiting for container... ($count/$max_attempts)"
+              sleep 2
+              count=$((count + 1))
             done
             
-            if [ $count -ge $HEALTH_CHECK_TIMEOUT ]; then
-                echo "❌ New container failed health check"
-                echo "📋 Container logs:"
-                docker logs $NEW_CONTAINER_NAME
-                docker stop $NEW_CONTAINER_NAME 2>/dev/null || true
-                docker rm $NEW_CONTAINER_NAME 2>/dev/null || true
-                exit 1
+            if [ $count -eq $max_attempts ]; then
+              echo "New container failed to start properly"
+              docker logs $TEMP_CONTAINER_NAME
+              docker stop $TEMP_CONTAINER_NAME 2>/dev/null || true
+              docker rm $TEMP_CONTAINER_NAME 2>/dev/null || true
+              exit 1
             fi
             
-            # Backup current container (if exists)
-            if docker ps -a | grep -q "$CONTAINER_NAME"; then
-                echo "💾 Backing up current container..."
-                docker stop $BACKUP_CONTAINER_NAME 2>/dev/null || true
-                docker rm $BACKUP_CONTAINER_NAME 2>/dev/null || true
-                
-                if docker ps | grep -q "$CONTAINER_NAME"; then
-                    docker rename $CONTAINER_NAME $BACKUP_CONTAINER_NAME
-                    docker stop $BACKUP_CONTAINER_NAME
-                    echo "✅ Current container backed up"
-                fi
+            # Stop old container if exists
+            echo "Switching to new container..."
+            if [ "$(docker ps -q -f name=^${CONTAINER_NAME}$)" ]; then
+              docker stop $CONTAINER_NAME
+              docker rm $CONTAINER_NAME
             fi
             
-            # Switch traffic to new container (Blue-Green Deployment)
-            echo "🔄 Switching traffic to new container..."
+            # Remove temp container and start final one on port 3000
+            docker stop $TEMP_CONTAINER_NAME
+            docker rm $TEMP_CONTAINER_NAME
             
-            # Stop the old container on port 3000
-            docker stop $CONTAINER_NAME 2>/dev/null || true
-            docker rm $CONTAINER_NAME 2>/dev/null || true
-            
-            # Rename new container and update port mapping
-            docker stop $NEW_CONTAINER_NAME
-            docker rm $NEW_CONTAINER_NAME
-            
-            # Start the new container on port 3000
+            # Start final container on port 3000
             docker run -d \
-                --name $CONTAINER_NAME \
-                -p 3000:3000 \
-                --restart unless-stopped \
-                --health-cmd="curl -f http://localhost:3000/ || exit 1" \
-                --health-interval=10s \
-                --health-timeout=5s \
-                --health-retries=3 \
-                $LATEST_IMAGE_TAG
-            
-            echo "✅ Traffic switched to new container"
+              --name $CONTAINER_NAME \
+              -p 3000:3000 \
+              --restart unless-stopped \
+              $IMAGE_NAME:latest
             
             # Final health check
-            echo "🏥 Final health check..."
+            echo "Final health check..."
             sleep 5
-            
-            if check_container_health $CONTAINER_NAME 30; then
-                echo "✅ Deployment successful!"
-                
-                # Cleanup backup container after successful deployment
-                echo "🧹 Cleaning up backup container..."
-                docker stop $BACKUP_CONTAINER_NAME 2>/dev/null || true
-                docker rm $BACKUP_CONTAINER_NAME 2>/dev/null || true
-                
-                # Cleanup old images
-                cleanup_old_images
-                
-                echo "📊 Current running containers:"
-                docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-                
+            if curl -f -s http://localhost:3000/ > /dev/null 2>&1; then
+              echo "Deployment successful!"
             else
-                echo "❌ Final health check failed - Rolling back!"
-                
-                # Rollback: Stop new container and restore backup
-                docker stop $CONTAINER_NAME 2>/dev/null || true
-                docker rm $CONTAINER_NAME 2>/dev/null || true
-                
-                if docker ps -a | grep -q "$BACKUP_CONTAINER_NAME"; then
-                    docker rename $BACKUP_CONTAINER_NAME $CONTAINER_NAME
-                    docker start $CONTAINER_NAME
-                    echo "🔙 Rollback completed"
-                else
-                    echo "❌ Rollback failed - no backup container found"
-                fi
-                
-                exit 1
+              echo "Final health check failed"
+              exit 1
             fi
             
-            echo "🎉 Zero downtime deployment completed successfully!"
-            echo "🌐 Application is running at: http://$(hostname -I | awk '{print $1}'):3000"
-
-      - name: Deployment Status
-        if: always()
-        run: |
-          if [ ${{ job.status }} == 'success' ]; then
-            echo "✅ Deployment completed successfully!"
-          else
-            echo "❌ Deployment failed!"
-            exit 1
-          fi
+            # Cleanup old images (keep last 2)
+            echo "Cleaning up old images..."
+            docker image prune -f
+            OLD_IMAGES=$(docker images $IMAGE_NAME --format "{{.ID}}" | tail -n +3)
+            if [ ! -z "$OLD_IMAGES" ]; then
+              docker rmi $OLD_IMAGES 2>/dev/null || true
+            fi
+            
+            echo "Deployment completed successfully!"
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep $CONTAINER_NAME
