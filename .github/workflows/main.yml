@@ -1,4 +1,4 @@
-name: Build & Deploy Next.js App FInal
+name: Build & Deploy Next.js App Final
 
 on:
   push:
@@ -25,6 +25,7 @@ jobs:
             APP_DIR="/home/${{ secrets.SERVER_USER }}/htdocs/www.rangaone.finance/Rangaone_Finance"
             IMAGE_NAME="nextjs-app"
             CONTAINER_NAME="nextjs-app"
+            TEMP_NAME="${CONTAINER_NAME}_new"
 
             cd $APP_DIR
 
@@ -37,30 +38,26 @@ jobs:
             docker build --pull -t $IMAGE_NAME .
 
             echo "---- Starting new container on temp name ----"
-            TEMP_NAME="${CONTAINER_NAME}_new"
             docker run -d \
               --name $TEMP_NAME \
               -p 3001:3000 \
               --restart unless-stopped \
               $IMAGE_NAME
 
-            echo "---- Switching containers (zero downtime) ----"
-            # Rename old container (if exists) so it’s freed
-            if [ "$(docker ps -a -q -f name=$CONTAINER_NAME)" ]; then
+            echo "---- Swapping containers for zero downtime ----"
+            # Stop old container if exists
+            if [ "$(docker ps -q -f name=$CONTAINER_NAME)" ]; then
               docker rename $CONTAINER_NAME "${CONTAINER_NAME}_old_$(date +%s)"
             fi
 
-            # Rename new container to the main name
+            # Rename new container to main name
             docker rename $TEMP_NAME $CONTAINER_NAME
 
-            # Map public port 3000 to the new container
-            docker network connect bridge $CONTAINER_NAME || true
-            docker stop $CONTAINER_NAME || true
-            docker rm -f $CONTAINER_NAME || true
-            docker run -d \
-              --name $CONTAINER_NAME \
-              -p 3000:3000 \
-              --restart unless-stopped \
-              $IMAGE_NAME
+            # Optionally remove old containers older than 1 day
+            docker ps -a -f name="${CONTAINER_NAME}_old_" --format '{{.ID}} {{.Names}} {{.CreatedAt}}' | while read id name created; do
+              if [ $(date -d "$created" +%s) -lt $(date -d '1 day ago' +%s) ]; then
+                docker rm -f $id
+              fi
+            done
 
             echo "✅ Zero-downtime deployment complete."
