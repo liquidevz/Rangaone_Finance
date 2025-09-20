@@ -14,6 +14,7 @@ export default function Home() {
   return (
     <main>
       <Navbar />
+      <h1>this is that will be removed</h1>
       <ImageTrailHero />
       <PricingSection />
       <FeatureComparison />
