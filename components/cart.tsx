@@ -54,6 +54,7 @@ export default function CartPage() {
     cartItemCount, 
     addToCart, 
     removeFromCart, 
+    clearCart,
     refreshCart, 
     getEffectiveCart, 
     syncing,
@@ -834,12 +835,10 @@ export default function CartPage() {
                     <Button 
                       variant="outline" 
                       className="w-full flex items-center justify-center gap-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-onClick={async () => {
+                      onClick={async () => {
                         try {
-                          // Clear all items from cart
-                          for (const item of effectiveItems) {
-                            await removeFromCart(item.portfolio._id);
-                          }
+                          clearError() // Clear any previous errors
+                          await clearCart()
                           toast({
                             title: "Cart Cleared",
                             description: "All items have been removed from your cart",

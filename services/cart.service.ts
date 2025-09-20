@@ -129,7 +129,7 @@ export const cartService = {
   removeFromCart: async (portfolioId: string): Promise<Cart> => {
     const token = authService.getAccessToken();
     try {
-      return await del<Cart>(`/api/user/cart/${portfolioId}`, {
+      return await del<Cart>(`/api/user/cart/portfolio/${portfolioId}`, {
         headers: {
           accept: "application/json",
           Authorization: `Bearer ${token}`,

@@ -281,10 +281,16 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         return;
       }
       
-      // Update on server first, then refresh
-      await cartService.removeFromCart(portfolioId);
-      // Force refresh to ensure sync
-      await refreshCart();
+      // Optimistically remove from UI first
+      if (cart) {
+        const optimisticCart = { ...cart };
+        optimisticCart.items = optimisticCart.items.filter(item => item.portfolio._id !== portfolioId);
+        setCart(optimisticCart.items.length > 0 ? optimisticCart : null);
+      }
+      
+      // Then update on server
+      const updatedCart = await cartService.removeFromCart(portfolioId);
+      setCart(updatedCart.items.length > 0 ? updatedCart : null);
     } catch (error) {
       console.error("Failed to remove from cart:", error);
       // Revert optimistic update by refreshing cart
@@ -295,10 +301,19 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
 
   const clearCart = async () => {
     try {
-      // Update on server first, then refresh
-      await cartService.clearCart();
-      // Force refresh to ensure sync
-      await refreshCart();
+      if (!isAuthenticated) {
+        // Clear local cart for unauthenticated users
+        localCartService.clearLocalCart();
+        setCart(null);
+        return;
+      }
+      
+      // Optimistically clear cart in UI
+      setCart(null);
+      
+      // Then clear on server
+      const result = await cartService.clearCart();
+      setCart(result.cart.items.length > 0 ? result.cart : null);
     } catch (error) {
       console.error("Failed to clear cart:", error);
       // Revert optimistic update by refreshing cart
