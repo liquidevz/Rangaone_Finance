@@ -10,9 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout the latest code
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 2. Deploy via SSH
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v0.1.7
         with:
@@ -23,9 +25,6 @@ jobs:
             set -e
 
             APP_DIR="/home/${{ secrets.SERVER_USER }}/htdocs/www.rangaone.finance/Rangaone_Finance"
-            IMAGE_NAME="nextjs-app"
-            CONTAINER_NAME="nextjs-app"
-            TEMP_NAME="${CONTAINER_NAME}_new"
 
             cd $APP_DIR
 
@@ -34,30 +33,33 @@ jobs:
             git reset --hard origin/main
             git clean -fdx
 
-            echo "---- Building new Docker image ----"
-            docker build --pull -t $IMAGE_NAME .
+            echo "---- Building new Docker image (no-cache) ----"
+            docker-compose build --no-cache rangaone-fe
 
             echo "---- Starting new container on temp name ----"
+            TEMP_CONTAINER="Rangaone_Finance_new"
             docker run -d \
-              --name $TEMP_NAME \
+              --name $TEMP_CONTAINER \
               -p 3001:3000 \
               --restart unless-stopped \
-              $IMAGE_NAME
+              rangaone-fe:latest
 
-            echo "---- Swapping containers for zero downtime ----"
-            # Stop old container if exists
-            if [ "$(docker ps -q -f name=$CONTAINER_NAME)" ]; then
-              docker rename $CONTAINER_NAME "${CONTAINER_NAME}_old_$(date +%s)"
+            echo "---- Switching containers (zero downtime) ----"
+            # Stop old container gracefully
+            if [ "$(docker ps -q -f name=Rangaone_Finance)" ]; then
+              docker rename Rangaone_Finance Rangaone_Finance_old_$(date +%s)
             fi
 
-            # Rename new container to main name
-            docker rename $TEMP_NAME $CONTAINER_NAME
+            # Rename new container
+            docker rename $TEMP_CONTAINER Rangaone_Finance
 
-            # Optionally remove old containers older than 1 day
-            docker ps -a -f name="${CONTAINER_NAME}_old_" --format '{{.ID}} {{.Names}} {{.CreatedAt}}' | while read id name created; do
-              if [ $(date -d "$created" +%s) -lt $(date -d '1 day ago' +%s) ]; then
-                docker rm -f $id
-              fi
-            done
+            # Re-map port 3000
+            docker stop Rangaone_Finance || true
+            docker rm -f Rangaone_Finance || true
+            docker run -d \
+              --name Rangaone_Finance \
+              -p 3000:3000 \
+              --restart unless-stopped \
+              rangaone-fe:latest
 
-            echo "✅ Zero-downtime deployment complete."
+            echo "✅ Zero-downtime deployment complete!"
