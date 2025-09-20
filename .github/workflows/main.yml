@@ -40,6 +40,12 @@ jobs:
             echo "Cleaning up old images..."
             docker image prune -f
             
+            # Create empty .env if it doesn't exist
+            if [ ! -f .env ]; then
+              echo "Creating empty .env file..."
+              touch .env
+            fi
+            
             # Build and start with Docker Compose
             echo "Building and starting with Docker Compose..."
             docker-compose build --no-cache
