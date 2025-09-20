@@ -14,6 +14,7 @@ export default function Home() {
   return (
     <main>
       <Navbar />
+      <h1>This confirm ci cd is working</h1>
       <ImageTrailHero />
       <PricingSection />
       <FeatureComparison />
