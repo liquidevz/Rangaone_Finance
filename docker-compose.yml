@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      no_cache: true
       args:
         - NODE_ENV=production
     image: rangaone-fe:latest
