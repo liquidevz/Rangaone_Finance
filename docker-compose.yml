@@ -1,11 +1,12 @@
+version: "3.9"
+
 services:
   rangaone-fe:
     build:
       context: .
       dockerfile: Dockerfile
-      no_cache: true
       args:
-        - NODE_ENV=production
+        NODE_ENV: production
     image: rangaone-fe:latest
     container_name: Rangaone_Finance
     ports:
@@ -13,10 +14,10 @@ services:
     env_file:
       - .env
     environment:
-      - NODE_ENV=production
-      - NEXT_TELEMETRY_DISABLED=1
-      - VERCEL=1
-      - CI=true
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: 1
+      VERCEL: 1
+      CI: true
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
@@ -24,14 +25,12 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    # Performance optimizations
     deploy:
       resources:
         limits:
           memory: 1G
         reservations:
           memory: 512M
-    # Security (relaxed for VPS compatibility)
     security_opt:
       - no-new-privileges:false
     networks:
