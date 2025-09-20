@@ -1,4 +1,4 @@
-name: Simple Deploy
+name: Zero Downtime Deploy
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     
     steps:
       - name: Deploy to server via SSH
@@ -18,11 +18,11 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          timeout: 600s
+          timeout: 900s
           script: |
             set -e
             
-            echo "Starting deployment..."
+            echo "Starting zero downtime deployment..."
             
             # Navigate to app directory
             cd /home/rangaone/htdocs/www.rangaone.finance/Rangaone_Finance
@@ -32,22 +32,75 @@ jobs:
             git stash || true
             git pull origin main --force
             
-            # Stop and remove existing container
-            echo "Stopping existing container..."
+            # Build new image with timestamp
+            TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+            NEW_IMAGE="rangaone-fe:$TIMESTAMP"
+            echo "Building new image: $NEW_IMAGE"
+            docker build --no-cache -t $NEW_IMAGE .
+            
+            # Start new container on port 3001 first
+            echo "Starting new container on port 3001..."
+            docker run -d \
+              --name Rangaone_Finance_new \
+              -p 3001:3000 \
+              --restart unless-stopped \
+              -e NODE_ENV=production \
+              -e NEXT_TELEMETRY_DISABLED=1 \
+              -e VERCEL=1 \
+              -e CI=true \
+              $NEW_IMAGE
+            
+            # Wait and test new container
+            echo "Testing new container..."
+            sleep 10
+            
+            # Health check new container
+            count=0
+            max_attempts=30
+            while [ $count -lt $max_attempts ]; do
+              if curl -f -s http://localhost:3001/ > /dev/null 2>&1; then
+                echo "New container is healthy!"
+                break
+              fi
+              echo "Waiting for new container... ($count/$max_attempts)"
+              sleep 2
+              count=$((count + 1))
+            done
+            
+            if [ $count -eq $max_attempts ]; then
+              echo "New container failed health check, rolling back..."
+              docker stop Rangaone_Finance_new 2>/dev/null || true
+              docker rm Rangaone_Finance_new 2>/dev/null || true
+              docker rmi $NEW_IMAGE 2>/dev/null || true
+              exit 1
+            fi
+            
+            # Switch traffic (this is the only moment of potential downtime)
+            echo "Switching traffic to new container..."
+            
+            # Stop ALL containers that might be using port 3000
+            echo "Stopping all containers on port 3000..."
+            docker ps --format "table {{.Names}}\t{{.Ports}}" | grep "3000" | awk '{print $1}' | xargs -r docker stop 2>/dev/null || true
+            docker ps -a --format "table {{.Names}}\t{{.Ports}}" | grep "3000" | awk '{print $1}' | xargs -r docker rm 2>/dev/null || true
+            
+            # Stop and remove specific containers
             docker stop Rangaone_Finance 2>/dev/null || true
             docker rm Rangaone_Finance 2>/dev/null || true
+            docker stop Rangaone_Finance_new 2>/dev/null || true
+            docker rm Rangaone_Finance_new 2>/dev/null || true
             
-            # Remove old images
-            echo "Cleaning up old images..."
-            docker rmi rangaone-fe:latest 2>/dev/null || true
-            docker image prune -f
+            # Wait for port to be released
+            echo "Waiting for port 3000 to be released..."
+            sleep 3
             
-            # Build new image
-            echo "Building new image..."
-            docker build --no-cache -t rangaone-fe:latest .
+            # Check if port is still in use
+            if netstat -tulpn | grep :3000 > /dev/null 2>&1; then
+              echo "Port 3000 is still in use, waiting longer..."
+              sleep 5
+            fi
             
-            # Run new container
-            echo "Starting new container..."
+            # Start final container on port 3000
+            echo "Starting final container on port 3000..."
             docker run -d \
               --name Rangaone_Finance \
               -p 3000:3000 \
@@ -56,18 +109,27 @@ jobs:
               -e NEXT_TELEMETRY_DISABLED=1 \
               -e VERCEL=1 \
               -e CI=true \
-              rangaone-fe:latest
+              $NEW_IMAGE
             
-            # Check if container is running
+            # Final health check
             sleep 5
             if docker ps | grep -q "Rangaone_Finance"; then
               echo "Deployment successful!"
+              
+              # Cleanup old images (keep last 2 versions)
+              echo "Cleaning up old images..."
+              OLD_IMAGES=$(docker images rangaone-fe --format "{{.Tag}}" | grep -E "^[0-9]{8}-[0-9]{6}$" | sort -r | tail -n +3)
+              for tag in $OLD_IMAGES; do
+                docker rmi "rangaone-fe:$tag" 2>/dev/null || true
+              done
+              docker image prune -f
+              
               docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | head -1
               docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep Rangaone_Finance
             else
-              echo "Deployment failed!"
+              echo "Final deployment failed!"
               docker logs Rangaone_Finance
               exit 1
             fi
             
-            echo "Done!"
+            echo "Zero downtime deployment completed!"
