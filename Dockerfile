@@ -9,9 +9,8 @@ RUN apk add --no-cache libc6-compat
 
 # ---------- Dependencies ----------
 FROM base AS deps
-# Copy only package files for caching
+# Copy package files for caching
 COPY package*.json ./
-# Install dependencies
 RUN npm ci --legacy-peer-deps
 
 # ---------- Builder ----------
@@ -44,5 +43,5 @@ RUN chown -R nextjs:nodejs /app
 USER nextjs
 
 EXPOSE 3000
-ENV HOSTNAME="0.0.0.0"
+ENV HOST="0.0.0.0"
 CMD ["node", "server.js"]
