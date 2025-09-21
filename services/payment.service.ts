@@ -916,6 +916,47 @@ export const paymentService = {
     }
   },
 
+  // Create cart eMandate for multiple products
+  createCartEmandate: async (payload: {
+    cartId?: string;
+    interval: "monthly" | "quarterly" | "yearly";
+    couponCode?: string;
+  }): Promise<CreateEMandateResponse> => {
+    const token = authService.getAccessToken();
+
+    console.log("🔍 Creating cart eMandate with payload:", payload);
+
+    try {
+      const response = await post<CreateEMandateResponse>(
+        "/api/subscriptions/cart/emandate",
+        payload,
+        {
+          headers: {
+            accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      console.log("Cart eMandate creation response:", response);
+      return response;
+    } catch (error: any) {
+      // Handle eSign requirement error
+      if (error.response?.status === 400 && error.response?.data?.error === 'eSign validation failed') {
+        console.log("🔍 Cart eMandate requires eSign - throwing enhanced error");
+        throw {
+          ...error,
+          requiresESign: true,
+          eSignError: true
+        };
+      }
+      
+      console.error("🚨 CART EMANDATE ERROR:", error?.response?.data?.message || error?.message);
+      throw error;
+    }
+  },
+
   // Verify eMandate with timeout and duplicate prevention
   verifyEmandateWithRetry: async (subscriptionId: string, maxRetries: number = 3): Promise<VerifyPaymentResponse> => {
     console.log(`Starting eMandate verification with retry for subscription: ${subscriptionId}`);

@@ -16,13 +16,15 @@ interface DigioVerificationModalProps {
   onClose: () => void
   onVerificationComplete: () => void
   agreementData: PaymentAgreementData
+  cartId?: string
 }
 
 export function DigioVerificationModal({
   isOpen,
   onClose,
   onVerificationComplete,
-  agreementData
+  agreementData,
+  cartId
 }: DigioVerificationModalProps) {
   const [step, setStep] = useState<"creating" | "signing" | "completed" | "error">("creating")
   const [documentId, setDocumentId] = useState<string | null>(null)
@@ -46,12 +48,20 @@ export function DigioVerificationModal({
 
   const createSignRequest = async () => {
     try {
-      const response = await digioService.createPaymentSignRequest(
-        agreementData,
-        agreementData.productType || "Bundle",
-        agreementData.productId || "",
-        agreementData.productName || ""
-      )
+      let response;
+      
+      if (cartId) {
+        // Use cart eSign API for cart checkout
+        response = await digioService.createCartSignRequest(cartId)
+      } else {
+        // Use individual product eSign API
+        response = await digioService.createPaymentSignRequest(
+          agreementData,
+          agreementData.productType || "Bundle",
+          agreementData.productId || "",
+          agreementData.productName || ""
+        )
+      }
       
       if (response.authenticationUrl) {
         setDigioUrl(response.authenticationUrl)

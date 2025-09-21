@@ -175,7 +175,7 @@ export default function Footer() {
             <div className="space-y-1">
               <p><span className="font-semibold">FAQ</span></p>
               <p><span className="font-semibold">CustomerCare Number</span></p>
-              <p>+91-91676 94966</p>
+              <p>+91-70213 37693</p>
               <p><span className="font-semibold">Timing</span></p>
               <p>Monday - Friday</p>
               <p>(10am-6pm)</p>

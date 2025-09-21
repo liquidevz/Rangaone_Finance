@@ -70,7 +70,7 @@ const navigationItems = [
       {
         label: "Contact Support",
         icon: <Users className="h-6 w-6" />,
-        href: "/contact-us",
+        href: "/dashboard/contact-us",
         badge: null,
       },
     ],

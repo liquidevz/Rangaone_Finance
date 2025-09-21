@@ -175,5 +175,35 @@ export const digioService = {
       console.error("Error checking signature status:", error);
       return { completed: false, failed: true, error: error.message || "Failed to check status" };
     }
+  },
+
+  // Create cart eSign document
+  createCartSignRequest: async (cartId: string): Promise<{ documentId: string; authenticationUrl?: string; }> => {
+    const response = await post('/api/digio/cart/create', {
+      cartId
+    }) as any;
+
+    if (response.success) {
+      return {
+        documentId: response.data.documentId,
+        authenticationUrl: response.data.authenticationUrl || response.data.signUrl
+      };
+    }
+    throw new Error(response.error || 'Failed to create cart document');
+  },
+
+  // Verify cart eSign completion
+  verifyCartSignature: async (cartId: string, documentId: string): Promise<boolean> => {
+    try {
+      const response = await post('/api/cart/esign/verify', {
+        cartId,
+        documentId
+      }) as any;
+      
+      return response.success && response.esign_status?.isCompleted;
+    } catch (error) {
+      console.error('Error verifying cart signature:', error);
+      return false;
+    }
   }
 };

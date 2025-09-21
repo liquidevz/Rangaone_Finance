@@ -14,6 +14,7 @@ import { paymentFlowState } from "@/lib/payment-flow-state";
 import type { PaymentAgreementData } from "@/services/digio.service";
 import { CouponInput } from "@/components/coupon-input";
 import type { CouponValidationResponse } from "@/services/coupon.service";
+import { useCart } from "@/components/cart/cart-context";
 
 interface CartPaymentModalProps {
   isOpen: boolean;
@@ -65,6 +66,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
 
   const cancelRequested = useRef(false);
   const { isAuthenticated, user } = useAuth();
+  const { cart } = useCart();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -213,21 +215,16 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
       console.log("🔍 CART MODAL - Current subscriptionType:", subscriptionType);
       console.log("🔍 CART MODAL - typeof subscriptionType:", typeof subscriptionType);
       
-      // Ensure we're using the current subscriptionType value
-      const currentSubscriptionType = subscriptionType;
-      console.log("🔍 CART MODAL - currentSubscriptionType:", currentSubscriptionType);
-      
-      // Create eMandate for cart items
-      const emandatePayload = {
-        productType: "Portfolio",
-        productId: cartItems[0]?.portfolio._id,
-        emandateType: currentSubscriptionType,
+      // Create cart eMandate payload
+      const cartEmandatePayload = {
+        ...(cart?._id && cart._id !== "local" && { cartId: cart._id }),
+        interval: subscriptionType,
         ...(appliedCoupon && { couponCode: appliedCoupon.code }),
       };
       
-      console.log("🔍 CART MODAL - Emandate payload before sending:", JSON.stringify(emandatePayload, null, 2));
+      console.log("🔍 CART MODAL - Cart Emandate payload before sending:", JSON.stringify(cartEmandatePayload, null, 2));
 
-      const emandate = await paymentService.createEmandate(emandatePayload);
+      const emandate = await paymentService.createCartEmandate(cartEmandatePayload);
 
       if (cancelRequested.current) {
         setProcessing(false);
@@ -256,7 +253,12 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
             setProcessing(false);
             paymentFlowState.clear();
             onPaymentSuccess();
-            toast({ title: "Payment Successful", description: "Subscription activated" });
+            toast({ 
+              title: "Payment Successful", 
+              description: (verify as any)?.isCartEmandate 
+                ? `${(verify as any)?.activatedSubscriptions || cartItems.length} subscriptions activated successfully!`
+                : "Subscription activated" 
+            });
           } else {
             setStep("error");
             setProcessing(false);
@@ -318,23 +320,17 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
       // Always use eMandate flow for cart payments
       console.log("🔍 Starting eMandate flow after Digio verification");
       console.log("🔍 CART MODAL - Current subscriptionType after Digio:", subscriptionType);
-      console.log("🔍 CART MODAL - typeof subscriptionType after Digio:", typeof subscriptionType);
       setProcessingMsg("Creating eMandate…");
       
-      // Ensure we're using the current subscriptionType value
-      const currentSubscriptionType = subscriptionType;
-      console.log("🔍 CART MODAL - currentSubscriptionType after Digio:", currentSubscriptionType);
-      
-      const emandatePayload = {
-        productType: "Portfolio",
-        productId: cartItems[0]?.portfolio._id,
-        emandateType: currentSubscriptionType,
+      const cartEmandatePayload = {
+        ...(cart?._id && cart._id !== "local" && { cartId: cart._id }),
+        interval: subscriptionType,
         ...(appliedCoupon && { couponCode: appliedCoupon.code }),
       };
       
-      console.log("🔍 CART MODAL - Emandate payload after Digio:", JSON.stringify(emandatePayload, null, 2));
+      console.log("🔍 CART MODAL - Cart Emandate payload after Digio:", JSON.stringify(cartEmandatePayload, null, 2));
 
-      const emandate = await paymentService.createEmandate(emandatePayload);
+      const emandate = await paymentService.createCartEmandate(cartEmandatePayload);
 
       if (cancelRequested.current) {
         setProcessing(false);
@@ -362,7 +358,12 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
             setProcessing(false);
             paymentFlowState.clear();
             onPaymentSuccess();
-            toast({ title: "Payment Successful", description: "Subscription activated" });
+            toast({ 
+              title: "Payment Successful", 
+              description: (verify as any)?.isCartEmandate 
+                ? `${(verify as any)?.activatedSubscriptions || cartItems.length} subscriptions activated successfully!`
+                : "Subscription activated" 
+            });
           } else {
             setStep("error");
             setProcessing(false);
@@ -911,6 +912,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
           onClose={() => setShowDigio(false)}
           onVerificationComplete={handleDigioComplete}
           agreementData={agreementData}
+          cartId={cart?._id !== "local" ? cart?._id : undefined}
         />
       )}
     </>
