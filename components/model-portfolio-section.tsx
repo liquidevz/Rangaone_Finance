@@ -424,7 +424,7 @@ export default function ModelPortfolioSection() {
                        {portfolio.name}
                      </h2>
                      <p className="text-base font-bold text-black dark:text-[#FFFFF0] mt-1">
-                       ₹{(quarterlyFee || monthlyFee || 0).toLocaleString()} / Quarter
+                       ₹{((portfolio as any).quarterlyemandateprice || quarterlyFee || monthlyFee || 0).toLocaleString()} / Quarter
                      </p>
                      <p className="text-xs text-gray-700 dark:text-gray-400">Annual, Billed Quarterly</p>
                    </div>

@@ -1417,19 +1417,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     </div>
                   )}
 
-                  {/* Debug info */}
-                  <div className="mt-4 p-2 bg-gray-100 rounded text-xs">
-                    <p>
-                      Debug: Telegram links count: {telegramLinks?.length || 0}
-                    </p>
-                    <p>Flow type: {isEmandateFlow ? "eMandate" : "One-time"}</p>
-                    {telegramLinks &&
-                      telegramLinks.map((link, i) => (
-                        <p key={i}>
-                          Link {i + 1}: {link.invite_link ? "✓" : "✗"}
-                        </p>
-                      ))}
-                  </div>
+
                 </div>
               )}
 

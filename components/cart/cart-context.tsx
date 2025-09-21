@@ -74,7 +74,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
       if (localCart.items.length > 0) {
         const displayCart: Cart = {
           _id: "local",
-          userId: "local",
+          user: "local",
           items: localCart.items.map(item => ({
             _id: item.portfolioId,
             portfolio: {
@@ -83,7 +83,8 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
               subscriptionFee: item.itemData.subscriptionFee || [],
               description: item.itemData.description || []
             } as any,
-            quantity: item.quantity
+            quantity: item.quantity,
+            addedAt: new Date().toISOString()
           })),
           createdAt: localCart.lastUpdated,
           updatedAt: localCart.lastUpdated
@@ -286,7 +287,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         const localCart = localCartService.removeFromLocalCart(portfolioId);
         const displayCart: Cart = {
           _id: "local",
-          userId: "local",
+          user: "local",
           items: localCart.items.map(item => ({
             _id: item.portfolioId,
             portfolio: {
@@ -295,7 +296,8 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
               subscriptionFee: item.itemData.subscriptionFee || [],
               description: item.itemData.description || []
             } as any,
-            quantity: item.quantity
+            quantity: item.quantity,
+            addedAt: new Date().toISOString()
           })),
           createdAt: localCart.lastUpdated,
           updatedAt: localCart.lastUpdated
@@ -336,7 +338,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
       
       // Then clear on server
       const result = await cartService.clearCart();
-      setCart(result.cart.items.length > 0 ? result.cart : null);
+      setCart(result.cart.items?.length > 0 ? result.cart : null);
     } catch (error) {
       console.error("Failed to clear cart:", error);
       // Revert optimistic update by refreshing cart
@@ -352,7 +354,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
 
   const calculateTotal = (subscriptionType: "monthly" | "quarterly" | "yearly", isEmandate: boolean = false): number => {
     if (!cart) return 0;
-    return cartService.calculateCartTotal(cart, subscriptionType, isEmandate);
+    return cartService.calculateCartTotal(cart, subscriptionType);
   };
 
   const getEffectiveCart = (): Cart | null => {

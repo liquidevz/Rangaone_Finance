@@ -117,7 +117,29 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
 
   const handleDigioComplete = async () => {
     setShowDigio(false);
-    await continueAfterDigio();
+    
+    // Verify cart eSign completion when user clicks "I'm Done"
+    try {
+      setStep("processing");
+      setProcessing(true);
+      setProcessingMsg("Verifying digital signature...");
+      
+      const cartId = cart?._id && cart._id !== "local" ? cart._id : undefined;
+      const eSignStatus = await paymentService.verifyCartESignCompletion(cartId);
+      if (!eSignStatus.success) {
+        throw new Error("eSign verification failed: " + eSignStatus.message);
+      }
+      
+      await continueAfterDigio();
+    } catch (error: any) {
+      setStep("error");
+      setProcessing(false);
+      toast({
+        title: "eSign Verification Failed",
+        description: error?.message || "Please complete the digital signature process",
+        variant: "destructive",
+      });
+    }
   };
 
   const startDigioFlow = useCallback(() => {
@@ -311,11 +333,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
       setProcessing(true);
       setProcessingMsg("Verifying digital signature...");
 
-      // Verify eSign completion first
-      const eSignStatus = await paymentService.verifyESignCompletion("Portfolio", "cart");
-      if (!eSignStatus.success) {
-        throw new Error("eSign verification failed: " + eSignStatus.message);
-      }
+      // Skip eSign verification - proceed directly to eMandate
 
       // Always use eMandate flow for cart payments
       console.log("🔍 Starting eMandate flow after Digio verification");
@@ -912,7 +930,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
           onClose={() => setShowDigio(false)}
           onVerificationComplete={handleDigioComplete}
           agreementData={agreementData}
-          cartId={cart?._id !== "local" ? cart?._id : undefined}
+          cartId={cart?._id && cart._id !== "local" ? cart._id : undefined}
         />
       )}
     </>

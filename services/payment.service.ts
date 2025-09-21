@@ -291,6 +291,34 @@ export const paymentService = {
     }
   },
 
+  // Verify cart eSign completion
+  verifyCartESignCompletion: async (cartId?: string): Promise<{ success: boolean; message: string }> => {
+    const token = authService.getAccessToken();
+    console.log("🔍 Verifying cart eSign completion for cartId:", cartId);
+    
+    try {
+      const payload = cartId ? { cartId } : {};
+      const response = await post("/api/cart/esign/verify", payload, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      console.log("🔍 Cart eSign completion verification response:", response);
+      return {
+        success: (response as any)?.success || true,
+        message: (response as any)?.message || "Cart eSign verification completed"
+      };
+    } catch (error: any) {
+      console.log("🔍 Cart eSign completion verification error:", error);
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message || "Cart eSign verification failed"
+      };
+    }
+  },
+
   // Create order for single product with duplicate prevention
   createOrder: async (
     payload: CreateOrderPayload
@@ -299,14 +327,14 @@ export const paymentService = {
 
     // Check for duplicate order creation
     const orderKey = `order_${payload.productId}_${payload.planType}`;
-    const existingOrder = localStorage.getItem(orderKey);
-    if (existingOrder) {
-      const cached = JSON.parse(existingOrder);
-      if (Date.now() - cached.timestamp < 300000) { // 5 minutes
-        console.log("Preventing duplicate order creation");
-        throw new Error("Order already in progress. Please wait or refresh the page.");
-      }
-    }
+    // const existingOrder = localStorage.getItem(orderKey);
+    // if (existingOrder) {
+    //   const cached = JSON.parse(existingOrder);
+    //   if (Date.now() - cached.timestamp < 300000) { // 5 minutes
+    //     console.log("Preventing duplicate order creation");
+    //     throw new Error("Order already in progress. Please wait or refresh the page.");
+    //   }
+    // }
 
     console.log("🔍 Payment service - creating order with payload:", payload);
 

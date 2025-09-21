@@ -1,5 +1,7 @@
 "use client";
 
+import type { CouponValidationResponse } from "@/services/coupon.service";
+
 interface PaymentFlowState {
   bundleId: string;
   pricingType: string;
@@ -7,7 +9,7 @@ interface PaymentFlowState {
   timestamp: number;
   isAuthenticated: boolean;
   subscriptionType?: "monthly" | "yearly";
-  appliedCoupon?: { code: string; discount: number } | null;
+  appliedCoupon?: CouponValidationResponse["coupon"] | null;
 }
 
 const FLOW_STATE_KEY = "paymentFlowState";

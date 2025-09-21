@@ -896,15 +896,15 @@ export default function CartPage() {
                               } else {
                                 switch (subscriptionType) {
                                   case "yearly":
-                                    price = item.portfolio.subscriptionFee.find((fee: any) => fee.type === "yearly")?.price || 0
+                                    price = (item.portfolio as any).yearlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "yearly")?.price || 0
                                     period = "Yearly"
                                     break
                                   case "quarterly":
-                                    price = item.portfolio.subscriptionFee.find((fee: any) => fee.type === "quarterly")?.price || 0
+                                    price = (item.portfolio as any).quarterlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "quarterly")?.price || 0
                                     period = "Quarterly"
                                     break
                                   default:
-                                    price = item.portfolio.subscriptionFee.find((fee: any) => fee.type === "monthly")?.price || 0
+                                    price = (item.portfolio as any).monthlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "monthly")?.price || 0
                                     period = "Monthly"
                                     break
                                 }
