@@ -179,6 +179,14 @@ export default function CartPage() {
           title: "Item Removed",
           description: "Item has been removed from your cart",
         })
+      } else if (newQuantity > 1) {
+        // Prevent quantity greater than 1
+        toast({
+          title: "Quantity Limit",
+          description: "Each portfolio can only be purchased once. Quantity cannot exceed 1.",
+          variant: "destructive",
+        })
+        return
       } else {
         const currentItem = effectiveItems.find(item => 
           item && item.portfolio && item.portfolio._id === portfolioId
@@ -194,21 +202,11 @@ export default function CartPage() {
           return
         }
         
-        const currentQuantity = currentItem?.quantity || 0
-        
-        if (newQuantity > currentQuantity) {
-          const quantityToAdd = newQuantity - currentQuantity
-          await addToCart(portfolioId, quantityToAdd)
-        } else if (newQuantity < currentQuantity) {
-          await removeFromCart(portfolioId)
-          if (newQuantity > 0) {
-            await addToCart(portfolioId, newQuantity)
-          }
-        }
-        
+        // For portfolios, quantity should always be 1
         toast({
-          title: "Quantity Updated",
-          description: `Updated quantity to ${newQuantity}`,
+          title: "Portfolio Limit",
+          description: "Each portfolio can only be purchased once.",
+          variant: "destructive",
         })
       }
     } catch (error: any) {
@@ -758,45 +756,13 @@ export default function CartPage() {
                             {/* Bottom controls */}
                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 pt-4 border-t border-gray-100">
                               <div className="flex items-center gap-3">
-                                {/* Quantity controls for portfolios */}
-                                {!isBundle && (
-                                  <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => updateQuantity(item.portfolio._id, item.quantity - 1)}
-                                      disabled={isUpdating}
-                                      className="w-8 h-8 p-0 hover:bg-white"
-                                    >
-                                      <Minus className="w-3 h-3" />
-                                    </Button>
-                                    <span className="px-3 py-1 min-w-[40px] text-center text-sm font-medium bg-white rounded">
-                                      {isUpdating ? (
-                                        <div className="w-3 h-3 border border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                                      ) : (
-                                        item.quantity
-                                      )}
-                                    </span>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => updateQuantity(item.portfolio._id, item.quantity + 1)}
-                                      disabled={isUpdating}
-                                      className="w-8 h-8 p-0 hover:bg-white"
-                                    >
-                                      <Plus className="w-3 h-3" />
-                                    </Button>
-                                  </div>
-                                )}
-                                
-                                {isBundle && (
-                                  <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-                                    Subscription Plan
-                                  </span>
-                                )}
+                                {/* No quantity controls - portfolios are single purchase only */}
+                                <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                                  {isBundle ? "Subscription Plan" : "Single Purchase"}
+                                </span>
 
                                 <div className="text-sm font-medium text-gray-900">
-                                  Total: ₹{(price * item.quantity).toLocaleString('en-IN')}
+                                  Price: ₹{price.toLocaleString('en-IN')}
                                 </div>
                               </div>
 
@@ -961,10 +927,10 @@ export default function CartPage() {
                                     )}
                                   </div>
                                   <div className="text-gray-600 text-xs">
-                                    {item.quantity} × ₹{price.toLocaleString('en-IN')} / {period}
+                                    ₹{price.toLocaleString('en-IN')} / {period}
                                   </div>
                                 </div>
-                                <div className="font-semibold text-gray-900 text-sm">₹{(price * item.quantity).toLocaleString('en-IN')}</div>
+                                <div className="font-semibold text-gray-900 text-sm">₹{price.toLocaleString('en-IN')}</div>
                               </div>
                             )
                           })}

@@ -252,19 +252,13 @@ export class LocalCartService {
     );
 
     if (existingItemIndex > -1) {
-      // Update quantity if item already exists
-      currentCart.items[existingItemIndex].quantity += quantity;
-      // Ensure latest itemData is used
-      currentCart.items[existingItemIndex].itemData = itemData;
-      currentCart.items[existingItemIndex].subscriptionType = subscriptionType;
-      if (planCategory) {
-        currentCart.items[existingItemIndex].planCategory = planCategory;
-      }
+      // Portfolio already exists - throw error instead of updating quantity
+      throw new Error("This portfolio is already in your cart. Each portfolio can only be purchased once.");
     } else {
-      // Add new item
+      // Add new item with quantity forced to 1
       currentCart.items.push({
         portfolioId,
-        quantity,
+        quantity: 1, // Force quantity to 1
         addedAt: new Date().toISOString(),
         itemType: "portfolio",
         subscriptionType,

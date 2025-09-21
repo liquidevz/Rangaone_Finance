@@ -44,8 +44,8 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
     }
   }, [isOpen, subscriptionType, total, cartItems]);
   const [step, setStep] = useState<
-    "consent" | "auth" | "pan-form" | "processing" | "success" | "error"
-  >("consent");
+    "plan" | "consent" | "auth" | "pan-form" | "processing" | "success" | "error"
+  >("plan");
   const [processing, setProcessing] = useState(false);
   const [processingMsg, setProcessingMsg] = useState("Preparing secure payment…");
   const [showDigio, setShowDigio] = useState(false);
@@ -88,29 +88,29 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
     
     document.body.style.overflow = 'hidden';
     
-    if (isAuthenticated && user) {
-      setStep("consent");
-    } else {
-      setStep("auth");
-    }
+    setStep("plan");
     
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen, isAuthenticated, user]);
+  }, [isOpen]);
 
   const handleClose = () => {
     document.body.style.overflow = 'unset';
-    setStep("consent");
+    setStep("plan");
     setProcessing(false);
     setShowDigio(false);
+    setAgreementData(null);
     setTelegramLinks(null);
     paymentFlowState.clear();
     onClose();
   };
 
   const handleAuthSuccess = async () => {
-    setStep("consent");
+    setStep("processing");
+    setProcessing(true);
+    setProcessingMsg("Checking profile...");
+    await handlePaymentFlow();
   };
 
   const handleDigioComplete = async () => {
@@ -130,8 +130,8 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
       portfolioNames: cartItems.map(item => item.portfolio.name),
       agreementDate: new Date().toLocaleDateString("en-IN"),
       productType: "Portfolio",
-      productId: "cart",
-      productName: `Portfolio Cart (${cartItems.length} items)`,
+      productId: cartItems[0]?.portfolio._id,
+      productName: cartItems[0]?.portfolio.name,
     } as any;
 
     setAgreementData(data);
@@ -220,31 +220,9 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
       // Create eMandate for cart items
       const emandatePayload = {
         productType: "Portfolio",
-        productId: "cart",
-        planType: currentSubscriptionType,
-        subscriptionType: "premium",
-        amount: finalTotal,
+        productId: cartItems[0]?.portfolio._id,
+        emandateType: currentSubscriptionType,
         ...(appliedCoupon && { couponCode: appliedCoupon.code }),
-        items: cartItems.map(item => {
-          let itemPrice = 0;
-          switch (currentSubscriptionType) {
-            case "yearly":
-              itemPrice = (item.portfolio as any).yearlyemandateprice || 0;
-              break;
-            case "quarterly":
-              itemPrice = (item.portfolio as any).quarterlyemandateprice || 0;
-              break;
-            default:
-              itemPrice = (item.portfolio as any).monthlyemandateprice || 0;
-              break;
-          }
-          return {
-            productType: "Portfolio",
-            productId: item.portfolio._id,
-            planType: currentSubscriptionType,
-            amount: itemPrice * item.quantity,
-          };
-        }),
       };
       
       console.log("🔍 CART MODAL - Emandate payload before sending:", JSON.stringify(emandatePayload, null, 2));
@@ -349,31 +327,9 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
       
       const emandatePayload = {
         productType: "Portfolio",
-        productId: "cart",
-        planType: currentSubscriptionType,
-        subscriptionType: "premium",
-        amount: finalTotal,
+        productId: cartItems[0]?.portfolio._id,
+        emandateType: currentSubscriptionType,
         ...(appliedCoupon && { couponCode: appliedCoupon.code }),
-        items: cartItems.map(item => {
-          let itemPrice = 0;
-          switch (currentSubscriptionType) {
-            case "yearly":
-              itemPrice = (item.portfolio as any).yearlyemandateprice || 0;
-              break;
-            case "quarterly":
-              itemPrice = (item.portfolio as any).quarterlyemandateprice || 0;
-              break;
-            default:
-              itemPrice = (item.portfolio as any).monthlyemandateprice || 0;
-              break;
-          }
-          return {
-            productType: "Portfolio",
-            productId: item.portfolio._id,
-            planType: currentSubscriptionType,
-            amount: itemPrice * item.quantity,
-          };
-        }),
       };
       
       console.log("🔍 CART MODAL - Emandate payload after Digio:", JSON.stringify(emandatePayload, null, 2));
@@ -467,6 +423,8 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                   ? "Complete Your Digital Verification"
                   : step === "pan-form"
                   ? "Complete Your Profile"
+                  : step === "plan"
+                  ? "Cart Checkout"
                   : "Cart Checkout"
                 }
               </h2>
@@ -481,6 +439,70 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
             {/* Content */}
             <div className="flex-1 overflow-y-auto">
               <div className="p-4 sm:p-6">
+                {step === "plan" && (
+                  <div className="space-y-6">
+                    {/* Cart Summary */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-blue-900 mb-2">Order Summary</h4>
+                      <div className="space-y-2">
+                        {cartItems.map((item, index) => (
+                          <div key={index} className="flex justify-between text-sm">
+                            <span className="text-blue-800">{item.portfolio.name}</span>
+                            <span className="text-blue-900 font-medium">Qty: {item.quantity}</span>
+                          </div>
+                        ))}
+                        <div className="border-t border-blue-300 pt-2 mt-2">
+                          {appliedCoupon && (
+                            <>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-blue-700">Subtotal:</span>
+                                <span className="text-blue-800">₹{total.toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between text-sm text-green-600">
+                                <span>Discount ({appliedCoupon.code}):</span>
+                                <span>-₹{(total - finalTotal).toLocaleString()}</span>
+                              </div>
+                            </>
+                          )}
+                          <div className="flex justify-between font-semibold">
+                            <span className="text-blue-900">Total Amount:</span>
+                            <span className="text-blue-900">₹{finalTotal.toLocaleString()}</span>
+                          </div>
+                          <div className="text-xs text-blue-700 mt-1">
+                            Billing: {subscriptionType === "yearly" ? "Yearly" : subscriptionType === "quarterly" ? "Quarterly" : "Monthly"} (eMandate)
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Coupon Input */}
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-gray-900 mb-3">Have a Coupon Code?</h4>
+                      <CouponInput
+                        onCouponApplied={handleCouponApplied}
+                        originalAmount={total}
+                        disabled={processing}
+                      />
+                    </div>
+
+                    <Button
+                      onClick={() => {
+                        if (isAuthenticated && user) {
+                          setStep("processing");
+                          setProcessing(true);
+                          setProcessingMsg("Checking profile...");
+                          handlePaymentFlow();
+                        } else {
+                          setStep("auth");
+                        }
+                      }}
+                      className="w-full bg-[#001633] hover:bg-[#002244] text-white py-3"
+                    >
+                      {isAuthenticated ? "Continue to Payment" : "Proceed to Payment"}
+                    </Button>
+                  </div>
+                )}
+
                 {step === "consent" && (
                   <div className="space-y-6">
                     {/* Cart Summary */}
@@ -566,33 +588,26 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                     {/* Action Buttons */}
                     <div className="flex gap-3">
                       <Button
-                        onClick={handleClose}
+                        onClick={() => setStep("plan")}
                         variant="outline"
                         className="flex-1"
                       >
-                        Back to Cart
+                        Back to Plan
                       </Button>
                       <Button
-                        onClick={handlePaymentFlow}
+                        onClick={() => {
+                          setStep("processing");
+                          setProcessing(true);
+                          setProcessingMsg("Creating order...");
+                          handlePaymentFlow();
+                        }}
                         className="flex-1 bg-[#001633] hover:bg-[#002244] text-white"
                       >
                         Proceed to Verification
                       </Button>
                     </div>
                     
-                    {/* Manual Digio Button */}
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <p className="text-sm text-gray-600 mb-3 text-center">
-                        Or complete digital verification first:
-                      </p>
-                      <Button
-                        onClick={startDigioFlow}
-                        variant="outline"
-                        className="w-full border-blue-200 text-blue-600 hover:bg-blue-50"
-                      >
-                        Start Digio eSign Process
-                      </Button>
-                    </div>
+
                   </div>
                 )}
 
@@ -868,7 +883,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                     </p>
                     <div className="space-y-2">
                       <Button
-                        onClick={() => setStep("consent")}
+                        onClick={() => setStep("plan")}
                         className="w-full bg-[#001633] hover:bg-[#002244]"
                       >
                         Try Again

@@ -137,11 +137,11 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         if (localCart.items.length > 0) {
           console.log("Syncing local cart to server:", localCart);
           try {
-            // Add each local cart item to server cart
+            // Add each local cart item to server cart (force quantity to 1)
             for (const item of localCart.items) {
               await cartService.addToCart({
                 portfolioId: item.portfolioId,
-                quantity: item.quantity
+                quantity: 1 // Force quantity to 1 for portfolios
               });
             }
             // Clear local cart after successful sync
@@ -163,11 +163,24 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
 
   const addToCart = async (portfolioId: string, quantity: number = 1, portfolioData?: any) => {
     try {
+      // Check if portfolio already exists in cart
+      const currentCart = isAuthenticated ? cart : {
+        items: localCartService.getLocalCart().items.map(item => ({
+          portfolio: { _id: item.portfolioId },
+          quantity: item.quantity
+        }))
+      };
+      
+      const existingItem = currentCart?.items?.find(item => item.portfolio._id === portfolioId);
+      if (existingItem) {
+        throw new Error("This portfolio is already in your cart. Each portfolio can only be purchased once.");
+      }
+      
       if (!isAuthenticated) {
         // Add to local cart and set redirect state
         localCartService.addPortfolioToLocalCart(
           portfolioId,
-          quantity,
+          1, // Force quantity to 1
           "monthly",
           {
             name: portfolioData?.name || "Portfolio",
@@ -179,7 +192,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         return;
       }
       
-      const updatedCart = await cartService.addToCart({ portfolioId, quantity });
+      const updatedCart = await cartService.addToCart({ portfolioId, quantity: 1 }); // Force quantity to 1
       setCart(updatedCart);
       // Redirect to cart page after adding item
       window.location.href = "/cart";
@@ -191,6 +204,11 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
 
   const updateQuantity = async (portfolioId: string, newQuantity: number) => {
     try {
+      // Prevent quantity updates greater than 1 for portfolios
+      if (newQuantity > 1) {
+        throw new Error("Each portfolio can only be purchased once. Quantity cannot exceed 1.");
+      }
+      
       // Optimistically update the UI
       if (cart) {
         const optimisticCart = { ...cart };
@@ -201,10 +219,10 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
             // Remove item
             optimisticCart.items.splice(itemIndex, 1);
           } else {
-            // Update quantity
+            // Update quantity (but cap at 1)
             optimisticCart.items[itemIndex] = {
               ...optimisticCart.items[itemIndex],
-              quantity: newQuantity
+              quantity: 1
             };
           }
           setCart(optimisticCart);
@@ -212,7 +230,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
       }
 
       // Then update on server
-      const updatedCart = await cartService.updateQuantity(portfolioId, newQuantity);
+      const updatedCart = await cartService.updateQuantity(portfolioId, newQuantity <= 0 ? 0 : 1);
       setCart(updatedCart);
     } catch (error) {
       console.error("Failed to update quantity:", error);
@@ -224,6 +242,11 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
 
   const setQuantity = async (portfolioId: string, exactQuantity: number) => {
     try {
+      // Prevent quantity greater than 1 for portfolios
+      if (exactQuantity > 1) {
+        throw new Error("Each portfolio can only be purchased once. Quantity cannot exceed 1.");
+      }
+      
       // Optimistically update the UI
       if (cart) {
         const optimisticCart = { ...cart };
@@ -234,10 +257,10 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
             // Remove item
             optimisticCart.items.splice(itemIndex, 1);
           } else {
-            // Update quantity
+            // Update quantity (but cap at 1)
             optimisticCart.items[itemIndex] = {
               ...optimisticCart.items[itemIndex],
-              quantity: exactQuantity
+              quantity: 1
             };
           }
         } else if (exactQuantity > 0) {
@@ -246,7 +269,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
       }
 
       // Then update on server
-      const updatedCart = await cartService.setQuantity(portfolioId, exactQuantity);
+      const updatedCart = await cartService.setQuantity(portfolioId, exactQuantity <= 0 ? 0 : 1);
       setCart(updatedCart);
     } catch (error) {
       console.error("Failed to set quantity:", error);

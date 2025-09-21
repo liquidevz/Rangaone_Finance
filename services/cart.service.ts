@@ -55,7 +55,25 @@ export const cartService = {
   // Add item to cart (or update quantity if it exists)
   addToCart: async (payload: AddToCartPayload): Promise<Cart> => {
     const token = authService.getAccessToken();
-    return await post<Cart>("/api/user/cart", payload, {
+    
+    // Check if portfolio already exists in cart
+    try {
+      const currentCart = await cartService.getCart();
+      const existingItem = currentCart.items.find(item => item.portfolio._id === payload.portfolioId);
+      if (existingItem) {
+        throw new Error("This portfolio is already in your cart. Each portfolio can only be purchased once.");
+      }
+    } catch (error: any) {
+      // If cart doesn't exist yet, that's fine, continue with adding
+      if (error.message?.includes("already in your cart")) {
+        throw error;
+      }
+    }
+    
+    // Force quantity to 1 for portfolios
+    const portfolioPayload = { ...payload, quantity: 1 };
+    
+    return await post<Cart>("/api/user/cart", portfolioPayload, {
       headers: {
         accept: "application/json",
         "Content-Type": "application/json",
@@ -72,6 +90,11 @@ export const cartService = {
       // If quantity is 0 or less, remove the item
       return await cartService.removeFromCart(portfolioId);
     }
+    
+    if (newQuantity > 1) {
+      // Prevent quantity greater than 1 for portfolios
+      throw new Error("Each portfolio can only be purchased once. Quantity cannot exceed 1.");
+    }
 
     try {
       // First, get the current cart to determine current quantity
@@ -79,27 +102,12 @@ export const cartService = {
       const existingItem = currentCart.items.find(item => item.portfolio._id === portfolioId);
       
       if (!existingItem) {
-        // Item doesn't exist, add it with the specified quantity
-        return await cartService.addToCart({ portfolioId, quantity: newQuantity });
+        // Item doesn't exist, add it with quantity 1
+        return await cartService.addToCart({ portfolioId, quantity: 1 });
       }
 
-      const currentQuantity = existingItem.quantity;
-      
-      if (newQuantity === currentQuantity) {
-        // No change needed
-        return currentCart;
-      }
-
-      if (newQuantity > currentQuantity) {
-        // Increase quantity: add the difference
-        const quantityToAdd = newQuantity - currentQuantity;
-        return await cartService.addToCart({ portfolioId, quantity: quantityToAdd });
-      } else {
-        // Decrease quantity: remove and re-add with correct quantity
-        // This is a workaround since the API doesn't have a direct update endpoint
-        await cartService.removeFromCart(portfolioId);
-        return await cartService.addToCart({ portfolioId, quantity: newQuantity });
-      }
+      // For portfolios, quantity should always be 1, so no update needed
+      return currentCart;
     } catch (error) {
       console.error("Failed to update quantity:", error);
       throw error;
@@ -113,15 +121,27 @@ export const cartService = {
     if (exactQuantity <= 0) {
       return await cartService.removeFromCart(portfolioId);
     }
+    
+    if (exactQuantity > 1) {
+      throw new Error("Each portfolio can only be purchased once. Quantity cannot exceed 1.");
+    }
 
     try {
-      // Remove the item completely first
-      await cartService.removeFromCart(portfolioId);
-      // Then add it back with the exact quantity
-      return await cartService.addToCart({ portfolioId, quantity: exactQuantity });
+      // For portfolios, quantity should always be 1
+      // Check if item already exists
+      const currentCart = await cartService.getCart();
+      const existingItem = currentCart.items.find(item => item.portfolio._id === portfolioId);
+      
+      if (existingItem) {
+        // Item already exists with quantity 1, no change needed
+        return currentCart;
+      } else {
+        // Add item with quantity 1
+        return await cartService.addToCart({ portfolioId, quantity: 1 });
+      }
     } catch (error) {
-      // If removal fails (item might not exist), just try to add
-      return await cartService.addToCart({ portfolioId, quantity: exactQuantity });
+      console.error("Failed to set quantity:", error);
+      throw error;
     }
   },
 

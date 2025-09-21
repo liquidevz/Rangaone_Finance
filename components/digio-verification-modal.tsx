@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { X, FileText, Clock, CheckCircle, AlertCircle, Loader2, Shield, User, Mail, Phone, Calendar, CreditCard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -29,12 +29,18 @@ export function DigioVerificationModal({
   const [error, setError] = useState<string | null>(null)
   const [showIframe, setShowIframe] = useState(false)
   const [digioUrl, setDigioUrl] = useState<string>("")
+  const hasCreatedRef = useRef(false)
 
   const { toast } = useToast()
 
   useEffect(() => {
-    if (isOpen && step === "creating") {
+    if (isOpen && !hasCreatedRef.current) {
+      hasCreatedRef.current = true
       createSignRequest()
+    }
+    
+    if (!isOpen) {
+      hasCreatedRef.current = false
     }
   }, [isOpen])
 
@@ -65,6 +71,9 @@ export function DigioVerificationModal({
 
   const handleClose = () => {
     setShowIframe(false)
+    setStep("creating")
+    setDigioUrl("")
+    hasCreatedRef.current = false
     onClose()
   }
 
