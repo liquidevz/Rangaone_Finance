@@ -197,8 +197,8 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
       // Always use eMandate flow for cart payments
       await handleEmandatePaymentFlow();
     } catch (error: any) {
-      // Check for eSign requirement (412 error)
-      if (error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
+      // Check for eSign requirement
+      if (error.response?.data?.success === false && error.response?.data?.error?.code === 'ESIGN_REQUIRED') {
         console.log("🔍 eSign required - showing Digio verification");
         const data: PaymentAgreementData = {
           customerName: (user as any)?.fullName || user?.username || "User",
@@ -295,7 +295,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
       );
     } catch (error: any) {
       // Check for eSign requirement for eMandate
-      if (error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
+      if (error.response?.data?.success === false && error.response?.data?.error?.code === 'ESIGN_REQUIRED') {
         console.log("🔍 eSign required for eMandate - showing Digio verification");
         const data: PaymentAgreementData = {
           customerName: (user as any)?.fullName || user?.username || "User",

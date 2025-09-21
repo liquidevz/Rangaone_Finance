@@ -129,24 +129,30 @@ export const RoundedDrawerNav = ({
     if (href.startsWith('/#')) {
       e.preventDefault();
       const sectionId = href.substring(2);
+      setMobileNavOpen(false);
+      setDropdownOpen(null);
+      
       if (window.location.pathname === '/') {
-        const element = document.querySelector(`#${sectionId}`);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        setTimeout(() => {
+          const element = document.querySelector(`#${sectionId}`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 100);
       } else {
         window.location.href = href;
       }
-      setMobileNavOpen(false);
-      setDropdownOpen(null);
     } else if (href.startsWith('#')) {
       e.preventDefault();
-      const element = document.querySelector(href);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
       setMobileNavOpen(false);
       setDropdownOpen(null);
+      
+      setTimeout(() => {
+        const element = document.querySelector(href);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
     } else if (href && href !== '') {
       setMobileNavOpen(false);
       setDropdownOpen(null);
@@ -221,10 +227,8 @@ export const RoundedDrawerNav = ({
                             <a
                               key={subIndex}
                               href={sublink.href}
-                              onClick={() => {
-                                if (sublink.href === '/#feature-compare') {
-                                  window.location.href = '/#feature-compare';
-                                }
+                              onClick={(e) => {
+                                handleSmoothScroll(sublink.href, e);
                                 setDropdownOpen(null);
                               }}
                               className="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
@@ -445,12 +449,8 @@ export const RoundedDrawerNav = ({
                             <a
                               key={subIndex}
                               href={sublink.href}
-                              onClick={() => {
-                                if (sublink.href === '/#feature-compare') {
-                                  window.location.href = '/#feature-compare';
-                                }
-                                setMobileNavOpen(false);
-                                setDropdownOpen(null);
+                              onClick={(e) => {
+                                handleSmoothScroll(sublink.href, e);
                               }}
                               className={`block ${textColor} text-base hover:opacity-75 transition-opacity`}
                             >
@@ -461,16 +461,15 @@ export const RoundedDrawerNav = ({
                       )}
                     </div>
                   ) : (
-                    <Link
+                    <a
                       href={link.href}
                       onClick={(e) => {
                         handleSmoothScroll(link.href, e);
-                        setMobileNavOpen(false);
                       }}
                       className={`block ${textColor} text-lg font-medium hover:opacity-75 transition-opacity`}
                     >
                       {link.title}
-                    </Link>
+                    </a>
                   )}
                 </div>
               ))}

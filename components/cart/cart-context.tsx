@@ -338,7 +338,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
       
       // Then clear on server
       const result = await cartService.clearCart();
-      setCart(result.cart.items?.length > 0 ? result.cart : null);
+      setCart(result.cart?.items?.length > 0 ? result.cart : null);
     } catch (error) {
       console.error("Failed to clear cart:", error);
       // Revert optimistic update by refreshing cart
