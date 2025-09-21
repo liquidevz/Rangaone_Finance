@@ -601,8 +601,7 @@ export const paymentService = {
 
     // Get the Razorpay key with proper fallback and validation
     const razorpayKey =
-      process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ||
-      "rzp_test_R8mMgpEVSQghdI";
+      process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 
     if (!razorpayKey || !razorpayKey.startsWith('rzp_')) {
       console.error("Invalid or missing Razorpay key:", razorpayKey);
@@ -717,8 +716,7 @@ export const paymentService = {
       }
 
       const razorpayKey =
-        process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ||
-        "rzp_test_izVlVyFpbhakIT";
+        process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 
       if (!razorpayKey || !razorpayKey.startsWith("rzp_")) {
         console.error(
