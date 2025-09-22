@@ -94,6 +94,7 @@ export default function PortfolioDetailsPage() {
     dailyPnl: { value: 0, percent: 0 }, 
     sinceInceptionPnl: { value: 0, percent: 0 } 
   });
+  const [pnlLoading, setPnlLoading] = useState(false);
   const inceptionGainPercent = useMemo(() => {
     const series = (fullPriceHistory && fullPriceHistory.length > 0) ? fullPriceHistory : priceHistory;
     if (!series || series.length < 2) return null;
@@ -242,12 +243,19 @@ export default function PortfolioDetailsPage() {
       benchmarkValue: firstPoint.benchmarkValue,
     }));
     setChartData(baseline);
-    const timeoutId = setTimeout(() => {
+    const timeoutId = setTimeout(async () => {
       setChartData(priceHistory);
-      calculatePnlFromPriceHistory();
+      await calculatePnlFromPriceHistory();
     }, 60);
     return () => clearTimeout(timeoutId);
-  }, [priceHistory]);
+  }, [priceHistory, portfolioId]);
+
+  // Calculate P&L using price history API
+  useEffect(() => {
+    if (portfolioId && hasAccess) {
+      calculatePnlFromPriceHistory();
+    }
+  }, [portfolioId, hasAccess]);
 
   // Compute and store Daily PnL based on current holdings value changes
   useEffect(() => {
@@ -493,11 +501,14 @@ export default function PortfolioDetailsPage() {
       const updatedHoldings = await fetchStockPrices(currentHoldings, portfolio);
       setHoldingsWithPrices(updatedHoldings);
       
+      // Refresh P&L calculations with latest data
+      await calculatePnlFromPriceHistory();
+      
       const successCount = updatedHoldings.filter(h => h.currentPrice !== undefined).length;
       
       toast({
         title: "Prices Refreshed",
-        description: `Successfully updated ${successCount}/${currentHoldings.length} stock prices.`,
+        description: `Successfully updated ${successCount}/${currentHoldings.length} stock prices and P&L data.`,
         variant: "default",
       });
       
@@ -847,29 +858,71 @@ export default function PortfolioDetailsPage() {
     return data;
   };
 
-  const calculatePnlFromPriceHistory = () => {
-    if (!priceHistory || priceHistory.length < 2 || !portfolioMetrics) {
+  const calculatePnlFromPriceHistory = async () => {
+    if (!portfolioId || !hasAccess) return;
+    
+    setPnlLoading(true);
+    try {
+      console.log('🔄 Calculating P&L from price history API...');
+      
+      // Fetch latest price history data for P&L calculations
+      const [dailyData, allData] = await Promise.all([
+        axiosApi.get(`/api/portfolios/${portfolioId}/price-history?period=1w`),
+        axiosApi.get(`/api/portfolios/${portfolioId}/price-history?period=all`)
+      ]);
+
+      const dailyHistory = dailyData.data?.data || [];
+      const fullHistory = allData.data?.data || [];
+
+      console.log('📊 P&L API Response:', {
+        dailyDataPoints: dailyHistory.length,
+        fullDataPoints: fullHistory.length
+      });
+
+      if (dailyHistory.length >= 2) {
+        const today = dailyHistory[dailyHistory.length - 1];
+        const yesterday = dailyHistory[dailyHistory.length - 2];
+        
+        const dailyChange = today.value - yesterday.value;
+        const dailyPercent = yesterday.value > 0 ? (dailyChange / yesterday.value) * 100 : 0;
+        
+        console.log('📈 Daily P&L:', { today: today.value, yesterday: yesterday.value, change: dailyChange, percent: dailyPercent });
+        
+        setChartDataPnl(prev => ({
+          ...prev,
+          dailyPnl: { 
+            value: parseFloat(dailyChange.toFixed(2)), 
+            percent: parseFloat(dailyPercent.toFixed(2)) 
+          }
+        }));
+      }
+
+      if (fullHistory.length >= 2) {
+        const latest = fullHistory[fullHistory.length - 1];
+        const inception = fullHistory[0];
+        
+        const inceptionChange = latest.value - inception.value;
+        const inceptionPercent = inception.value > 0 ? (inceptionChange / inception.value) * 100 : 0;
+        
+        console.log('📊 Since Inception P&L:', { latest: latest.value, inception: inception.value, change: inceptionChange, percent: inceptionPercent });
+        
+        setChartDataPnl(prev => ({
+          ...prev,
+          sinceInceptionPnl: { 
+            value: parseFloat(inceptionChange.toFixed(2)), 
+            percent: parseFloat(inceptionPercent.toFixed(2)) 
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('❌ Failed to calculate P&L from price history:', error);
       setChartDataPnl({
         dailyPnl: { value: 0, percent: 0 },
         sinceInceptionPnl: { value: 0, percent: 0 }
       });
-      return;
+    } finally {
+      setPnlLoading(false);
     }
-    
-    const currentPortfolioValue = portfolioMetrics.totalValue;
-    const yesterdayChartValue = priceHistory[priceHistory.length - 2].portfolioValue;
-    const minInvestment = portfolioMetrics.minInvestment;
-    
-    const dailyChange = currentPortfolioValue - yesterdayChartValue;
-    const dailyPercent = yesterdayChartValue > 0 ? (dailyChange / yesterdayChartValue) * 100 : 0;
-    
-    const inceptionChange = currentPortfolioValue - minInvestment;
-    const inceptionPercent = minInvestment > 0 ? (inceptionChange / minInvestment) * 100 : 0;
-    
-    setChartDataPnl({
-      dailyPnl: { value: parseFloat(dailyChange.toFixed(2)), percent: parseFloat(dailyPercent.toFixed(2)) },
-      sinceInceptionPnl: { value: parseFloat(inceptionChange.toFixed(2)), percent: parseFloat(inceptionPercent.toFixed(2)) }
-    });
   };
 
   // Fetch portfolio tips
@@ -967,7 +1020,7 @@ export default function PortfolioDetailsPage() {
         fetchPortfolioTips(portfolioId);
         
         // Calculate P&L from price history
-        calculatePnlFromPriceHistory();
+        await calculatePnlFromPriceHistory();
         
       } catch (error) {
         console.error("Failed to load portfolio:", error);
@@ -1681,36 +1734,82 @@ export default function PortfolioDetailsPage() {
           </div>
 
           {/* P&L Section */}
-            <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-lg font-semibold text-gray-800">Portfolio Performance</h4>
+                <button
+                  onClick={calculatePnlFromPriceHistory}
+                  disabled={pnlLoading}
+                  className={`flex items-center space-x-1 text-xs transition-colors ${
+                    pnlLoading 
+                      ? 'text-gray-400 cursor-not-allowed' 
+                      : 'text-gray-600 hover:text-blue-600'
+                  }`}
+                  title="Refresh P&L data"
+                >
+                  <RefreshCw className={`h-3 w-3 ${pnlLoading ? 'animate-spin' : ''}`} />
+                  <span>{pnlLoading ? 'Updating...' : 'Refresh'}</span>
+                </button>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Daily P&L */}
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-200 p-4 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-sm font-medium text-gray-600 uppercase tracking-wide">Daily P&L</span>
+                      <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="text-sm font-semibold text-green-800 uppercase tracking-wide">Daily P&L</span>
+                    </div>
+                    <div className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded-full">
+                      Last 24h
                     </div>
                   </div>
-                  <div className={`text-lg font-bold ${chartDataPnl.dailyPnl.value >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {chartDataPnl.dailyPnl.value >= 0 ? '+' : ''}₹{Math.abs(chartDataPnl.dailyPnl.value).toFixed(2)} ({chartDataPnl.dailyPnl.percent >= 0 ? '+' : ''}{chartDataPnl.dailyPnl.percent.toFixed(2)}%)
-                  </div>
+                  {pnlLoading ? (
+                    <div className="animate-pulse">
+                      <div className="h-6 bg-green-200 rounded mb-2"></div>
+                      <div className="h-4 bg-green-100 rounded w-20"></div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className={`text-xl font-bold ${chartDataPnl.dailyPnl.value >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                        {chartDataPnl.dailyPnl.value >= 0 ? '+' : ''}₹{Math.abs(chartDataPnl.dailyPnl.value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      <div className={`text-sm font-medium ${chartDataPnl.dailyPnl.percent >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                        {chartDataPnl.dailyPnl.percent >= 0 ? '+' : ''}{chartDataPnl.dailyPnl.percent.toFixed(2)}% change
+                      </div>
+                    </>
+                  )}
                 </div>
                 
                 {/* Since Inception P&L */}
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-4 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span className="text-sm font-medium text-gray-600 uppercase tracking-wide">Since Inception</span>
+                      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                      <span className="text-sm font-semibold text-blue-800 uppercase tracking-wide">Since Inception P&L</span>
+                    </div>
+                    <div className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                      Total
                     </div>
                   </div>
-                  <div className={`text-lg font-bold ${chartDataPnl.sinceInceptionPnl.value >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {chartDataPnl.sinceInceptionPnl.value >= 0 ? '+' : ''}₹{Math.abs(chartDataPnl.sinceInceptionPnl.value).toFixed(2)} ({chartDataPnl.sinceInceptionPnl.percent >= 0 ? '+' : ''}{chartDataPnl.sinceInceptionPnl.percent.toFixed(2)}%)
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    Since Inception dates will show in alert
-                  </div>
+                  {pnlLoading ? (
+                    <div className="animate-pulse">
+                      <div className="h-6 bg-blue-200 rounded mb-2"></div>
+                      <div className="h-4 bg-blue-100 rounded w-24"></div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className={`text-xl font-bold ${chartDataPnl.sinceInceptionPnl.value >= 0 ? 'text-blue-700' : 'text-red-600'}`}>
+                        {chartDataPnl.sinceInceptionPnl.value >= 0 ? '+' : ''}₹{Math.abs(chartDataPnl.sinceInceptionPnl.value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      <div className={`text-sm font-medium ${chartDataPnl.sinceInceptionPnl.percent >= 0 ? 'text-blue-600' : 'text-red-500'}`}>
+                        {chartDataPnl.sinceInceptionPnl.percent >= 0 ? '+' : ''}{chartDataPnl.sinceInceptionPnl.percent.toFixed(2)}% return
+                      </div>
+                    </>
+                  )}
                 </div>
+              </div>
+              <div className="mt-3 text-xs text-gray-500 text-center">
+                P&L calculations are based on portfolio price history from the API
               </div>
             </div>
           

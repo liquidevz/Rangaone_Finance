@@ -305,7 +305,7 @@ export default function CartPage() {
     createCartBundleAndShowModal();
   };
 
-  const subtotal = filteredItems.reduce((sum, item) => {
+  const total = filteredItems.reduce((sum, item) => {
     let price = 0
     
     try {
@@ -336,13 +336,10 @@ export default function CartPage() {
       }
       return sum + (price * item.quantity)
     } catch (error) {
-      console.error("Error calculating subtotal:", error)
+      console.error("Error calculating total:", error)
       return sum
     }
   }, 0) || 0
-
-  const discountAmount = subtotal * discount
-  const total = subtotal - discountAmount
   const billingPeriod = subscriptionType === "yearly" ? "Yearly" : subscriptionType === "quarterly" ? "Quarterly" : "Monthly"
 
   if (loading) {
@@ -457,8 +454,8 @@ export default function CartPage() {
             </motion.div>
           ) : (
             // Enhanced Cart with Items
-            <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
-              {/* Left Side - Cart Items */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
+              {/* Cart Items and Order Summary */}
               <div className="lg:col-span-2 space-y-6">
                 {/* Modern Subscription Type Toggle */}
                 <motion.div
@@ -471,7 +468,7 @@ export default function CartPage() {
                       <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                       Billing Cycle
                     </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-3">
                       {/* Dynamically generate subscription options based on available prices */}
                       {(() => {
                         const availableOptions = [];
@@ -536,38 +533,77 @@ export default function CartPage() {
                           setSubscriptionType(availableOptions[0].key as "monthly" | "quarterly" | "yearly");
                         }
                         
-                        return availableOptions.map((option) => (
-                        <button
-                          key={option.key}
-                            onClick={() => setSubscriptionType(option.key as "monthly" | "quarterly" | "yearly")}
-                            className={`relative p-4 rounded-xl font-medium transition-all duration-200 text-center ${
-                            subscriptionType === option.key 
-                                ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transform scale-105 ring-2 ring-blue-600 ring-offset-2" 
-                                : "bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 hover:border-gray-300 hover:shadow-md"
-                          }`}
-                        >
-                          <div className="text-sm sm:text-base font-semibold">{option.label}</div>
-                          {option.badge && (
-                            <div className={`text-xs mt-1 ${
-                                subscriptionType === option.key ? "text-white/90" : "text-green-600"
-                            }`}>
-                              {option.badge}
-                            </div>
-                          )}
-                          {option.savings && subscriptionType !== option.key && (
-                            <Badge variant="secondary" className="absolute -top-2 -right-2 text-xs bg-green-100 text-green-700 border-green-200">
-                              {option.savings}
-                            </Badge>
-                          )}
-                        </button>
-                        ));
+                        const monthlyOptions = availableOptions.filter(opt => opt.key === 'monthly');
+                        const otherOptions = availableOptions.filter(opt => opt.key !== 'monthly');
+                        
+                        return (
+                          <>
+                            {/* Monthly option - full width */}
+                            {monthlyOptions.map((option) => (
+                              <button
+                                key={option.key}
+                                onClick={() => setSubscriptionType(option.key as "monthly" | "quarterly" | "yearly")}
+                                className={`relative p-2 rounded-xl font-medium transition-all duration-200 text-center ${
+                                  subscriptionType === option.key 
+                                    ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transform scale-105 ring-2 ring-blue-600 ring-offset-2" 
+                                    : "bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 hover:border-gray-300 hover:shadow-md"
+                                }`}
+                              >
+                                <div className="text-sm sm:text-base font-semibold">{option.label}</div>
+                                {option.badge && (
+                                  <div className={`text-xs mt-1 ${
+                                    subscriptionType === option.key ? "text-white/90" : "text-green-600"
+                                  }`}>
+                                    {option.badge}
+                                  </div>
+                                )}
+                                {option.savings && subscriptionType !== option.key && (
+                                  <Badge variant="secondary" className="absolute -top-2 -right-2 text-xs bg-green-100 text-green-700 border-green-200">
+                                    {option.savings}
+                                  </Badge>
+                                )}
+                              </button>
+                            ))}
+                            
+                            {/* Quarterly and Yearly options - side by side */}
+                            {otherOptions.length > 0 && (
+                              <div className="grid grid-cols-2 gap-3">
+                                {otherOptions.map((option) => (
+                                  <button
+                                    key={option.key}
+                                    onClick={() => setSubscriptionType(option.key as "monthly" | "quarterly" | "yearly")}
+                                    className={`relative p-2 rounded-xl font-medium transition-all duration-200 text-center ${
+                                      subscriptionType === option.key 
+                                        ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transform scale-105 ring-2 ring-blue-600 ring-offset-2" 
+                                        : "bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 hover:border-gray-300 hover:shadow-md"
+                                    }`}
+                                  >
+                                    <div className="text-sm sm:text-base font-semibold">{option.label}</div>
+                                    {option.badge && (
+                                      <div className={`text-xs mt-1 ${
+                                        subscriptionType === option.key ? "text-white/90" : "text-green-600"
+                                      }`}>
+                                        {option.badge}
+                                      </div>
+                                    )}
+                                    {option.savings && subscriptionType !== option.key && (
+                                      <Badge variant="secondary" className="absolute -top-2 -right-2 text-xs bg-green-100 text-green-700 border-green-200">
+                                        {option.savings}
+                                      </Badge>
+                                    )}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        );
                       })()}
                     </div>
                   </div>
                 </motion.div>
 
-                {/* Enhanced Cart Items List */}
-                <div className="space-y-4 sm:space-y-6">
+                {/* Enhanced Cart Items List - Desktop Only */}
+                <div className="hidden lg:block space-y-4 sm:space-y-6">
                   <AnimatePresence>
                     {filteredItems.map((item, index) => {
                       let price = 0
@@ -626,30 +662,32 @@ export default function CartPage() {
                         >
                           <div className="p-4 sm:p-6">
                             {/* Header with title and price */}
-                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 mb-4">
-                              <div className="flex-1 min-w-0">
-                                <h3 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">{item.portfolio.name}</h3>
-                                <div className="flex flex-wrap items-center gap-2 mt-2">
-                                  {isBundle && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      {(item.portfolio as any).category === "premium" ? "Premium" : "Basic"} Subscription
-                                    </Badge>
-                                  )}
-                                  {isAlreadyPurchased && (
-                                    <Badge variant="destructive" className="text-xs">
-                                      <Shield className="w-3 h-3 mr-1" />
-                                      Already Purchased
-                                    </Badge>
-                                  )}
-                                  <Badge variant="outline" className="text-xs">
-                                    <Shield className="w-3 h-3 mr-1" />
-                                    Secure
-                                  </Badge>
+                            <div className="flex flex-col gap-3 mb-4">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 leading-tight">{item.portfolio.name}</h3>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <div className="text-lg sm:text-xl font-bold text-gray-900">₹{price.toLocaleString('en-IN')}</div>
+                                  <div className="text-xs text-gray-500">/ {period} (incl. taxes)</div>
                                 </div>
                               </div>
-                              <div className="text-right shrink-0">
-                                <div className="text-xl sm:text-2xl font-bold text-gray-900">₹ {price.toLocaleString('en-IN')}</div>
-                                <div className="text-xs sm:text-sm text-gray-500">/ {period}</div>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {isBundle && (
+                                  <Badge variant="secondary" className="text-xs px-2 py-0.5">
+                                    {(item.portfolio as any).category === "premium" ? "Premium" : "Basic"} Subscription
+                                  </Badge>
+                                )}
+                                {isAlreadyPurchased && (
+                                  <Badge variant="destructive" className="text-xs px-2 py-0.5">
+                                    <Shield className="w-3 h-3 mr-1" />
+                                    Already Purchased
+                                  </Badge>
+                                )}
+                                <Badge variant="outline" className="text-xs px-2 py-0.5">
+                                  <Shield className="w-3 h-3 mr-1" />
+                                  Secure
+                                </Badge>
                               </div>
                             </div>
 
@@ -754,16 +792,14 @@ export default function CartPage() {
                             )}
 
                             {/* Bottom controls */}
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 pt-4 border-t border-gray-100">
-                              <div className="flex items-center gap-3">
-                                {/* No quantity controls - portfolios are single purchase only */}
-                                <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                            <div className="flex items-center justify-between gap-3 pt-3 border-t border-gray-100">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
                                   {isBundle ? "Subscription Plan" : "Single Purchase"}
                                 </span>
-
-                                <div className="text-sm font-medium text-gray-900">
+                                <span className="text-xs font-medium text-gray-700">
                                   Price: ₹{price.toLocaleString('en-IN')}
-                                </div>
+                                </span>
                               </div>
 
                               {/* Remove button */}
@@ -771,11 +807,11 @@ export default function CartPage() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => removeItem(item.portfolio._id)}
-                                className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded-lg transition-colors flex items-center gap-1"
                                 disabled={isUpdating}
                               >
-                                <Trash2 className="w-4 h-4" />
-                                <span className="ml-1 text-xs">Remove</span>
+                                <Trash2 className="w-3 h-3" />
+                                <span className="text-xs">Remove</span>
                               </Button>
                             </div>
                           </div>
@@ -785,12 +821,232 @@ export default function CartPage() {
                   </AnimatePresence>
                 </div>
 
+                {/* Order Summary - Mobile Only */}
+                <div className="lg:hidden">
+                  <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm rounded-2xl overflow-hidden">
+                    <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200/50">
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <CreditCard className="h-5 w-5 text-blue-600" />
+                        Order Summary
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 space-y-4">
+                      {/* Discount Coupon */}
+                      <div>
+                        <Label className="text-sm font-semibold mb-3 block text-gray-900 flex items-center gap-2">
+                          <Tag className="w-4 h-4" />
+                          DISCOUNT COUPON
+                        </Label>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Enter coupon code"
+                            value={couponCode}
+                            onChange={(e) => setCouponCode(e.target.value)}
+                            className="flex-1 rounded-lg border-gray-300 text-sm"
+                          />
+                          <Button onClick={applyCoupon} variant="outline" className="rounded-lg border-gray-300 text-sm px-3">
+                            Apply
+                          </Button>
+                        </div>
+                        {appliedCoupon && (
+                          <div className="flex items-center justify-between mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                            <span className="text-sm text-green-700 font-medium">Coupon "{appliedCoupon}" applied</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={removeCoupon}
+                              className="text-red-500 hover:text-red-700 p-1"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
+                        <p className="text-xs text-gray-500 mt-2">
+                          Coupon system coming soon via backend integration
+                        </p>
+                      </div>
 
+                      <Separator />
+
+                      {/* Cart Items - Mobile View */}
+                      <div>
+                        <h3 className="font-semibold mb-3 text-gray-900 text-sm">Cart Items</h3>
+                        <div className="space-y-3">
+                          <AnimatePresence>
+                            {filteredItems.map((item, index) => {
+                              let price = 0
+                              let period = ""
+                              const isBundle = bundleService.isBundle(item)
+                              
+                              try {
+                                if (isBundle) {
+                                  switch (subscriptionType) {
+                                    case "yearly":
+                                      price = bundleService.getBundlePrice(item.portfolio, "yearly")
+                                      period = "Yearly"
+                                      break
+                                    case "quarterly":
+                                      price = bundleService.getBundlePrice(item.portfolio, "quarterly")
+                                      period = "Quarterly"
+                                      break
+                                    default:
+                                      price = bundleService.getBundlePrice(item.portfolio, "monthly")
+                                      period = "Monthly"
+                                      break
+                                  }
+                                } else {
+                                  switch (subscriptionType) {
+                                    case "yearly":
+                                      price = (item.portfolio as any).yearlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "yearly")?.price || 0
+                                      period = "Yearly"
+                                      break
+                                    case "quarterly":
+                                      price = (item.portfolio as any).quarterlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "quarterly")?.price || 0
+                                      period = "Quarterly"
+                                      break
+                                    default:
+                                      price = (item.portfolio as any).monthlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "monthly")?.price || 0
+                                      period = "Monthly"
+                                      break
+                                  }
+                                }
+                              } catch (error) {
+                                console.error("Error calculating price:", error)
+                                price = 0
+                                period = "Monthly"
+                              }
+
+                              const isAlreadyPurchased = activatedPortfolioIds.includes(item.portfolio._id)
+
+                              return (
+                                <motion.div
+                                  key={item._id}
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: -10 }}
+                                  className="p-3 bg-gray-50 rounded-lg border border-gray-100"
+                                >
+                                  <div className="flex justify-between items-center gap-3 mb-2">
+                                    <button
+                                      onClick={() => setExpandedItems(prev => ({
+                                        ...prev,
+                                        [item.portfolio._id]: !prev[item.portfolio._id]
+                                      }))}
+                                      className="flex items-center gap-2 flex-1 min-w-0 text-left hover:text-blue-600 transition-colors"
+                                    >
+                                      <div className="font-medium text-gray-900 text-sm overflow-hidden whitespace-nowrap max-w-[120px]">
+                                        <div className="animate-marquee hover:animation-paused">{item.portfolio.name}</div>
+                                      </div>
+                                      <motion.div
+                                        animate={{ rotate: expandedItems[item.portfolio._id] ? 180 : 0 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="shrink-0"
+                                      >
+                                        <ChevronDown className="w-3 h-3 text-gray-400" />
+                                      </motion.div>
+                                    </button>
+                                    <div className="flex items-center gap-2">
+                                      <div className="text-right">
+                                        <div className="font-bold text-gray-900 text-sm">₹{price.toLocaleString('en-IN')}</div>
+                                        <div className="text-xs text-gray-500">/ {period} (incl. taxes)</div>
+                                      </div>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => removeItem(item.portfolio._id)}
+                                        className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded shrink-0"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-1 mb-2">
+                                    {isBundle && (
+                                      <Badge variant="secondary" className="text-xs px-1.5 py-0.5">
+                                        {(item.portfolio as any).category === "premium" ? "Premium" : "Basic"}
+                                      </Badge>
+                                    )}
+                                    {isAlreadyPurchased && (
+                                      <Badge variant="destructive" className="text-xs px-1.5 py-0.5">
+                                        Already Purchased
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <div className="space-y-2">
+                                    <AnimatePresence>
+                                      {expandedItems[item.portfolio._id] && (
+                                        <motion.div
+                                          initial={{ height: 0, opacity: 0 }}
+                                          animate={{ height: "auto", opacity: 1 }}
+                                          exit={{ height: 0, opacity: 0 }}
+                                          transition={{ duration: 0.3 }}
+                                          className="overflow-hidden"
+                                        >
+                                          <div className="p-2 bg-white border border-gray-100 rounded text-xs">
+                                            {portfolioDescriptions[item.portfolio._id] ? (
+                                              <div 
+                                                className="text-gray-700 prose prose-xs max-w-none [&>p]:m-0 [&>p]:leading-relaxed"
+                                                dangerouslySetInnerHTML={{ __html: portfolioDescriptions[item.portfolio._id] }}
+                                              />
+                                            ) : (
+                                              <p className="text-gray-500 italic">No description available</p>
+                                            )}
+                                          </div>
+                                        </motion.div>
+                                      )}
+                                    </AnimatePresence>
+                                    
+
+                                  </div>
+                                </motion.div>
+                              )
+                            })}
+                          </AnimatePresence>
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      {/* Total */}
+                      <div className="space-y-3">
+                        <div className="flex justify-between font-bold text-lg">
+                          <span className="text-gray-900">Total Amount ({cartItemCount} Items)</span>
+                          <span className="text-blue-600">₹{total.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="text-xs text-gray-500 text-center">Billed {billingPeriod.toLowerCase()} • Prices inclusive of all taxes</div>
+                      </div>
+
+                      <Button
+                        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={handleDirectCheckout}
+                        disabled={updatingQuantity !== null || syncing || !!error}
+                      >
+                        <CreditCard className="w-5 h-5 mr-3" />
+                        {updatingQuantity ? "Updating Cart..." : 
+                         syncing ? "Syncing Cart..." :
+                         error ? "Error - Please Refresh" :
+                         "Proceed to Checkout"}
+                      </Button>
+                      
+                      {!isAuthenticated && (
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500 mb-2">
+                            Sign in or create an account to complete your purchase
+                          </p>
+                          <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
+                            <Shield className="w-3 h-3" />
+                            <span>Secure checkout with 256-bit SSL encryption</span>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
 
               </div>
 
-              {/* Enhanced Right Side - Order Summary */}
-              <div className="lg:col-span-1">
+              {/* Order Summary - Desktop Only */}
+              <div className="hidden lg:block lg:col-span-1">
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -927,7 +1183,7 @@ export default function CartPage() {
                                     )}
                                   </div>
                                   <div className="text-gray-600 text-xs">
-                                    ₹{price.toLocaleString('en-IN')} / {period}
+                                    ₹{price.toLocaleString('en-IN')} / {period} (incl. taxes)
                                   </div>
                                 </div>
                                 <div className="font-semibold text-gray-900 text-sm">₹{price.toLocaleString('en-IN')}</div>
@@ -939,28 +1195,13 @@ export default function CartPage() {
 
                       <Separator />
 
-                      {/* Enhanced Totals */}
+                      {/* Total */}
                       <div className="space-y-3">
-                        <div className="flex justify-between text-sm sm:text-base">
-                          <span className="text-gray-700">Subtotal ({cartItemCount} Items)</span>
-                          <span className="font-medium">₹{subtotal.toLocaleString('en-IN')}</span>
-                        </div>
-
-                        {discount > 0 && (
-                          <div className="flex justify-between text-green-600 text-sm">
-                            <span>Discount ({(discount * 100).toFixed(0)}%)</span>
-                            <span>-₹{discountAmount.toLocaleString('en-IN')}</span>
-                          </div>
-                        )}
-
-                        <Separator />
-
                         <div className="flex justify-between font-bold text-lg sm:text-xl">
-                          <span className="text-gray-900">Total Amount</span>
+                          <span className="text-gray-900">Total Amount ({cartItemCount} Items)</span>
                           <span className="text-blue-600">₹{total.toLocaleString('en-IN')}</span>
                         </div>
-
-                        <div className="text-xs text-gray-500 text-center">Billed {billingPeriod.toLowerCase()}</div>
+                        <div className="text-xs text-gray-500 text-center">Billed {billingPeriod.toLowerCase()} • Prices inclusive of all taxes</div>
                       </div>
 
                       <Button
