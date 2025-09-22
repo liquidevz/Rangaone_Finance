@@ -504,21 +504,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                       />
                     </div>
 
-                    <Button
-                      onClick={() => {
-                        if (isAuthenticated && user) {
-                          setStep("processing");
-                          setProcessing(true);
-                          setProcessingMsg("Checking profile...");
-                          handlePaymentFlow();
-                        } else {
-                          setStep("auth");
-                        }
-                      }}
-                      className="w-full bg-[#001633] hover:bg-[#002244] text-white py-3"
-                    >
-                      {isAuthenticated ? "Continue to Payment" : "Proceed to Payment"}
-                    </Button>
+
                   </div>
                 )}
 
@@ -604,27 +590,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex gap-3">
-                      <Button
-                        onClick={() => setStep("plan")}
-                        variant="outline"
-                        className="flex-1"
-                      >
-                        Back to Plan
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          setStep("processing");
-                          setProcessing(true);
-                          setProcessingMsg("Creating order...");
-                          handlePaymentFlow();
-                        }}
-                        className="flex-1 bg-[#001633] hover:bg-[#002244] text-white"
-                      >
-                        Proceed to Verification
-                      </Button>
-                    </div>
+
                     
 
                   </div>
@@ -918,6 +884,50 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Footer - Fixed */}
+            <div className="p-4 sm:p-6 border-t bg-white flex-shrink-0">
+              {step === "plan" && (
+                <Button
+                  onClick={() => {
+                    if (isAuthenticated && user) {
+                      setStep("processing");
+                      setProcessing(true);
+                      setProcessingMsg("Checking profile...");
+                      handlePaymentFlow();
+                    } else {
+                      setStep("auth");
+                    }
+                  }}
+                  className="w-full bg-[#001633] hover:bg-[#002244] text-white py-3"
+                >
+                  {isAuthenticated ? "Continue to Payment" : "Proceed to Payment"}
+                </Button>
+              )}
+              
+              {step === "consent" && (
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => setStep("plan")}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Back to Plan
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setStep("processing");
+                      setProcessing(true);
+                      setProcessingMsg("Creating order...");
+                      handlePaymentFlow();
+                    }}
+                    className="flex-1 bg-[#001633] hover:bg-[#002244] text-white"
+                  >
+                    Proceed to Verification
+                  </Button>
+                </div>
+              )}
             </div>
           </motion.div>
         </motion.div>

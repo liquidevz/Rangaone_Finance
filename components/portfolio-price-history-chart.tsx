@@ -241,15 +241,7 @@ export default function PortfolioPriceHistoryChart({
                   tick={{ fontSize: 12, fill: '#666' }}
                   tickFormatter={(value) => `${value.toFixed(1)}%`}
                 />
-                <Line
-                  type="monotone"
-                  dataKey={() => 0}
-                  stroke="#e5e7eb"
-                  strokeWidth={1}
-                  strokeDasharray="2 2"
-                  dot={false}
-                  activeDot={false}
-                />
+
                 <Tooltip
                   contentStyle={{
                     backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -258,9 +250,9 @@ export default function PortfolioPriceHistoryChart({
                     boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
                     backdropFilter: 'blur(8px)'
                   }}
-                  formatter={(value: any, name: string) => [
+                  formatter={(value: any, name: string, props: any) => [
                     `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(2)}%`,
-                    name === 'portfolioValue' ? portfolioName : benchmarkName
+                    props.dataKey === 'portfolioValue' ? portfolioName : benchmarkName
                   ]}
                   labelStyle={{ color: '#1f2937', fontWeight: '600', fontSize: '14px' }}
                 />

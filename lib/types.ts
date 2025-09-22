@@ -51,6 +51,16 @@ export interface Holding {
   allocatedAmount?: number;
 }
 
+export interface SaleHistory {
+  symbol: string;
+  soldDate: string;
+  originalQuantity: number;
+  salePrice: number;
+  saleValue: number;
+  profitLoss: number;
+  originalBuyPrice: number;
+}
+
 export interface DownloadLink {
   link: string;
   createdAt: string;

@@ -725,13 +725,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                                   : "Special offer";
                               })()}
                             </span>
-                            <span className="underline text-xs">
-                              View terms
-                            </span>
                           </div>
                           <div className="pt-9 sm:pt-10" />
                           <div className="font-semibold text-base sm:text-lg md:text-xl">
-                            Annual, <br></br>billed monthly
+                            Annual, billed monthly
                           </div>
                           <div className="text-xs sm:text-sm text-gray-600 line-through">
                             ₹
@@ -777,9 +774,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                                   ? `${pct}% off the first year`
                                   : "Best value";
                               })()}
-                            </span>
-                            <span className="underline text-xs">
-                              View terms
                             </span>
                           </div>
                           <div className="pt-9 sm:pt-10" />
@@ -894,12 +888,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     />
                   </div>
 
-                  <Button
-                    onClick={handleProceed}
-                    className="w-full bg-[#001633] hover:bg-[#002244] text-white py-3"
-                  >
-                    {isAuthenticated ? "Continue to Payment" : "Proceed to Payment"}
-                  </Button>
+
                 </div>
               )}
 
@@ -943,22 +932,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
                   {/* Consent Checkbox */}
 
-                  {/* Action Buttons */}
-                  <div className="flex gap-3">
-                    <Button
-                      onClick={() => setStep("plan")}
-                      variant="outline"
-                      className="flex-1"
-                    >
-                      Back to Plan
-                    </Button>
-                    <Button
-                      onClick={proceedAfterVideo}
-                      className="flex-1 bg-[#001633] hover:bg-[#002244] text-white disabled:bg-gray-300 disabled:cursor-not-allowed"
-                    >
-                      Proceed to Verification
-                    </Button>
-                  </div>
+
                 </div>
               )}
 
@@ -1450,6 +1424,36 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 </div>
               )}
               </div>
+            </div>
+
+            {/* Footer - Fixed */}
+            <div className="p-4 sm:p-6 border-t bg-white flex-shrink-0">
+              {step === "plan" && (
+                <Button
+                  onClick={handleProceed}
+                  className="w-full bg-[#001633] hover:bg-[#002244] text-white py-3"
+                >
+                  {isAuthenticated ? "Continue to Payment" : "Proceed to Payment"}
+                </Button>
+              )}
+              
+              {step === "consent" && (
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => setStep("plan")}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Back to Plan
+                  </Button>
+                  <Button
+                    onClick={proceedAfterVideo}
+                    className="flex-1 bg-[#001633] hover:bg-[#002244] text-white"
+                  >
+                    Proceed to Verification
+                  </Button>
+                </div>
+              )}
             </div>
           </motion.div>
         </motion.div>

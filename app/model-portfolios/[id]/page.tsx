@@ -434,6 +434,10 @@ export default function PortfolioDetailsPage() {
     const name = safeString(value);
     const withoutPortfolio = name.replace(/\bportfolio\b/gi, '').trim();
     const firstWord = withoutPortfolio.split(/\s+/)[0] || withoutPortfolio;
+    // Don't return NIFTY as portfolio name - use the actual portfolio name
+    if (firstWord.toUpperCase() === 'NIFTY') {
+      return withoutPortfolio || name;
+    }
     return firstWord;
   };
 
@@ -1480,7 +1484,7 @@ export default function PortfolioDetailsPage() {
         {/* Enhanced Returns Graph */}
         <PortfolioPriceHistoryChart 
           portfolioId={portfolioId}
-          portfolioName={getDisplayTitle(portfolio.name)}
+          portfolioName={safeString(portfolio.name)}
           benchmarkName={safeString((portfolio as any)?.compareWith || (portfolio as any)?.index || 'NIFTY 50')}
           className="mb-4 sm:mb-6"
         />
@@ -1585,8 +1589,8 @@ export default function PortfolioDetailsPage() {
                               <div>
                                 <span className="text-gray-600 font-medium">Action:</span>
                                 <div className="text-gray-800">
-                                  <span className={`px-1 py-0.5 rounded text-xs font-medium ${getStatusColorScheme(holding.status || 'FRESH-BUY')}`}>
-                                    {holding.status?.toUpperCase() || 'FRESH-BUY'}
+                                  <span className={`px-1 py-0.5 rounded text-xs font-medium ${getStatusColorScheme(holding.status?.toUpperCase())}`}>
+                                    {holding.status?.toUpperCase()}
                                   </span>
                                 </div>
                               </div>
@@ -1622,6 +1626,32 @@ export default function PortfolioDetailsPage() {
                   </td>
                 </tr>
                   )}
+                  {/* Sale History Rows */}
+                  {portfolio.saleHistory && portfolio.saleHistory.map((sale, index) => {
+                    const profitPercent = sale.originalBuyPrice > 0 ? 
+                      ((sale.salePrice - sale.originalBuyPrice) / sale.originalBuyPrice * 100) : 0;
+                    
+                    return (
+                      <tr key={`sale-${index}`} className="bg-red-50 border-t-2 border-red-200">
+                        <td className="px-2 py-2">
+                          <div className="font-medium text-red-600">{sale.symbol} (SOLD)</div>
+                          <div className="text-gray-500 text-xs">{new Date(sale.soldDate).toLocaleDateString()}</div>
+                        </td>
+                        <td className="px-2 py-2 text-center text-gray-700">Sold</td>
+                        <td className="px-2 py-2 text-center font-medium">-</td>
+                        <td className="px-2 py-2 text-center">
+                          <div className="inline-block font-medium px-2 py-1 rounded bg-red-500 text-white text-xs">
+                            ₹{sale.salePrice.toFixed(2)}
+                          </div>
+                          <div className={`text-xs mt-1 ${
+                            profitPercent >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {profitPercent >= 0 ? '+' : ''}{profitPercent.toFixed(2)}%
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1671,8 +1701,8 @@ export default function PortfolioDetailsPage() {
                       </td>
                       <td className="px-2 py-2 text-center font-medium">{holding.weight.toFixed(2)}%</td>
                       <td className="px-2 py-2 text-center">
-                        <span className={`px-1 py-0.5 rounded text-xs font-medium ${getStatusColorScheme(holding.status || 'FRESH-BUY')}`}>
-                          {holding.status?.toUpperCase() || 'FRESH-BUY'}
+                        <span className={`px-1 py-0.5 rounded text-xs font-medium ${getStatusColorScheme(holding.status?.toUpperCase())}`}>
+                          {holding.status?.toUpperCase()}
                         </span>
                   </td>
                       <td className="px-2 py-2 text-center">
@@ -1729,6 +1759,53 @@ export default function PortfolioDetailsPage() {
                   </td>
                 </tr>
                   )}
+                  {/* Sale History Rows */}
+                  {portfolio.saleHistory && portfolio.saleHistory.map((sale, index) => {
+                    const profitPercent = sale.originalBuyPrice > 0 ? 
+                      ((sale.salePrice - sale.originalBuyPrice) / sale.originalBuyPrice * 100) : 0;
+                    
+                    return (
+                      <tr key={`sale-${index}`} className="bg-red-50 border-t-2 border-red-200">
+                        <td className="px-2 py-2">
+                          <div className="font-medium text-red-600">{sale.symbol} (SOLD)</div>
+                          <div className="text-gray-500 text-xs">NSE : {sale.symbol}</div>
+                        </td>
+                        <td className="px-2 py-2 text-center font-medium">
+                          ₹{sale.originalBuyPrice.toFixed(2)}
+                        </td>
+                        <td className="px-2 py-2 text-center font-medium">-</td>
+                        <td className="px-2 py-2 text-center">
+                          <span className="px-1 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">
+                            SOLD
+                          </span>
+                        </td>
+                        <td className="px-2 py-2 text-center">
+                          <div className="inline-block font-medium px-2 py-1 rounded bg-red-500 text-white text-xs">
+                            ₹{sale.salePrice.toFixed(2)}
+                          </div>
+                          <div className={`text-xs mt-1 ${
+                            profitPercent >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {profitPercent >= 0 ? '+' : ''}{profitPercent.toFixed(2)}%
+                          </div>
+                        </td>
+                        <td className="px-2 py-2 text-center font-medium">{sale.originalQuantity}</td>
+                        <td className="px-2 py-2 text-center font-medium">
+                          ₹{(sale.originalBuyPrice * sale.originalQuantity).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-2 py-2 text-center font-medium">
+                          ₹{sale.saleValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-2 py-2 text-center">
+                          <span className={`font-medium ${
+                            sale.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {sale.profitLoss >= 0 ? '+' : ''}{profitPercent.toFixed(2)}%
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
             </table>
           </div>
