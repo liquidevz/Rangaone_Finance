@@ -118,6 +118,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       
+      // Clear all caches before login
+      const { subscriptionService } = await import('@/services/subscription.service');
+      subscriptionService.clearCache();
+      
+      // Clear localStorage and sessionStorage
+      localStorage.clear();
+      sessionStorage.clear();
+      
       // Call login API
       const response = await authService.login({ identifier, password });
       
@@ -152,6 +160,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       // Call logout API and clear tokens
       await authService.logout();
+      
+      // Clear all caches and storage
+      const { subscriptionService } = await import('@/services/subscription.service');
+      subscriptionService.clearCache();
+      
+      // Clear localStorage and sessionStorage
+      localStorage.clear();
+      sessionStorage.clear();
       
       // Clear state
       setUser(null);

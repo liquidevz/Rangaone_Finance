@@ -292,6 +292,11 @@ export const authService = {
       sessionStorage.removeItem("accessToken");
       sessionStorage.removeItem("refreshToken");
 
+      // Clear all cookies
+      document.cookie.split(";").forEach(function(c) { 
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+      });
+
       // Clear axios default headers
       delete axiosApi.defaults.headers.common["Authorization"];
     }

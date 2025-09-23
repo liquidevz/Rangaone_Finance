@@ -364,31 +364,64 @@ export const subscriptionService = {
     }
 
     try {
-      const response = await get<UserSubscriptionsResponse>("/api/user/subscriptions", {
+      const response = await get<any>("/api/user/subscriptions", {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      // Extract subscriptions and access data from the API response
-      const bundleSubscriptions = response.bundleSubscriptions || [];
-      const individualSubscriptions = response.individualSubscriptions || [];
-      const subscriptions = [...bundleSubscriptions, ...individualSubscriptions];
-      
-      // Use the accessData directly from the API response
-      const accessData: SubscriptionAccess = response.accessData || {
-        hasBasic: false,
-        hasPremium: false,
-        portfolioAccess: [],
-        subscriptionType: 'none'
-      };
+      // Handle new API response format
+      let subscriptions: UserSubscription[] = [];
+      let accessData: SubscriptionAccess;
+
+      if (response.subscriptions) {
+        // New format with subscriptions.eMandate and subscriptions.individual
+        const eMandateSubscriptions = response.subscriptions.eMandate || [];
+        const individualSubscriptions = response.subscriptions.individual || [];
+        subscriptions = [...eMandateSubscriptions, ...individualSubscriptions];
+        
+        // Extract portfolio IDs from portfolio_access
+        const portfolioAccess = (response.portfolio_access || []).map((p: any) => p._id);
+        
+        // Check for god mode - ONLY grant if explicitly true
+        const isGodMode = response.godMode === true;
+        
+        console.log('🔍 API Response Debug:', {
+          godMode: response.godMode,
+          isGodMode,
+          portfolio_access_count: response.portfolio_access?.length,
+          portfolio_ids: portfolioAccess,
+          has_basic: response.has_basic,
+          premium_features: response.premium_features
+        });
+        
+        accessData = {
+          hasBasic: isGodMode ? true : (response.has_basic || false),
+          hasPremium: isGodMode ? true : (response.premium_features || false),
+          portfolioAccess,
+          subscriptionType: isGodMode ? 'premium' : (response.premium_features ? 'premium' : (response.has_basic ? 'basic' : 'none'))
+        };
+        
+        console.log('🎯 Final Access Data:', accessData);
+      } else {
+        // Old format fallback
+        const bundleSubscriptions = response.bundleSubscriptions || [];
+        const individualSubscriptions = response.individualSubscriptions || [];
+        subscriptions = [...bundleSubscriptions, ...individualSubscriptions];
+        
+        accessData = response.accessData || {
+          hasBasic: false,
+          hasPremium: false,
+          portfolioAccess: [],
+          subscriptionType: 'none'
+        };
+      }
       
       this._subscriptionCache = subscriptions;
       this._accessCache = accessData;
       this._cacheExpiry = now + 60000; // 1 minute cache
       
       console.log('🎯 Access data from /api/user/subscriptions API:', accessData);
-      console.log('🔑 Dynamic portfolioAccess array from API (NO HARDCODED IDs):', accessData.portfolioAccess);
-      console.log('📊 User subscription type:', accessData.subscriptionType);
-      console.log('✅ This data is fetched dynamically for each user from the backend');
+      console.log('🔑 Portfolio access array:', accessData.portfolioAccess);
+      console.log('👑 God mode:', response.godMode);
       
       return { subscriptions, accessData };
     } catch (error) {
@@ -413,16 +446,14 @@ export const subscriptionService = {
 
   async hasPortfolioAccess(portfolioId: string): Promise<boolean> {
     const access = await this.getSubscriptionAccess();
-    // Access is STRICTLY based on portfolioAccess array only
-    // Even if hasPremium is true, only portfolios in the array are accessible
     const hasAccess = access.portfolioAccess.includes(portfolioId);
     
     console.log(`🔍 Portfolio access check for ID "${portfolioId}":`, {
       portfolioId,
       portfolioAccessArray: access.portfolioAccess,
       isInArray: hasAccess,
-      arrayLength: access.portfolioAccess.length,
-      note: "This check is PURELY dynamic - no hardcoded IDs"
+      hasBasic: access.hasBasic,
+      hasPremium: access.hasPremium
     });
     
     return hasAccess;
@@ -436,6 +467,12 @@ export const subscriptionService = {
   async hasPremiumAccess(): Promise<boolean> {
     const access = await this.getSubscriptionAccess();
     return access.hasPremium;
+  },
+
+  async isGodMode(): Promise<boolean> {
+    const { subscriptions, accessData } = await this.getUserSubscriptions();
+    // Check if user has god mode access
+    return accessData.subscriptionType === 'premium' && accessData.hasBasic && accessData.hasPremium && accessData.portfolioAccess.length > 0;
   },
 
   // Check if user can access tips (requires premium subscription)
