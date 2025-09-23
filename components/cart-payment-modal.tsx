@@ -117,20 +117,20 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
 
   const handleDigioComplete = async () => {
     setShowDigio(false);
+    setStep("processing");
+    setProcessing(true);
+    setProcessingMsg("Verifying digital signature...");
     
-    // Verify cart eSign completion when user clicks "I'm Done"
     try {
-      setStep("processing");
-      setProcessing(true);
-      setProcessingMsg("Verifying digital signature...");
-      
       const cartId = cart?._id && cart._id !== "local" ? cart._id : undefined;
       const eSignStatus = await paymentService.verifyCartESignCompletion(cartId);
+      
       if (!eSignStatus.success) {
-        throw new Error("eSign verification failed: " + eSignStatus.message);
+        throw new Error(eSignStatus.message || "eSign verification failed");
       }
       
-      await continueAfterDigio();
+      setProcessingMsg("Proceeding to payment...");
+      await handleEmandatePaymentFlow();
     } catch (error: any) {
       setStep("error");
       setProcessing(false);
@@ -259,13 +259,17 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
             setStep("success");
             setProcessing(false);
             paymentFlowState.clear();
-            onPaymentSuccess();
-            toast({ 
-              title: "Payment Successful", 
-              description: (verify as any)?.isCartEmandate 
-                ? `${(verify as any)?.activatedSubscriptions || cartItems.length} subscriptions activated successfully!`
-                : "Subscription activated" 
-            });
+            
+            // Prevent any redirects - stay in modal
+            setTimeout(() => {
+              onPaymentSuccess();
+              toast({ 
+                title: "Payment Successful", 
+                description: (verify as any)?.isCartEmandate 
+                  ? `${(verify as any)?.activatedSubscriptions || cartItems.length} subscriptions activated successfully!`
+                  : "Subscription activated" 
+              });
+            }, 100);
           } else {
             setStep("error");
             setProcessing(false);
@@ -724,9 +728,12 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                       Your portfolio subscription has been activated successfully!
                     </p>
                     <Button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                         handleClose();
-                        router.push("/dashboard");
+                        // Use replace to prevent back navigation to payment
+                        window.location.replace("/dashboard");
                       }}
                       className="w-full bg-green-600 hover:bg-green-700 mb-4"
                     >
