@@ -165,56 +165,41 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
   const handlePaymentFlow = async () => {
     console.log("🚀 Starting cart payment flow");
     
-    // Step 1: Check PAN details first
-    const panCheck = await paymentService.checkPanDetails();
-    if (!panCheck.hasPan) {
-      const dobFromProfile = panCheck.profile?.dateOfBirth || panCheck.profile?.dateofBirth;
-      const dobFromUser = (user as any)?.dateOfBirth || (user as any)?.dateofBirth;
-      let finalDob = dobFromProfile || dobFromUser || "";
-      
-      if (finalDob && finalDob.includes('T')) {
-        finalDob = finalDob.split('T')[0];
+    try {
+      // Step 1: Check PAN details first
+      const panCheck = await paymentService.checkPanDetails();
+      if (!panCheck.hasPan) {
+        const dobFromProfile = panCheck.profile?.dateOfBirth || panCheck.profile?.dateofBirth;
+        const dobFromUser = (user as any)?.dateOfBirth || (user as any)?.dateofBirth;
+        let finalDob = dobFromProfile || dobFromUser || "";
+        
+        if (finalDob && finalDob.includes('T')) {
+          finalDob = finalDob.split('T')[0];
+        }
+        
+        setPanFormData({
+          fullName: panCheck.profile?.fullName || (user as any)?.fullName || "",
+          dateofBirth: finalDob,
+          phone: panCheck.profile?.phone || (user as any)?.phone || "",
+          pandetails: ""
+        });
+        setStep("pan-form");
+        setProcessing(false);
+        return;
       }
       
-      setPanFormData({
-        fullName: panCheck.profile?.fullName || (user as any)?.fullName || "",
-        dateofBirth: finalDob,
-        phone: panCheck.profile?.phone || (user as any)?.phone || "",
-        pandetails: ""
-      });
-      setStep("pan-form");
-      setProcessing(false);
-      return;
-    }
-    
-    // Step 2: Proceed with payment flow
-    setStep("processing");
-    setProcessing(true);
-    
-    try {
+      // Step 2: Proceed with payment flow
+      setStep("processing");
+      setProcessing(true);
       setProcessingMsg("Creating order...");
       
       // Always use eMandate flow for cart payments
       await handleEmandatePaymentFlow();
     } catch (error: any) {
       // Check for eSign requirement
-      if (error.response?.data?.success === false && error.response?.data?.error?.code === 'ESIGN_REQUIRED') {
+      if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_REQUIRED') {
         console.log("🔍 eSign required - showing Digio verification");
-        const data: PaymentAgreementData = {
-          customerName: (user as any)?.fullName || user?.username || "User",
-          customerEmail: user?.email || "user@example.com",
-          customerMobile: user?.phone,
-          amount: total,
-          subscriptionType: subscriptionType,
-          portfolioNames: cartItems.map(item => item.portfolio.name),
-          agreementDate: new Date().toLocaleDateString("en-IN"),
-          productType: "Portfolio",
-          productId: "cart",
-          productName: `Portfolio Cart (${cartItems.length} items)`,
-        } as any;
-        
-        setAgreementData(data);
-        setShowDigio(true);
+        startDigioFlow();
         setProcessing(false);
         return;
       }
@@ -295,23 +280,9 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
       );
     } catch (error: any) {
       // Check for eSign requirement for eMandate
-      if (error.response?.data?.success === false && error.response?.data?.error?.code === 'ESIGN_REQUIRED') {
+      if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_REQUIRED') {
         console.log("🔍 eSign required for eMandate - showing Digio verification");
-        const data: PaymentAgreementData = {
-          customerName: (user as any)?.fullName || user?.username || "User",
-          customerEmail: user?.email || "user@example.com",
-          customerMobile: user?.phone,
-          amount: total,
-          subscriptionType: subscriptionType,
-          portfolioNames: cartItems.map(item => item.portfolio.name),
-          agreementDate: new Date().toLocaleDateString("en-IN"),
-          productType: "Portfolio",
-          productId: "cart",
-          productName: `Portfolio Cart (${cartItems.length} items)`,
-        } as any;
-        
-        setAgreementData(data);
-        setShowDigio(true);
+        startDigioFlow();
         setProcessing(false);
         return;
       }
@@ -331,75 +302,16 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
       cancelRequested.current = false;
       setStep("processing");
       setProcessing(true);
-      setProcessingMsg("Verifying digital signature...");
+      setProcessingMsg("Proceeding to payment after verification...");
 
-      // Skip eSign verification - proceed directly to eMandate
-
-      // Always use eMandate flow for cart payments
-      console.log("🔍 Starting eMandate flow after Digio verification");
-      console.log("🔍 CART MODAL - Current subscriptionType after Digio:", subscriptionType);
-      setProcessingMsg("Creating eMandate…");
-      
-      const cartEmandatePayload = {
-        ...(cart?._id && cart._id !== "local" && { cartId: cart._id }),
-        interval: subscriptionType,
-        ...(appliedCoupon && { couponCode: appliedCoupon.code }),
-      };
-      
-      console.log("🔍 CART MODAL - Cart Emandate payload after Digio:", JSON.stringify(cartEmandatePayload, null, 2));
-
-      const emandate = await paymentService.createCartEmandate(cartEmandatePayload);
-
-      if (cancelRequested.current) {
-        setProcessing(false);
-        setStep("consent");
-        return;
-      }
-
-      setProcessingMsg("Opening payment gateway…");
-      await paymentService.openCheckout(
-        emandate,
-        {
-          name: (user as any)?.fullName || user?.username || "User",
-          email: user?.email || "user@example.com",
-        },
-        async () => {
-          setProcessingMsg("Verifying payment…");
-          const verify = await paymentService.verifyEmandateWithRetry(emandate.subscriptionId);
-
-          if (verify.success || ["active", "authenticated"].includes((verify as any).subscriptionStatus || "")) {
-            const links = (verify as any)?.telegramInviteLinks;
-            if (links && Array.isArray(links) && links.length > 0) {
-              setTelegramLinks(links);
-            }
-            setStep("success");
-            setProcessing(false);
-            paymentFlowState.clear();
-            onPaymentSuccess();
-            toast({ 
-              title: "Payment Successful", 
-              description: (verify as any)?.isCartEmandate 
-                ? `${(verify as any)?.activatedSubscriptions || cartItems.length} subscriptions activated successfully!`
-                : "Subscription activated" 
-            });
-          } else {
-            setStep("error");
-            setProcessing(false);
-            toast({ title: "Verification Failed", description: verify.message || "Please try again", variant: "destructive" });
-          }
-        },
-        (err) => {
-          setStep("error");
-          setProcessing(false);
-          toast({ title: "Payment Cancelled", description: err?.message || "Payment was cancelled", variant: "destructive" });
-        }
-      );
+      // Proceed directly to eMandate creation after Digio completion
+      await handleEmandatePaymentFlow();
     } catch (error: any) {
       setStep("error");
       setProcessing(false);
       toast({
         title: "Checkout Error",
-        description: error?.message || "Could not start checkout",
+        description: error?.message || "Could not start checkout after verification",
         variant: "destructive",
       });
     }
