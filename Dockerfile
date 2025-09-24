@@ -74,10 +74,6 @@ RUN echo '#!/bin/sh\ncurl -f http://localhost:3000/api/health || curl -f http://
     chmod +x /app/healthcheck.sh && \
     chown nextjs:nodejs /app/healthcheck.sh
 
-# Set proper permissions
-RUN chown -R nextjs:nodejs /app && \
-    chmod -R 755 /app
-
 # Switch to non-root user
 USER nextjs
 
