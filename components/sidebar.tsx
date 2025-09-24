@@ -126,6 +126,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = false, onToggle
 
       {/* Sidebar */}
       <aside
+        data-tour="sidebar"
         className={cn(
           "bg-gradient-to-br from-slate-50 via-white to-blue-50/40",
           "border-r border-gray-200/80 shadow-2xl backdrop-blur-xl",

@@ -23,7 +23,7 @@ export default function SettingsPage() {
           size="lg"
         />
 
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden" data-tour="settings-panel">
           <Tabs defaultValue="profile" value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="border-b border-gray-200">
               <div className="overflow-x-auto">

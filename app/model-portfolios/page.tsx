@@ -317,7 +317,7 @@ export default function ModelPortfoliosPage() {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
           </div>
         ) : (
-          <div className="space-y-4 sm:space-y-6">
+          <div className="space-y-4 sm:space-y-6" data-tour="portfolios-grid">
             {portfolios.map((portfolio) => {
               const hasAccess = hasPortfolioAccess(portfolio);
               const isLocked = !hasAccess;

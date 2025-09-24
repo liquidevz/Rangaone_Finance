@@ -3,10 +3,11 @@
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import { FiMenu, FiUser, FiLogOut, FiSettings, FiShoppingCart, FiX, FiChevronDown, FiPlay } from "react-icons/fi";
+import { useMemo, useState, useEffect } from "react";
+import { FiMenu, FiUser, FiLogOut, FiSettings, FiShoppingCart, FiX, FiChevronDown, FiPlay, FiHelpCircle } from "react-icons/fi";
 import { useAuth } from "./auth/auth-context";
 import { useCart } from "./cart/cart-context";
+import DemoTour from "./demo-tour";
 
 
 
@@ -78,10 +79,28 @@ export const RoundedDrawerNav = ({
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
+  const [showDemoTour, setShowDemoTour] = useState(false);
 
   const router = useRouter();
   const { user, isAuthenticated, logout, isLoading } = useAuth();
   const { cartItemCount } = useCart();
+  
+  // Resume tour after navigation
+  useEffect(() => {
+    const handleResumeTour = () => {
+      const tourActive = sessionStorage.getItem('demo-tour-active')
+      if (tourActive === 'true') {
+        setShowDemoTour(true)
+      }
+    }
+    
+    window.addEventListener('resume-demo-tour', handleResumeTour)
+    handleResumeTour() // Check on mount
+    
+    return () => {
+      window.removeEventListener('resume-demo-tour', handleResumeTour)
+    }
+  }, [])
   
   const textColor = variant === "premium" ? "text-[#333333]" : "text-[#FFFFF0]";
   const buttonBg = variant === "premium" ? "bg-[#382404]" : "bg-white";
@@ -121,8 +140,10 @@ export const RoundedDrawerNav = ({
   };
 
   const handleDemoTour = () => {
-    router.push('/dashboard');
+    console.log('Demo tour button clicked, showDemoTour:', showDemoTour);
+    setShowDemoTour(true);
     setMobileNavOpen(false);
+    setUserMenuOpen(false);
   };
 
   const handleSmoothScroll = (href: string, e: React.MouseEvent) => {
@@ -256,6 +277,15 @@ export const RoundedDrawerNav = ({
           {/* Authentication & Cart Section */}
           <div className="flex items-center gap-1">
 
+
+            {/* Demo Tour Button */}
+            <button
+              onClick={handleDemoTour}
+              className={`${buttonBg} ${buttonText} p-2 rounded-full transition-all hover:scale-105`}
+              title="Start Demo Tour"
+            >
+              <FiHelpCircle className="w-5 h-5" />
+            </button>
 
             {/* Cart Icon - Show for all users */}
             <button
@@ -513,6 +543,17 @@ export const RoundedDrawerNav = ({
           </motion.div>
         )}
       </AnimatePresence>
+      
+      {console.log('Rendering DemoTour, isOpen:', showDemoTour)}
+      <DemoTour 
+        isOpen={showDemoTour} 
+        onClose={() => {
+          console.log('Demo tour closed');
+          setShowDemoTour(false);
+          sessionStorage.removeItem('demo-tour-active')
+          sessionStorage.removeItem('demo-tour-step')
+        }} 
+      />
     </>
   );
 };

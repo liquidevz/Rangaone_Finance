@@ -38,11 +38,11 @@ jobs:
             echo "Building new image: $NEW_IMAGE"
             docker build --no-cache -t $NEW_IMAGE .
             
-            # Start new container on port 3002 first
-            echo "Starting new container on port 3002..."
+            # Start new container on port 3003 first
+            echo "Starting new container on port 3003..."
             docker run -d \
               --name Rangaone_Finance_new \
-              -p 3002:3000 \
+              -p 3003:3000 \
               --restart unless-stopped \
               -e NODE_ENV=production \
               -e NEXT_TELEMETRY_DISABLED=1 \
@@ -58,7 +58,7 @@ jobs:
             count=0
             max_attempts=30
             while [ $count -lt $max_attempts ]; do
-              if curl -f -s http://localhost:3002/ > /dev/null 2>&1; then
+              if curl -f -s http://localhost:3003/ > /dev/null 2>&1; then
                 echo "New container is healthy!"
                 break
               fi

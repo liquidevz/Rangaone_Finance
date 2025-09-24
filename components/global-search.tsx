@@ -1,47 +1,45 @@
-// NOTE: Ensure you have run:
-// npm install fuse.js
-// npm install --save-dev @types/fuse.js @types/lodash
-
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Search, X, TrendingUp, Briefcase, Lightbulb, FileText, Clock, Zap, Star, ArrowRight, Command } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { tipsService } from "@/services/tip.service"
+import { Search, X, TrendingUp, Briefcase, FileText, Clock, ArrowRight, Lightbulb } from "lucide-react"
+import { subscriptionService } from "@/services/subscription.service"
 import { portfolioService } from "@/services/portfolio.service"
+import { tipsService } from "@/services/tip.service"
 import { useAuth } from "@/components/auth/auth-context"
-// Custom debounce function to avoid lodash dependency
-const debounce = <T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): ((...args: Parameters<T>) => void) => {
+import { cn } from "@/lib/utils"
+
+const debounce = <T extends (...args: any[]) => any>(func: T, wait: number) => {
   let timeout: NodeJS.Timeout
   return (...args: Parameters<T>) => {
     clearTimeout(timeout)
     timeout = setTimeout(() => func(...args), wait)
   }
 }
-import Fuse from "fuse.js"
-import { cn } from "@/lib/utils"
 
 interface SearchResult {
   id: string
   title: string
-  type: "stock" | "portfolio" | "tip" | "page"
+  type: "portfolio" | "subscription" | "page" | "tip" | "stock"
   url: string
   description?: string
   category?: string
   createdAt?: string
-  highlight?: string
+  symbol?: string
+  stockId?: string
 }
 
-const STATIC_PAGES: SearchResult[] = [
-  { id: "rangaone-wealth", title: "RangaOne Wealth", type: "page", url: "/rangaone-wealth", description: "Expert stock recommendations" },
-  { id: "model-portfolios", title: "Model Portfolios", type: "page", url: "/model-portfolios", description: "Curated investment portfolios" },
+const PAGES: SearchResult[] = [
   { id: "dashboard", title: "Dashboard", type: "page", url: "/dashboard", description: "Your investment overview" },
-  { id: "all-recommendations", title: "All Recommendations", type: "page", url: "/rangaone-wealth/all-recommendations", description: "Browse all stock recommendations" },
-  { id: "closed-recommendations", title: "Closed Recommendations", type: "page", url: "/rangaone-wealth/closed-recommendations", description: "View closed recommendations" },
+  { id: "model-portfolios", title: "Model Portfolios", type: "page", url: "/model-portfolios", description: "Investment portfolios" },
+  { id: "rangaone-wealth", title: "RangaOne Wealth", type: "page", url: "/rangaone-wealth", description: "Stock recommendations" },
+  { id: "all-recommendations", title: "All Recommendations", type: "page", url: "/rangaone-wealth/all-recommendations", description: "Browse all recommendations" },
+  { id: "open-recommendations", title: "Open Recommendations", type: "page", url: "/rangaone-wealth/open-recommendations", description: "Active recommendations" },
+  { id: "closed-recommendations", title: "Closed Recommendations", type: "page", url: "/rangaone-wealth/closed-recommendations", description: "Closed recommendations" },
+  { id: "my-portfolios", title: "My Portfolios", type: "page", url: "/rangaone-wealth/my-portfolios", description: "Your subscribed portfolios" },
+  { id: "settings", title: "Settings", type: "page", url: "/settings", description: "Account settings" },
+  { id: "investment-calculator", title: "Investment Calculator", type: "page", url: "/investment-calculator", description: "Calculate returns" },
+  { id: "videos-for-you", title: "Videos For You", type: "page", url: "/videos-for-you", description: "Educational videos" },
 ]
 
 export function GlobalSearch() {
@@ -51,11 +49,10 @@ export function GlobalSearch() {
   const [loading, setLoading] = useState(false)
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [activeIndex, setActiveIndex] = useState(0)
+  const [searchData, setSearchData] = useState<SearchResult[]>([])
   const router = useRouter()
   const searchRef = useRef<HTMLDivElement>(null)
   const { isAuthenticated } = useAuth()
-
-
 
   useEffect(() => {
     const saved = localStorage.getItem('recent-searches')
@@ -71,80 +68,137 @@ export function GlobalSearch() {
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
+  
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadSearchData()
+    } else {
+      setSearchData(PAGES)
+    }
+  }, [isAuthenticated])
+  
+  const loadSearchData = async () => {
+    try {
+      const [subscriptionsData, portfolios, tips] = await Promise.all([
+        subscriptionService.getUserSubscriptions().catch(() => ({ subscriptions: [] })),
+        portfolioService.getAll().catch(() => []),
+        isAuthenticated ? tipsService.getAll().catch(() => []) : Promise.resolve([])
+      ])
+      
+      const searchItems: SearchResult[] = [...PAGES]
+      
+      // Add subscriptions data
+      subscriptionsData.subscriptions.forEach(sub => {
+        const productId = typeof sub.productId === 'string' ? sub.productId : sub.productId?._id
+        const productName = typeof sub.productId === 'object' ? sub.productId?.name : sub.productId
+        
+        if (productName && productId) {
+          searchItems.push({
+            id: productId,
+            title: productName,
+            type: sub.productType === 'Portfolio' ? 'portfolio' : 'subscription',
+            url: sub.productType === 'Portfolio' ? `/model-portfolios/${productId}` : `/dashboard`,
+            description: `${sub.productType} subscription - ${sub.planType || 'Active'}`,
+            category: sub.productType
+          })
+        }
+      })
+      
+      // Add all portfolios
+      portfolios.forEach(portfolio => {
+        if (portfolio._id && portfolio.name) {
+          searchItems.push({
+            id: portfolio._id,
+            title: portfolio.name,
+            type: 'portfolio',
+            url: `/model-portfolios/${portfolio._id}`,
+            description: portfolio.description || `${portfolio.PortfolioCategory || 'Investment'} portfolio`,
+            category: portfolio.PortfolioCategory
+          })
+        }
+      })
+      
+      // Add tips/recommendations
+      tips.forEach(tip => {
+        if (tip._id && (tip.title || tip.stockId)) {
+          searchItems.push({
+            id: tip._id,
+            title: tip.title || tip.stockId || 'Recommendation',
+            type: 'tip',
+            url: `/tips/${tip._id}`,
+            description: `${tip.category || 'Basic'} recommendation - ${tip.action || 'Buy'}`,
+            category: tip.category,
+            createdAt: tip.createdAt,
+            stockId: tip.stockId,
+            symbol: tip.symbol
+          })
+        }
+      })
+      
+      // Add stock symbols from tips
+      const uniqueStocks = new Set()
+      tips.forEach(tip => {
+        if (tip.stockId && !uniqueStocks.has(tip.stockId)) {
+          uniqueStocks.add(tip.stockId)
+          searchItems.push({
+            id: `stock-${tip.stockId}`,
+            title: tip.stockId,
+            type: 'stock',
+            url: `/recommendations?stock=${tip.stockId}`,
+            description: `Stock recommendations for ${tip.stockId}`,
+            symbol: tip.stockId
+          })
+        }
+      })
+      
+      setSearchData(searchItems)
+    } catch (error) {
+      console.error('Failed to load search data:', error)
+      setSearchData(PAGES)
+    }
+  }
 
-  // --- Parallel async search with fuzzy matching ---
-  const searchAPI = async (searchQuery: string) => {
-    if (!searchQuery.trim()) return { Tips: [], Portfolios: [], Stocks: [], Pages: [] }
-
-    setLoading(true)
-    const [tips, portfolios] = await Promise.all([
-      isAuthenticated ? tipsService.getAll() : Promise.resolve([]),
-      isAuthenticated ? portfolioService.getAll() : portfolioService.getPublic(),
-    ])
-
-    // Fuzzy search setup
-    const fuseTips = new Fuse(tips, { keys: ["title", "stockId", "symbol"], threshold: 0.4 })
-    const fusePortfolios = new Fuse(portfolios, { keys: ["name", "description"], threshold: 0.4 })
-    const fusePages = new Fuse(STATIC_PAGES, { keys: ["title", "description"], threshold: 0.3 })
-
-    // Results
-    const tipResults = fuseTips.search(searchQuery).slice(0, 4).map((res: any) => ({
-      id: res.item._id,
-      title: res.item.title || res.item.stockId || 'Untitled Tip',
-      type: 'tip' as const,
-      url: `/rangaone-wealth/recommendation/${res.item._id}`,
-      description: `${res.item.category || 'Basic'} recommendation`,
-      category: res.item.category,
-      createdAt: res.item.createdAt,
-      highlight: typeof res.matches?.[0]?.value === 'string' ? res.matches[0].value : ''
-    }))
-    const portfolioResults = fusePortfolios.search(searchQuery).slice(0, 3).map((res: any) => ({
-      id: res.item._id,
-      title: res.item.name,
-      type: 'portfolio' as const,
-      url: `/model-portfolios/${res.item._id}`,
-      description: res.item.description || `Investment portfolio`,
-      highlight: typeof res.matches?.[0]?.value === 'string' ? res.matches[0].value : ''
-    }))
-
-    const pageResults = fusePages.search(searchQuery).slice(0, 2).map((res: any) => ({
-      id: res.item.id,
-      title: res.item.title,
-      type: res.item.type,
-      url: res.item.url,
-      description: res.item.description,
-      highlight: typeof res.matches?.[0]?.value === 'string' ? res.matches[0].value : ''
-    }))
-
-    setLoading(false)
+  const searchItems = (searchQuery: string) => {
+    if (!searchQuery.trim()) return { Pages: [], Portfolios: [], Tips: [], Stocks: [], Subscriptions: [] }
+    
+    const query = searchQuery.toLowerCase()
+    const filtered = searchData.filter(item => 
+      item.title.toLowerCase().includes(query) ||
+      item.description?.toLowerCase().includes(query) ||
+      item.category?.toLowerCase().includes(query) ||
+      item.stockId?.toLowerCase().includes(query) ||
+      item.symbol?.toLowerCase().includes(query)
+    )
+    
     return {
-      Tips: tipResults ?? [],
-      Portfolios: portfolioResults ?? [],
-      Stocks: [], // Always return empty array for Stocks
-      Pages: pageResults ?? [],
+      Pages: filtered.filter(item => item.type === 'page').slice(0, 3),
+      Portfolios: filtered.filter(item => item.type === 'portfolio').slice(0, 4),
+      Tips: filtered.filter(item => item.type === 'tip').slice(0, 5),
+      Stocks: filtered.filter(item => item.type === 'stock').slice(0, 3),
+      Subscriptions: filtered.filter(item => item.type === 'subscription').slice(0, 2)
     }
   }
 
   const debouncedSearch = useCallback(
-    debounce(async (searchQuery: string) => {
-      if (!searchQuery.trim()) {
-        setResults({})
-        setLoading(false)
-        return
-      }
+    debounce((searchQuery: string) => {
       setLoading(true)
-      const searchResults = await searchAPI(searchQuery)
+      const searchResults = searchItems(searchQuery)
       setResults(searchResults)
       setActiveIndex(0)
       setLoading(false)
-    }, 250),
-    [isAuthenticated]
+    }, 200),
+    [searchData]
   )
 
   const handleInputChange = (value: string) => {
     setQuery(value)
     setIsOpen(true)
-    debouncedSearch(value)
+    if (value.trim()) {
+      debouncedSearch(value)
+    } else {
+      setResults({})
+      setLoading(false)
+    }
   }
 
   const saveRecentSearch = (query: string) => {
@@ -153,8 +207,8 @@ export function GlobalSearch() {
     localStorage.setItem('recent-searches', JSON.stringify(updated))
   }
 
-  // --- Keyboard navigation ---
   const flatResults = Object.values(results).flat()
+  
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       setIsOpen(false)
@@ -177,14 +231,14 @@ export function GlobalSearch() {
 
   const getTypeIcon = (type: string, category?: string) => {
     switch (type) {
-      case "stock": return (
-        <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg p-2 shadow-sm">
-          <TrendingUp className="h-4 w-4 text-white" />
-        </div>
-      )
       case "portfolio": return (
         <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg p-2 shadow-sm">
           <Briefcase className="h-4 w-4 text-white" />
+        </div>
+      )
+      case "subscription": return (
+        <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg p-2 shadow-sm">
+          <TrendingUp className="h-4 w-4 text-white" />
         </div>
       )
       case "tip": return (
@@ -195,6 +249,11 @@ export function GlobalSearch() {
             : "bg-gradient-to-br from-blue-500 to-indigo-600"
         )}>
           <Lightbulb className="h-4 w-4 text-white" />
+        </div>
+      )
+      case "stock": return (
+        <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg p-2 shadow-sm">
+          <TrendingUp className="h-4 w-4 text-white" />
         </div>
       )
       case "page": return (
@@ -210,15 +269,14 @@ export function GlobalSearch() {
     }
   }
 
-  // --- Highlight match utility ---
   const highlightMatch = (text: string, query: string) => {
-    if (!query || !text || typeof text !== 'string') return text
+    if (!query || !text) return text
     const idx = text.toLowerCase().indexOf(query.toLowerCase())
     if (idx === -1) return text
     return (
       <span>
         {text.slice(0, idx)}
-        <span className="bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-900 px-1 rounded font-medium">
+        <span className="bg-blue-100 text-blue-900 px-1 rounded font-medium">
           {text.slice(idx, idx + query.length)}
         </span>
         {text.slice(idx + query.length)}
@@ -233,10 +291,11 @@ export function GlobalSearch() {
         : { text: "Basic", className: "bg-gradient-to-r from-blue-500 to-indigo-600 text-white" },
       portfolio: { text: "Portfolio", className: "bg-gradient-to-r from-blue-500 to-indigo-600 text-white" },
       stock: { text: "Stock", className: "bg-gradient-to-r from-green-500 to-emerald-600 text-white" },
+      subscription: { text: "Subscription", className: "bg-gradient-to-r from-green-500 to-emerald-600 text-white" },
       page: { text: "Page", className: "bg-gradient-to-r from-gray-500 to-slate-600 text-white" }
     }
     
-    const badge = badges[type as keyof typeof badges] || { text: type, className: "bg-gray-100 text-gray-600" }
+    const badge = badges[type as keyof typeof badges] || { text: type.charAt(0).toUpperCase() + type.slice(1), className: "bg-gray-100 text-gray-600" }
     
     return (
       <span className={cn(
@@ -249,11 +308,11 @@ export function GlobalSearch() {
   }
 
   return (
-    <div ref={searchRef} className="relative flex-1 max-w-  xl">
+    <div ref={searchRef} className="relative flex-1 max-w-2xl">
       <div className="relative group">
         <input
           type="text"
-          placeholder="Search stocks, portfolios & reports..."
+          placeholder="Search portfolios, tips, stocks & pages..."
           value={query}
           onChange={(e) => handleInputChange(e.target.value)}
           onFocus={() => setIsOpen(true)}
@@ -272,8 +331,8 @@ export function GlobalSearch() {
         <div className="absolute left-4 top-1/2 transform -translate-y-1/2 flex items-center gap-3 pointer-events-none">
           <Search className="h-5 w-5 text-gray-500 group-focus-within:text-blue-600 transition-colors duration-200" />
           <div className="hidden lg:flex items-center gap-1 text-xs text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200">
-            <Command className="h-3 w-3" />
-            <span>K</span>
+            <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-200 rounded text-xs font-mono">⌘</kbd>
+            <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-200 rounded text-xs font-mono">K</kbd>
           </div>
         </div>
         {query && (
@@ -299,8 +358,8 @@ export function GlobalSearch() {
                 <div className="absolute inset-0 border-3 border-blue-200 rounded-full"></div>
                 <div className="absolute inset-0 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
               </div>
-              <p className="text-sm font-medium text-gray-600">Searching across all content...</p>
-              <p className="text-xs text-gray-400 mt-1">Finding the best matches for you</p>
+              <p className="text-sm font-medium text-gray-600">Searching...</p>
+              <p className="text-xs text-gray-400 mt-1">Finding portfolios, tips, stocks & pages</p>
             </div>
           ) : query && flatResults.length > 0 ? (
             <div className="max-h-[30rem] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
@@ -309,7 +368,6 @@ export function GlobalSearch() {
                   <div key={section} className="border-b border-gray-100/80 last:border-b-0">
                     <div className="sticky top-0 bg-gradient-to-r from-gray-50/90 to-blue-50/90 backdrop-blur-sm px-4 py-3 border-b border-gray-100/50">
                       <div className="flex items-center gap-2">
-                        <Zap className="h-4 w-4 text-blue-500" />
                         <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">{section}</span>
                         <span className="text-xs text-gray-400 bg-gray-200/80 px-2 py-0.5 rounded-full">{items.length}</span>
                       </div>
@@ -363,7 +421,7 @@ export function GlobalSearch() {
                 )
               ))}
               <div className="p-3 bg-gradient-to-r from-gray-50/50 to-blue-50/50 border-t border-gray-100/80">
-                <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
+                <div className="flex items-center justify-center gap-3 text-xs text-gray-500">
                   <div className="flex items-center gap-1">
                     <kbd className="px-1.5 py-0.5 bg-white border border-gray-200 rounded text-xs font-mono">↑↓</kbd>
                     <span>Navigate</span>
@@ -417,7 +475,7 @@ export function GlobalSearch() {
                 <Search className="h-8 w-8 text-blue-600" />
               </div>
               <p className="text-sm font-medium text-gray-700 mb-1">Start typing to search...</p>
-              <p className="text-xs text-gray-500">Find stocks, portfolios, tips, and more</p>
+              <p className="text-xs text-gray-500">Find portfolios, tips, stocks, and pages</p>
             </div>
           )}
         </div>
@@ -426,7 +484,7 @@ export function GlobalSearch() {
   )
 }
 
-// Add keyboard shortcut support
+// Keyboard shortcuts
 if (typeof window !== 'undefined') {
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {

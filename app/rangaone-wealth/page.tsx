@@ -262,7 +262,7 @@ export default function RangaOneWealth() {
 
 
       {/* Open Recommendations Section */}
-      <Card className="mt-1 mb-1 shadow-sm border border-gray-200">
+      <Card className="mt-1 mb-1 shadow-sm border border-gray-200" data-tour="recommendations-list">
         <CardContent className="p-6">
           <h2 className="text-xl font-bold mb-4 text-center font-helvetica">Open Recommendations</h2>
           <div className="flex justify-center mb-4 gap-3">

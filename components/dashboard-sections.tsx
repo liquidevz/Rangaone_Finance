@@ -105,7 +105,7 @@ export function MarketIndicesSection() {
   }, [])
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden" data-tour="market-indices">
       <div className="p-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-gray-900 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>Market Indices</h2>
@@ -305,7 +305,7 @@ export function ExpertRecommendationsSection() {
   return (
 
     
-    <div className="bg-white border border-gray-200 rounded-lg p-4">
+    <div className="bg-white border border-gray-200 rounded-lg p-4" data-tour="recommendations">
    {/* Mobile search bar - outside drawer */}
       <div className="md:hidden px-2 pb-4">
         <MobileGlobalSearch />
@@ -538,7 +538,7 @@ export function ModelPortfolioSection() {
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 h-fit">
+    <div className="bg-white border border-gray-200 rounded-lg p-4 h-fit" data-tour="model-portfolios">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-gray-900">Model Portfolio</h2>
         <Link href="/model-portfolios">
