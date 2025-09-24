@@ -277,8 +277,8 @@ export default function CartPage() {
   }
 
   const checkProfileCompletionAfterPayment = async () => {
-    // Always redirect to thanks page first
-    router.push('/thanks');
+    // Redirect to dashboard after payment
+    router.push('/dashboard');
   }
 
   const handleAuthSuccess = async () => {
@@ -1325,7 +1325,7 @@ export default function CartPage() {
         total={total}
         onPaymentSuccess={async () => {
           await refreshCart();
-          router.push('/thanks');
+          // Success modal will handle the user experience
         }}
       />
 

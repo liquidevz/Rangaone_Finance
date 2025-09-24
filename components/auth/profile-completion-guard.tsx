@@ -12,7 +12,7 @@ export default function ProfileCompletionGuard({ children }: { children: React.R
   const pathname = usePathname();
 
   // Routes that don't require profile completion
-  const exemptRoutes = ["/", "/login", "/signup", "/contact-us", "/premium-subscription", "/basic-subscription", "/thanks"];
+  const exemptRoutes = ["/", "/login", "/signup", "/contact-us", "/premium-subscription", "/basic-subscription"];
   const isExemptRoute = exemptRoutes.includes(pathname) || pathname.startsWith("/auth/");
 
   useEffect(() => {

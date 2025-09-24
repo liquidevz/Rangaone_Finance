@@ -260,16 +260,14 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
             setProcessing(false);
             paymentFlowState.clear();
             
-            // Prevent any redirects - stay in modal
-            setTimeout(() => {
-              onPaymentSuccess();
-              toast({ 
-                title: "Payment Successful", 
-                description: (verify as any)?.isCartEmandate 
-                  ? `${(verify as any)?.activatedSubscriptions || cartItems.length} subscriptions activated successfully!`
-                  : "Subscription activated" 
-              });
-            }, 100);
+            // Call onPaymentSuccess but don't auto-close modal
+            onPaymentSuccess();
+            toast({ 
+              title: "Payment Successful", 
+              description: (verify as any)?.isCartEmandate 
+                ? `${(verify as any)?.activatedSubscriptions || cartItems.length} subscriptions activated successfully!`
+                : "Subscription activated" 
+            });
           } else {
             setStep("error");
             setProcessing(false);
@@ -728,12 +726,9 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                       Your portfolio subscription has been activated successfully!
                     </p>
                     <Button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
+                      onClick={() => {
                         handleClose();
-                        // Use replace to prevent back navigation to payment
-                        window.location.replace("/dashboard");
+                        router.push("/dashboard");
                       }}
                       className="w-full bg-green-600 hover:bg-green-700 mb-4"
                     >
