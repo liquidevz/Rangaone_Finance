@@ -100,11 +100,11 @@ export function InvestmentCalculator() {
       throw new Error('Portfolio has no valid holdings with proper data');
     }
     
-    // Determine which stocks to actually buy - EXCLUDE HOLD status stocks
+    // Determine which stocks to actually buy - EXCLUDE HOLD and PARTIAL SELL status stocks
     const excludeFromBuying = (holding: any) => {
       if (!holding.status) return false;
       const status = holding.status.toLowerCase();
-      return status.includes('hold');
+      return status.includes('hold') || status.includes('partial sell');
     };
 
     let buyableHoldings;

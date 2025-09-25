@@ -122,8 +122,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { subscriptionService } = await import('@/services/subscription.service');
       subscriptionService.clearCache();
       
-      // Clear localStorage and sessionStorage
-      localStorage.clear();
+      // Clear sessionStorage only (keep localStorage for cart)
       sessionStorage.clear();
       
       // Call login API

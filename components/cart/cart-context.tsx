@@ -118,6 +118,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
   useEffect(() => {
     const syncCartOnLogin = async () => {
       if (isAuthenticated && user) {
+        console.log("🔄 USER AUTHENTICATED - Starting cart sync");
         // Check if there's a pending portfolio to add
         const pendingPortfolioId = sessionStorage.getItem("pendingPortfolioId");
         if (pendingPortfolioId) {
@@ -136,21 +137,23 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         // Check if there's a local cart to sync
         const localCart = localCartService.getLocalCart();
         if (localCart.items.length > 0) {
-          console.log("Syncing local cart to server:", localCart);
-          try {
-            // Add each local cart item to server cart (force quantity to 1)
-            for (const item of localCart.items) {
+          console.log("🔄 Syncing local cart to server:", localCart.items.length, "items");
+          
+          for (const item of localCart.items) {
+            try {
               await cartService.addToCart({
                 portfolioId: item.portfolioId,
-                quantity: 1 // Force quantity to 1 for portfolios
+                quantity: 1
               });
+              console.log(`✓ Added ${item.portfolioId} to server cart`);
+            } catch (error: any) {
+              console.log(`✗ Failed to add ${item.portfolioId}:`, error.message);
             }
-            // Clear local cart after successful sync
-            localCartService.clearLocalCart();
-            console.log("Local cart synced and cleared");
-          } catch (error) {
-            console.error("Failed to sync local cart:", error);
           }
+          
+          // Clear local cart directly from localStorage
+          localStorage.removeItem('RangaOne_local_cart');
+          console.log("🔄 Local cart cleared after sync");
         }
         await refreshCart();
       } else {
@@ -178,25 +181,24 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
       }
       
       if (!isAuthenticated) {
-        // Add to local cart and set redirect state
+        // Add to local cart without redirect
         localCartService.addPortfolioToLocalCart(
           portfolioId,
           1, // Force quantity to 1
           "monthly",
           {
             name: portfolioData?.name || "Portfolio",
-            subscriptionFee: portfolioData?.subscriptionFee || []
+            subscriptionFee: portfolioData?.subscriptionFee || [],
+            description: portfolioData?.description || []
           }
         );
-        cartRedirectState.setPendingCartRedirect();
-        window.location.href = "/cart";
+        // Refresh the cart display
+        await refreshCart();
         return;
       }
       
       const updatedCart = await cartService.addToCart({ portfolioId, quantity: 1 }); // Force quantity to 1
       setCart(updatedCart);
-      // Redirect to cart page after adding item
-      window.location.href = "/cart";
     } catch (error) {
       console.error("Failed to add to cart:", error);
       throw error;

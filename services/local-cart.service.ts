@@ -246,6 +246,7 @@ export class LocalCartService {
     itemData: LocalCartItem["itemData"],
     planCategory?: "basic" | "premium" | "individual"
   ): LocalCart {
+    console.log("🛒 ADDING TO LOCAL CART:", portfolioId, itemData.name);
     const currentCart = this.getLocalCart();
     const existingItemIndex = currentCart.items.findIndex(
       (item) => item.portfolioId === portfolioId && item.itemType === "portfolio"
@@ -267,6 +268,7 @@ export class LocalCartService {
       });
     }
     this.saveLocalCart(currentCart);
+    console.log("🛒 LOCAL CART NOW HAS:", currentCart.items.length, "items");
     return currentCart;
   }
 
@@ -338,6 +340,12 @@ export class LocalCartService {
 
   // Clear local cart with enhanced error handling
   clearLocalCart(): void {
+    console.log("🚨 CLEARING LOCAL CART - Stack trace:", new Error().stack);
+    // Don't clear during sync - only clear manually
+    if (new Error().stack?.includes('syncCartOnLogin')) {
+      console.log("🚨 BLOCKED: Not clearing cart during sync");
+      return;
+    }
     this.removeFromStorage(CART_STORAGE_KEY);
     this.removeFromStorage(CART_BACKUP_KEY);
     this.fallbackCart = { items: [], lastUpdated: new Date().toISOString() };

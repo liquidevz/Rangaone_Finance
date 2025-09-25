@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { MotionConfig, motion } from "framer-motion";
+import { MotionConfig, motion, AnimatePresence } from "framer-motion";
 import { FaYoutube } from "react-icons/fa";
 import { FiBookOpen } from "react-icons/fi";
 import { ShoppingCart, CreditCard, Check, Play, FileText, ChevronLeft, ChevronRight } from "lucide-react";
@@ -15,6 +15,7 @@ import { useCart } from "@/components/cart/cart-context";
 import { useRouter } from "next/navigation";
 import { userPortfolioService, UserPortfolio } from "@/services/user-portfolio.service";
 import { fetchPortfolios } from "@/components/portfolio-api";
+import { localCartService } from "@/services/local-cart.service";
 
 
 
@@ -69,10 +70,12 @@ export default function ModelPortfolioSection() {
   const [hoveredCard, setHoveredCard] = useState<string | null>(null)
   const [currentSlide, setCurrentSlide] = useState(0)
   const [isAutoPlaying, setIsAutoPlaying] = useState(false)
+  const [addedToCartAnimation, setAddedToCartAnimation] = useState<string | null>(null)
   const carouselRef = useRef<HTMLDivElement>(null)
   const autoPlayRef = useRef<NodeJS.Timeout | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
   const { isAuthenticated } = useAuth()
-  const { addToCart } = useCart()
+  const { addToCart, cart } = useCart()
   const { toast } = useToast()
   const router = useRouter()
 
@@ -236,20 +239,75 @@ export default function ModelPortfolioSection() {
     }
   }
 
+  // Initialize audio for cart sound effect
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        audioRef.current = new Audio('/sounds/cart-add.mp3')
+        audioRef.current.volume = 0.3
+        // Preload the audio
+        audioRef.current.load()
+      } catch (error) {
+        console.log('Audio initialization failed:', error)
+      }
+    }
+  }, [])
+
+  const playCartSound = () => {
+    if (audioRef.current) {
+      try {
+        audioRef.current.currentTime = 0
+        audioRef.current.play().catch(e => {
+          // Silently fail if audio can't play (user hasn't interacted with page yet, or file missing)
+          console.log('Audio play failed (this is normal on first page load):', e)
+        })
+      } catch (error) {
+        console.log('Audio play error:', error)
+      }
+    }
+  }
+
   const handleBuyNow = async (portfolio: UserPortfolio) => {
     try {
+      // Check if already in cart first
+      let existingItem = null
+      if (!isAuthenticated) {
+        const localCart = localCartService.getLocalCart()
+        existingItem = localCart.items.find(item => item.portfolioId === portfolio._id)
+      } else {
+        existingItem = cart?.items?.find(item => item.portfolio._id === portfolio._id)
+      }
+      
+      if (existingItem) {
+        toast({
+          title: "Already in Cart",
+          description: `${portfolio.name} is already in your cart.`,
+          variant: "destructive",
+        })
+        return
+      }
+
       await addToCart(portfolio._id, 1, {
         name: portfolio.name,
         subscriptionFee: portfolio.subscriptionFee,
         description: portfolio.description
       })
       
-      if (isAuthenticated) {
-        toast({
-          title: "Added to Cart",
-          description: `${portfolio.name} has been added to your cart.`,
-        })
-      }
+      // Show animation and play sound
+      setAddedToCartAnimation(portfolio._id)
+      playCartSound()
+      
+      // Show success toast
+      toast({
+        title: "Added to Cart! 🎉",
+        description: `${portfolio.name} has been added to your cart.`,
+      })
+      
+      // Clear animation after 2 seconds
+      setTimeout(() => {
+        setAddedToCartAnimation(null)
+      }, 2000)
+      
     } catch (error: any) {
       toast({
         title: "Error",
@@ -473,14 +531,58 @@ export default function ModelPortfolioSection() {
                    </div>
 
                                      {/* Button Section */}
-                   <div className="mt-4 pt-2">
+                   <div className="mt-4 pt-2 relative">
                      <button
                        onClick={() => handleBuyNow(portfolio)}
-                       className="w-full border-2 border-black dark:border-gray-500 bg-black dark:bg-white px-3 py-2.5 text-center font-bold text-[#FFFFF0] dark:text-black transition-all duration-300 ease-in-out rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 text-sm flex items-center justify-center gap-2"
+                       className="w-full border-2 border-black dark:border-gray-500 bg-black dark:bg-white px-3 py-2.5 text-center font-bold text-[#FFFFF0] dark:text-black transition-all duration-300 ease-in-out rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 text-sm flex items-center justify-center gap-2 relative overflow-hidden"
                      >
                        <ShoppingCart className="w-4 h-4" />
-                       <span>Buy Now</span>
+                       <span>Add to Cart</span>
+                       
+                       {/* Success Animation Overlay */}
+                       <AnimatePresence>
+                         {addedToCartAnimation === portfolio._id && (
+                           <motion.div
+                             initial={{ scale: 0, opacity: 0 }}
+                             animate={{ scale: 1, opacity: 1 }}
+                             exit={{ scale: 0, opacity: 0 }}
+                             transition={{ duration: 0.3 }}
+                             className="absolute inset-0 bg-green-500 dark:bg-green-600 flex items-center justify-center rounded-lg"
+                           >
+                             <motion.div
+                               initial={{ scale: 0 }}
+                               animate={{ scale: [0, 1.2, 1] }}
+                               transition={{ duration: 0.5, times: [0, 0.6, 1] }}
+                               className="flex items-center gap-2 text-white font-bold"
+                             >
+                               <Check className="w-4 h-4" />
+                               <span>Added!</span>
+                             </motion.div>
+                           </motion.div>
+                         )}
+                       </AnimatePresence>
                      </button>
+                     
+                     {/* Floating Success Icon */}
+                     <AnimatePresence>
+                       {addedToCartAnimation === portfolio._id && (
+                         <motion.div
+                           initial={{ scale: 0, y: 0, opacity: 1 }}
+                           animate={{ 
+                             scale: [0, 1, 0.8], 
+                             y: [-20, -40, -60], 
+                             opacity: [1, 1, 0] 
+                           }}
+                           exit={{ opacity: 0 }}
+                           transition={{ duration: 1.5, ease: "easeOut" }}
+                           className="absolute -top-8 left-1/2 transform -translate-x-1/2 pointer-events-none z-10"
+                         >
+                           <div className="bg-green-500 text-white p-2 rounded-full shadow-lg">
+                             <ShoppingCart className="w-4 h-4" />
+                           </div>
+                         </motion.div>
+                       )}
+                     </AnimatePresence>
                    </div>
                 </motion.div>
               </motion.div> 
