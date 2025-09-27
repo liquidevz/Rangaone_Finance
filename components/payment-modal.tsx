@@ -171,7 +171,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const computeYearlyDiscount = () => {
     if (!bundle) return 0;
     const monthly = bundle.monthlyPrice || 0;
-    const yearly = bundle.yearlyPrice || 0;
+    const yearly = (bundle as any).yearlyemandateprice || 0;
     const annualFromMonthly = monthly * 12;
     if (!annualFromMonthly || !yearly) return 0;
     const pct = Math.round(
@@ -721,7 +721,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                               {(() => {
                                 const pct = computeMonthlyEmandateDiscount();
                                 return pct > 0
-                                  ? `${pct}% off for 12 months`
+                                  ? `Special offer - Save ${pct}%`
                                   : "Special offer";
                               })()}
                             </span>
@@ -771,7 +771,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                               {(() => {
                                 const pct = computeYearlyDiscount();
                                 return pct > 0
-                                  ? `${pct}% off the first year`
+                                  ? `Save More - ${pct}% Off`
                                   : "Best value";
                               })()}
                             </span>

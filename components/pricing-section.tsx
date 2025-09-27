@@ -209,7 +209,11 @@ export default function PricingSection() {
 
                 <div className="flex items-center gap-2 mb-2">
                 <span className="text-[0.6rem] sm:text-lg">
-                    (Annual, billed <br></br>monthly)
+                    {selected === "A" ? (
+                      <>Smart pick! Pay monthly, <br />enjoy fully.</>
+                    ) : (
+                      <>Smart pick! Pay monthly, <br /> enjoy fully.</>
+                    )}
                   </span>
                 </div>
 

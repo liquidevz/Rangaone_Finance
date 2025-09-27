@@ -54,7 +54,7 @@ export default function SubscriptionSettings() {
       const telegramLinks = subs
         .filter((sub: any) => sub.telegram_link?.invite_link || sub.invite_link_url)
         .map((sub: any) => ({
-          productName: typeof sub.productId === 'object' ? sub.productId.name : 'Unknown Portfolio',
+          productName: sub.productName || sub.bundleName || (typeof sub.productId === 'object' ? sub.productId.name : 'Unknown Portfolio'),
           inviteLink: sub.telegram_link?.invite_link || sub.invite_link_url,
           expiresAt: sub.telegram_link?.expires_at || sub.invite_link_expires_at,
           status: sub.telegram_link?.telegram_status || sub.telegram_status
@@ -95,6 +95,17 @@ export default function SubscriptionSettings() {
   }
 
   const getProductName = (subscription: SubscriptionData) => {
+    // Check for productName field first
+    if ((subscription as any).productName) {
+      return (subscription as any).productName
+    }
+    
+    // Check for bundleName if bundle exists
+    if ((subscription as any).bundleName) {
+      return (subscription as any).bundleName
+    }
+    
+    // Fallback to existing logic
     if (typeof subscription.productId === 'object') {
       return subscription.productId.name
     }
