@@ -348,6 +348,15 @@ export const subscriptionService = {
   async getUserSubscriptions(forceRefresh = false): Promise<{
     subscriptions: UserSubscription[];
     accessData: SubscriptionAccess;
+    telegramLinks?: Array<{
+      productId: string;
+      productName: string;
+      productType: string;
+      invite_link: string;
+      expires_at: string;
+      telegram_status: string;
+      isActive: boolean;
+    }>;
   }> {
     const token = authService.getAccessToken();
     if (!token) return { 
@@ -368,62 +377,25 @@ export const subscriptionService = {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      // Handle new API response format
-      let subscriptions: UserSubscription[] = [];
-      let accessData: SubscriptionAccess;
+      // Handle new comprehensive API response format - avoid duplicates
+      const allSubscriptions = response.subscriptions?.individual || response.individualSubscriptions || [];
 
-      if (response.subscriptions) {
-        // New format with subscriptions.eMandate and subscriptions.individual
-        const eMandateSubscriptions = response.subscriptions.eMandate || [];
-        const individualSubscriptions = response.subscriptions.individual || [];
-        subscriptions = [...eMandateSubscriptions, ...individualSubscriptions];
-        
-        // Extract portfolio IDs from portfolio_access
-        const portfolioAccess = (response.portfolio_access || []).map((p: any) => p._id);
-        
-        // Check for god mode - ONLY grant if explicitly true
-        const isGodMode = response.godMode === true;
-        
-        console.log('🔍 API Response Debug:', {
-          godMode: response.godMode,
-          isGodMode,
-          portfolio_access_count: response.portfolio_access?.length,
-          portfolio_ids: portfolioAccess,
-          has_basic: response.has_basic,
-          premium_features: response.premium_features
-        });
-        
-        accessData = {
-          hasBasic: isGodMode ? true : (response.has_basic || false),
-          hasPremium: isGodMode ? true : (response.premium_features || false),
-          portfolioAccess,
-          subscriptionType: isGodMode ? 'premium' : (response.premium_features ? 'premium' : (response.has_basic ? 'basic' : 'none'))
-        };
-        
-        console.log('🎯 Final Access Data:', accessData);
-      } else {
-        // Old format fallback
-        const bundleSubscriptions = response.bundleSubscriptions || [];
-        const individualSubscriptions = response.individualSubscriptions || [];
-        subscriptions = [...bundleSubscriptions, ...individualSubscriptions];
-        
-        accessData = response.accessData || {
-          hasBasic: false,
-          hasPremium: false,
-          portfolioAccess: [],
-          subscriptionType: 'none'
-        };
-      }
-      
-      this._subscriptionCache = subscriptions;
+      const accessData: SubscriptionAccess = {
+        hasBasic: response.has_basic || response.overview?.has_basic || false,
+        hasPremium: response.has_premium || response.overview?.has_premium || false,
+        portfolioAccess: response.access?.portfolioIds || [],
+        subscriptionType: response.overview?.subscriptionType || 'none'
+      };
+
+      this._subscriptionCache = allSubscriptions;
       this._accessCache = accessData;
-      this._cacheExpiry = now + 60000; // 1 minute cache
+      this._cacheExpiry = now + 60000;
       
-      console.log('🎯 Access data from /api/user/subscriptions API:', accessData);
-      console.log('🔑 Portfolio access array:', accessData.portfolioAccess);
-      console.log('👑 God mode:', response.godMode);
-      
-      return { subscriptions, accessData };
+      return { 
+        subscriptions: allSubscriptions, 
+        accessData,
+        telegramLinks: response.telegram_access?.links || response.telegram?.links || []
+      };
     } catch (error) {
       console.error("Failed to fetch subscriptions", error);
       return { 

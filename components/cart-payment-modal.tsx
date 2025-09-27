@@ -252,9 +252,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
 
           if (verify.success || ["active", "authenticated"].includes((verify as any).subscriptionStatus || "")) {
             const links = (verify as any)?.telegramInviteLinks;
-            if (links && Array.isArray(links) && links.length > 0) {
-              setTelegramLinks(links);
-            }
+            setTelegramLinks(links || []);
 
             setStep("success");
             setProcessing(false);
@@ -736,36 +734,56 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                     </Button>
 
                     {/* Telegram Links Section */}
-                    {telegramLinks && telegramLinks.length > 0 && (
-                      <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <h4 className="text-sm font-semibold text-blue-800 mb-3">
-                          🎉 Join Your Exclusive Telegram Groups:
-                        </h4>
-                        <div className="space-y-2">
-                          {telegramLinks.map((link, index) => (
-                            <a
-                              key={index}
-                              href={link.invite_link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center justify-center gap-2 w-full px-4 py-3 text-sm bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
-                            >
-                              <svg
-                                className="w-4 h-4"
-                                fill="currentColor"
-                                viewBox="0 0 24 24"
+                    <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      {telegramLinks && telegramLinks.length > 0 ? (
+                        <>
+                          <h4 className="text-sm font-semibold text-blue-800 mb-3">
+                            🎉 Join Your Exclusive Telegram Groups:
+                          </h4>
+                          <div className="space-y-2">
+                            {telegramLinks.map((link, index) => (
+                              <a
+                                key={index}
+                                href={link.invite_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-center gap-2 w-full px-4 py-3 text-sm bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
                               >
-                                <path d="M12 0C5.374 0 0 5.373 0 12s5.374 12 12 12 12-5.373 12-12S18.626 0 12 0zm5.568 8.16c-.169 1.858-.896 6.728-.896 6.728-.377 2.655-.377 2.655-1.377 2.655-.896 0-1.377-1.377-1.377-2.655 0-1.858.896-6.728.896-6.728C15.186 6.302 16.582 6.302 17.568 8.16zM8.432 8.16c.169 1.858.896 6.728.896 6.728.377 2.655.377 2.655 1.377 2.655.896 0 1.377-1.377 1.377-2.655 0-1.858-.896-6.728-.896-6.728C8.814 6.302 7.418 6.302 8.432 8.16z" />
-                              </svg>
-                              Join Telegram Group {index + 1}
-                            </a>
-                          ))}
-                        </div>
-                        <p className="text-xs text-blue-600 mt-3 text-center">
-                          💡 Click the buttons above to join your exclusive investment groups
-                        </p>
-                      </div>
-                    )}
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path d="M12 0C5.374 0 0 5.373 0 12s5.374 12 12 12 12-5.373 12-12S18.626 0 12 0zm5.568 8.16c-.169 1.858-.896 6.728-.896 6.728-.377 2.655-.377 2.655-1.377 2.655-.896 0-1.377-1.377-1.377-2.655 0-1.858.896-6.728.896-6.728C15.186 6.302 16.582 6.302 17.568 8.16zM8.432 8.16c.169 1.858.896 6.728.896 6.728.377 2.655.377 2.655 1.377 2.655.896 0 1.377-1.377 1.377-2.655 0-1.858-.896-6.728-.896-6.728C8.814 6.302 7.418 6.302 8.432 8.16z" />
+                                </svg>
+                                Join Telegram Group {index + 1}
+                              </a>
+                            ))}
+                          </div>
+                          <p className="text-xs text-blue-600 mt-3 text-center">
+                            💡 Click the buttons above to join your exclusive investment groups
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <h4 className="text-sm font-semibold text-blue-800 mb-3">
+                            📱 Telegram Group Access
+                          </h4>
+                          <p className="text-sm text-blue-700 mb-3">
+                            Your Telegram group links will be available shortly. Please check your subscriptions tab in your profile page.
+                          </p>
+                          <button
+                            onClick={() => {
+                              handleClose();
+                              router.push("/settings");
+                            }}
+                            className="w-full px-4 py-3 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                          >
+                            Go to Profile Settings
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 )}
 

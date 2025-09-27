@@ -12,7 +12,11 @@ const VerifyEmandateSuccessResponseSchema = z.object({
   message: z.string(),
   subscriptionStatus: z.enum(['pending', 'created', 'active', 'authenticated', 'failed', 'cancelled']),
   activatedSubscriptions: z.number().optional(),
-  nextSteps: z.string().optional()
+  nextSteps: z.string().optional(),
+  telegramInviteLinks: z.array(z.object({
+    invite_link: z.string()
+  })).optional(),
+  isCartEmandate: z.boolean().optional()
 });
 
 const VerifyEmandateErrorResponseSchema = z.object({
@@ -40,12 +44,34 @@ export async function POST(request: NextRequest) {
     // 4. Return current status
     
     // Mock response for now - replace with actual implementation
+    // TODO: Replace with actual Telegram group invite links from your backend
+    const mockTelegramLinks = [
+      {
+        invite_link: "https://t.me/+RangaOneFinancePremium"
+      },
+      {
+        invite_link: "https://t.me/+RangaOneFinanceBasic"
+      },
+      {
+        invite_link: "https://t.me/+RangaOneFinanceAlerts"
+      }
+    ];
+
+    // Determine if this is a cart emandate based on subscription ID pattern or other indicators
+    const isCartEmandate = validatedData.subscription_id.includes('cart') || 
+                          validatedData.subscription_id.includes('multi') ||
+                          true; // For now, assume all are cart emandates
+
     const response: VerifyEmandateSuccessResponse = {
       success: true,
-      message: 'eMandate verification completed successfully',
+      message: isCartEmandate 
+        ? 'Cart eMandate verification completed successfully - Multiple subscriptions activated!'
+        : 'eMandate verification completed successfully',
       subscriptionStatus: 'active',
-      activatedSubscriptions: 1,
-      nextSteps: 'Your subscription is now active and you can access premium features'
+      activatedSubscriptions: isCartEmandate ? 3 : 1, // Mock multiple subscriptions for cart
+      nextSteps: 'Your subscription is now active and you can access premium features',
+      telegramInviteLinks: mockTelegramLinks,
+      isCartEmandate: isCartEmandate
     };
 
     return NextResponse.json(response, { status: 200 });
