@@ -187,6 +187,30 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
         return;
       }
       
+      // Check for eSign pending
+      if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_PENDING') {
+        console.log("🔍 eSign pending - showing Digio modal");
+        const authUrl = error.response.data.pendingEsign?.authenticationUrl;
+        if (authUrl) {
+          const data: PaymentAgreementData = {
+            customerName: (user as any)?.fullName || user?.username || "User",
+            customerEmail: user?.email || "user@example.com",
+            customerMobile: user?.phone,
+            amount: total,
+            subscriptionType: subscriptionType,
+            portfolioNames: cartItems.map(item => item.portfolio.name),
+            agreementDate: new Date().toLocaleDateString("en-IN"),
+            productType: "Portfolio",
+            productId: cartItems[0]?.portfolio._id || "",
+            productName: "Portfolio Subscription",
+          } as any;
+          setAgreementData(data);
+          setShowDigio(true);
+        }
+        setProcessing(false);
+        return;
+      }
+      
       setStep("error");
       setProcessing(false);
       toast({
@@ -256,6 +280,30 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
         
         setAgreementData(data);
         setShowDigio(true);
+        setProcessing(false);
+        return;
+      }
+      
+      // Check for eSign pending for eMandate
+      if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_PENDING') {
+        console.log("🔍 eSign pending for eMandate - showing Digio modal");
+        const authUrl = error.response.data.pendingEsign?.authenticationUrl;
+        if (authUrl) {
+          const data: PaymentAgreementData = {
+            customerName: (user as any)?.fullName || user?.username || "User",
+            customerEmail: user?.email || "user@example.com",
+            customerMobile: user?.phone,
+            amount: total,
+            subscriptionType: subscriptionType,
+            portfolioNames: cartItems.map(item => item.portfolio.name),
+            agreementDate: new Date().toLocaleDateString("en-IN"),
+            productType: "Portfolio",
+            productId: cartItems[0]?.portfolio._id || "",
+            productName: "Portfolio Subscription",
+          } as any;
+          setAgreementData(data);
+          setShowDigio(true);
+        }
         setProcessing(false);
         return;
       }

@@ -204,6 +204,30 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
         return;
       }
       
+      // Check for eSign pending
+      if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_PENDING') {
+        console.log("🔍 eSign pending - showing Digio modal");
+        const authUrl = error.response.data.pendingEsign?.authenticationUrl;
+        if (authUrl && cartItems?.length > 0) {
+          const data: PaymentAgreementData = {
+            customerName: (user as any)?.fullName || user?.username || "User",
+            customerEmail: user?.email || "user@example.com",
+            customerMobile: user?.phone,
+            amount: total,
+            subscriptionType: subscriptionType,
+            portfolioNames: cartItems.map(item => item.portfolio.name),
+            agreementDate: new Date().toLocaleDateString("en-IN"),
+            productType: "Portfolio",
+            productId: cartItems[0]?.portfolio._id,
+            productName: cartItems[0]?.portfolio.name,
+          } as any;
+          setAgreementData(data);
+          setShowDigio(true);
+        }
+        setProcessing(false);
+        return;
+      }
+      
       setStep("error");
       setProcessing(false);
       toast({
@@ -283,6 +307,30 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
       if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_REQUIRED') {
         console.log("🔍 eSign required for eMandate - showing Digio verification");
         startDigioFlow();
+        setProcessing(false);
+        return;
+      }
+      
+      // Check for eSign pending for eMandate
+      if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_PENDING') {
+        console.log("🔍 eSign pending for eMandate - showing Digio modal");
+        const authUrl = error.response.data.pendingEsign?.authenticationUrl;
+        if (authUrl && cartItems?.length > 0) {
+          const data: PaymentAgreementData = {
+            customerName: (user as any)?.fullName || user?.username || "User",
+            customerEmail: user?.email || "user@example.com",
+            customerMobile: user?.phone,
+            amount: finalTotal,
+            subscriptionType: subscriptionType,
+            portfolioNames: cartItems.map(item => item.portfolio.name),
+            agreementDate: new Date().toLocaleDateString("en-IN"),
+            productType: "Portfolio",
+            productId: cartItems[0]?.portfolio._id,
+            productName: cartItems[0]?.portfolio.name,
+          } as any;
+          setAgreementData(data);
+          setShowDigio(true);
+        }
         setProcessing(false);
         return;
       }

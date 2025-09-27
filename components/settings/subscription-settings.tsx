@@ -46,19 +46,17 @@ export default function SubscriptionSettings() {
 
   const fetchSubscriptionData = async () => {
     try {
-      const { subscriptions: subs, accessData: access } = await subscriptionService.getUserSubscriptions(true)
+      const { subscriptions: subs, accessData: access, telegramLinks: links } = await subscriptionService.getUserSubscriptions(true)
       setSubscriptions(subs)
       setAccessData(access)
       
-      // Extract telegram links from subscription data
-      const telegramLinks = subs
-        .filter((sub: any) => sub.telegram_link?.invite_link || sub.invite_link_url)
-        .map((sub: any) => ({
-          productName: sub.productName || sub.bundleName || (typeof sub.productId === 'object' ? sub.productId.name : 'Unknown Portfolio'),
-          inviteLink: sub.telegram_link?.invite_link || sub.invite_link_url,
-          expiresAt: sub.telegram_link?.expires_at || sub.invite_link_expires_at,
-          status: sub.telegram_link?.telegram_status || sub.telegram_status
-        }))
+      // Use telegram links from service response
+      const telegramLinks = links?.map((link: any) => ({
+        productName: link.productName,
+        inviteLink: link.invite_link,
+        expiresAt: link.expires_at,
+        status: link.telegram_status
+      })) || []
       setTelegramLinks(telegramLinks)
     } catch (error) {
       console.error("Failed to fetch subscription data:", error)
