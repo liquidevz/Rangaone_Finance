@@ -161,22 +161,19 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
   const computeMonthlyEmandateDiscount = () => {
     if (!bundle) return 0;
-    const monthly = bundle.monthlyPrice || 0;
-    const emandateMonthly = (bundle as any).monthlyemandateprice || 0;
-    if (!monthly || !emandateMonthly) return 0;
-    const pct = Math.round(((monthly - emandateMonthly) / monthly) * 100);
+    const strikedPrice = (bundle as any).strikeMonthly || bundle.monthlyPrice || 0;
+    const actualPrice = (bundle as any).monthlyemandateprice || 0;
+    if (!strikedPrice || !actualPrice) return 0;
+    const pct = Math.round(((strikedPrice - actualPrice) / strikedPrice) * 100);
     return Math.max(0, pct);
   };
 
   const computeYearlyDiscount = () => {
     if (!bundle) return 0;
-    const monthly = bundle.monthlyPrice || 0;
-    const yearly = (bundle as any).yearlyemandateprice || 0;
-    const annualFromMonthly = monthly * 12;
-    if (!annualFromMonthly || !yearly) return 0;
-    const pct = Math.round(
-      ((annualFromMonthly - yearly) / annualFromMonthly) * 100
-    );
+    const strikedPrice = (bundle as any).yearlyPrice || 0;
+    const actualPrice = (bundle as any).yearlyemandateprice || 0;
+    if (!strikedPrice || !actualPrice) return 0;
+    const pct = Math.round(((strikedPrice - actualPrice) / strikedPrice) * 100);
     return Math.max(0, pct);
   };
 
@@ -786,8 +783,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                             ₹
                             {(bundle as any).strikeMonthly ||
                               Math.round(
-                                ((bundle as any).monthlyemandateprice || 0) *
-                                  1.5
+                                ((bundle as any).monthlyPrice || 0) 
                               )}{" "}
                             /mo
                           </div>
@@ -796,7 +792,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                             <span className="text-base font-medium">/mo</span>
                           </div>
                           <div className="text-[11px] sm:text-xs text-gray-500 mt-1">
-                            Fee applies if you cancel mid-commitment
+                            Smart pick! Pay monthly, enjoy fully.
                           </div>
                         </button>
 
@@ -835,7 +831,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                           <div className="text-xs sm:text-sm text-gray-600 line-through">
                             ₹
                             {(bundle as any).strikeYear ||
-                              Math.round((bundle.yearlyPrice || 0) * 1.3)}{" "}
+                              Math.round((bundle.yearlyPrice || 0))}{" "}
                             /yr
                           </div>
                           <div className="mt-1 text-2xl sm:text-3xl md:text-4xl font-bold text-blue-700">
@@ -843,7 +839,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                             <span className="text-base font-medium">/yr</span>
                           </div>
                           <div className="text-[11px] sm:text-xs text-gray-500 mt-1">
-                            No refund if you cancel after payment
+                            Best value - Save more with Yearly Billing
                           </div>
                         </button>
                       </div>

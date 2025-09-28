@@ -233,6 +233,76 @@
   .text-soft-blue {
     color: rgba(185, 217, 235, 0.55);
   }
+
+  /* Mobile-specific utilities */
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+
+  .tap-highlight-transparent {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Better mobile scrolling */
+  .scroll-smooth-mobile {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+
+  /* Mobile-friendly button sizing */
+  .btn-mobile {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Prevent text selection on mobile UI elements */
+  .select-none-mobile {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  /* Mobile-specific form improvements */
+  @media (max-width: 640px) {
+    .mobile-form-spacing {
+      gap: 0.75rem;
+    }
+    
+    .mobile-card-padding {
+      padding: 0.75rem;
+    }
+    
+    .mobile-text-size {
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+    }
+    
+    /* Better mobile tab navigation */
+    .mobile-tabs {
+      overflow-x: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    
+    .mobile-tabs::-webkit-scrollbar {
+      display: none;
+    }
+    
+    /* Mobile-friendly cards */
+    .mobile-card {
+      border-radius: 0.5rem;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    }
+    
+    /* Better mobile input focus */
+    input:focus,
+    textarea:focus,
+    select:focus {
+      outline: 2px solid #3b82f6;
+      outline-offset: 2px;
+    }
+  }
 }
 
 /* Add card hover animations */

@@ -16,6 +16,18 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { portfolioService } from "@/services/portfolio.service";
 
+// Helper function to extract exit-range from tip content
+const getExitRange = (content: string | { key: string; value: string; _id?: string; }[] | undefined): string | null => {
+  if (!content) return null;
+  
+  if (Array.isArray(content)) {
+    const exitRangeItem = content.find(item => item.key === 'exit-range');
+    return exitRangeItem?.value || null;
+  }
+  
+  return null;
+};
+
 // MarqueeText component for scrolling long text
 const MarqueeText = ({
   text,
@@ -92,6 +104,7 @@ interface TipCardData {
   weightage?: number;
   mpWeightage?: number;
   buyRange: string;
+  exitRange?: string;
   action: "HOLD" | "Partial Profit Booked" | "BUY" | "SELL";
   category: "basic" | "premium";
   title: string;
@@ -215,6 +228,8 @@ export function DateTimelineSlider({
     const dateMap = new Map<string, { date: Date; count: number }>();
     
     datesWithTips.forEach(date => {
+      if (!date || isNaN(date.getTime())) return;
+      
       const dateKey = format(date, 'yyyy-MM-dd');
       if (dateMap.has(dateKey)) {
         dateMap.get(dateKey)!.count++;
@@ -243,6 +258,7 @@ export function DateTimelineSlider({
   }, [])
 
   const formatDisplayDate = (date: Date) => {
+    if (!date || isNaN(date.getTime())) return "Invalid Date";
     const weekday = format(date, "EEEE");
     const dateStr = format(date, "dd MMM yyyy");
     return `${weekday}, ${dateStr}`;
@@ -511,10 +527,10 @@ const TipCard = ({
           <div className="flex justify-between items-end mt-2 sm:mt-2.5 md:mt-3 gap-2 sm:gap-2.5">
             <div className="min-w-0 flex-1">
               <p className="text-sm text-black-500 mb-0.5 sm:mb-1 leading-tight font-medium">
-                Buy Range
+                {tip.status === "closed" ? "Exit Range" : "Buy Range"}
               </p>
               <div className="text-base sm:text-sm md:text-xl font-bold text-black truncate">
-                {tip.buyRange}
+                {tip.status === "closed" ? (tip.exitRange || tip.buyRange) : tip.buyRange}
               </div>
             </div>
             <div className="flex-shrink-0">
@@ -522,7 +538,7 @@ const TipCard = ({
                 Action
               </p>
               <div className="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded text-xs sm:text-sm font-medium bg-gray-700 text-[#FFFFF0] inline-block whitespace-nowrap">
-                {tip.action}
+                {tip.action.toUpperCase()}
               </div>
             </div>
           </div>
@@ -714,7 +730,8 @@ export default function TipsCarousel({
 
   const currentTipDate = useMemo(() => {
     if (tips.length === 0 || currentIndex >= tips.length) return new Date();
-    return new Date(tips[currentIndex].date);
+    const date = new Date(tips[currentIndex].date);
+    return isNaN(date.getTime()) ? new Date() : date;
   }, [tips, currentIndex]);
 
   // Calculate date range for the timeline slider
@@ -722,10 +739,20 @@ export default function TipsCarousel({
     if (tips.length === 0) return { min: new Date(), max: new Date() };
 
     const dates = tips
+      .filter((tip) => tip.date) // Filter out null/undefined dates first
       .map((tip) => new Date(tip.date))
+      .filter((date) => date instanceof Date && !isNaN(date.getTime()) && date.getTime() > 0)
       .sort((a, b) => a.getTime() - b.getTime());
+    
+    if (dates.length === 0) return { min: new Date(), max: new Date() };
+    
     const minDate = dates[0];
     const maxDate = dates[dates.length - 1];
+
+    // Validate dates before using them
+    if (!minDate || !maxDate || isNaN(minDate.getTime()) || isNaN(maxDate.getTime())) {
+      return { min: new Date(), max: new Date() };
+    }
 
     // Add some padding to the date range for better UX
     const paddingDays = 0;
@@ -734,6 +761,7 @@ export default function TipsCarousel({
 
     console.log("📅 Timeline Date Range:", {
       tipsCount: tips.length,
+      validDates: dates.length,
       minDate: format(minDate, "dd MMM yyyy"),
       maxDate: format(maxDate, "dd MMM yyyy"),
       paddedMin: format(paddedMinDate, "dd MMM yyyy"),
@@ -741,19 +769,9 @@ export default function TipsCarousel({
     });
 
     return { min: paddedMinDate, max: paddedMaxDate };
-  }, [  tips]);
+  }, [tips]);
 
-  // Update current tip date when carousel index changes
-  useEffect(() => {
-    if (tips.length > 0 && currentIndex < tips.length) {
-      const newTipDate = new Date(tips[currentIndex].date);
-      console.log("🔄 Carousel Index Changed:", {
-        currentIndex,
-        newTipDate: format(newTipDate, "dd MMM yyyy"),
-        currentTipDate: format(currentTipDate, "dd MMM yyyy"),
-      });
-    }
-  }, [currentIndex, tips, currentTipDate]);
+
 
   // Fetch stock symbols for tips that have stockId using global cache (non-blocking)
   const fetchStockSymbols = async (apiTips: Tip[]) => {
@@ -898,6 +916,7 @@ export default function TipsCarousel({
         weightage,
         mpWeightage: (tip as any).mpWeightage,
         buyRange: tip.buyRange || "₹ 1000 - 1050",
+        exitRange: getExitRange(tip.content) || tip.exitPrice,
         action:
           (tip.action as "HOLD" | "Partial Profit Booked" | "BUY" | "SELL") ||
           "BUY",
@@ -1193,7 +1212,9 @@ export default function TipsCarousel({
     );
   }
 
-  const tipDates = tips.map((tip) => new Date(tip.date));
+  const tipDates = tips
+    .map((tip) => new Date(tip.date))
+    .filter((date) => !isNaN(date.getTime()));
 
   return (
     <div className="relative w-full flex flex-col items-center justify-center">
@@ -1259,6 +1280,8 @@ export default function TipsCarousel({
             dateRange={dateRange}
             selectedDate={currentTipDate}
             onDateChange={(date) => {
+              if (!date || isNaN(date.getTime())) return;
+              
               console.log(
                 "📅 Timeline Date Selected:",
                 format(date, "dd MMM yyyy")
@@ -1270,6 +1293,8 @@ export default function TipsCarousel({
 
               tips.forEach((tip, index) => {
                 const tipDate = new Date(tip.date);
+                if (isNaN(tipDate.getTime())) return;
+                
                 const diff = Math.abs(tipDate.getTime() - date.getTime());
 
                 if (diff < minDiff) {
@@ -1280,6 +1305,8 @@ export default function TipsCarousel({
 
               // Only navigate if we found a significantly close tip (within 1 day)
               const closestTipDate = new Date(tips[closestTipIndex].date);
+              if (isNaN(closestTipDate.getTime())) return;
+              
               const dayDiff = Math.abs(differenceInDays(date, closestTipDate));
 
               console.log("🎯 Timeline Navigation:", {

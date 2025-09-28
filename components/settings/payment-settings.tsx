@@ -47,33 +47,33 @@ export default function PaymentSettings() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-bold mb-6">Payment History</h2>
-        <p className="text-gray-600 mb-6">View your payment history.</p>
+        <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Payment History</h2>
+        <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">View your payment history.</p>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {payments.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-            <p className="text-gray-600">No payment records found.</p>
+          <div className="text-center py-8 sm:py-12 bg-gray-50 rounded-lg border border-gray-200">
+            <p className="text-sm sm:text-base text-gray-600">No payment records found.</p>
           </div>
         ) : (
           payments.map((payment) => (
             <Card key={payment._id} className="overflow-hidden">
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-semibold">Order ID: {payment.orderId}</h3>
-                      <Badge variant={payment.status === 'captured' ? 'default' : 'secondary'}>
+              <CardContent className="p-3 sm:p-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-3 sm:gap-0">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-col xs:flex-row xs:items-center gap-2 mb-2">
+                      <h3 className="text-sm sm:text-base font-semibold truncate">Order ID: {payment.orderId}</h3>
+                      <Badge variant={payment.status === 'captured' ? 'default' : 'secondary'} className="text-xs w-fit">
                         {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
                       </Badge>
                     </div>
-                    <p className="text-sm text-gray-600">Payment ID: {payment.paymentId}</p>
-                    <p className="text-sm text-gray-600">Date: {new Date(payment.createdAt).toLocaleDateString()}</p>
+                    <p className="text-xs sm:text-sm text-gray-600 break-all">Payment ID: {payment.paymentId}</p>
+                    <p className="text-xs sm:text-sm text-gray-600">Date: {new Date(payment.createdAt).toLocaleDateString()}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xl font-bold">₹{(payment.amount / 100).toLocaleString()}</p>
-                    <p className="text-sm text-gray-600">{payment.currency}</p>
+                  <div className="text-right sm:text-right self-end sm:self-start">
+                    <p className="text-lg sm:text-xl font-bold">₹{(payment.amount / 100).toLocaleString()}</p>
+                    <p className="text-xs sm:text-sm text-gray-600">{payment.currency}</p>
                   </div>
                 </div>
               </CardContent>

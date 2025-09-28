@@ -43,24 +43,29 @@ export default function PortfolioSettings() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-bold mb-6">Portfolio Management</h2>
-        <p className="text-gray-600 mb-6">View your available portfolios.</p>
+        <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Portfolio Management</h2>
+        <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">View your available portfolios.</p>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {(() => {
           const subscribedPortfolios = portfolios.filter(p => !p.message)
           return subscribedPortfolios.length === 0 ? (
-            <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-              <p className="text-gray-600">No subscribed portfolios found.</p>
+            <div className="text-center py-8 sm:py-12 bg-gray-50 rounded-lg border border-gray-200">
+              <p className="text-sm sm:text-base text-gray-600">No subscribed portfolios found.</p>
             </div>
           ) : (
-            <div className="bg-gray-50 rounded-lg border border-gray-200 p-6">
-              <p className="text-gray-600">Subscribed to {subscribedPortfolios.length} portfolios</p>
-              <ul className="mt-4 space-y-2">
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-3 sm:p-6">
+              <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4">Subscribed to {subscribedPortfolios.length} portfolios</p>
+              <ul className="space-y-2">
                 {subscribedPortfolios.map((portfolio, index) => (
-                  <li key={index} className="text-gray-800">
-                    {portfolio.name || 'Unnamed Portfolio'} - {portfolio.PortfolioCategory || 'No Category'}
+                  <li key={index} className="text-sm sm:text-base text-gray-800 p-2 bg-white rounded border">
+                    <span className="font-medium">{portfolio.name || 'Unnamed Portfolio'}</span>
+                    {portfolio.PortfolioCategory && (
+                      <span className="text-xs sm:text-sm text-gray-500 block sm:inline sm:ml-2">
+                        - {portfolio.PortfolioCategory}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>

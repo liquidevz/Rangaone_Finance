@@ -903,17 +903,14 @@ export default function BasicSubscriptionPage() {
               Wealth Basic NOW!
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <motion.div
+              <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                onClick={handleAddToCart}
+                className="bg-[#00197BC7] text-white hover: font-bold py-4 px-10 rounded-full transition-all inline-flex items-center shadow-lg text-[2rem]"
               >
-                <Link
-                  href="/#pricing"
-                  className="bg-[#00197BC7] text-white hover: font-bold py-4 px-10 rounded-full transition-all inline-flex items-center shadow-lg text-[2rem]"
-                >
-                  <span>Subscribe</span>
-                </Link>
-              </motion.div>
+                <span>Subscribe</span>
+              </motion.button>
             </div>
           </motion.div>
         </div>

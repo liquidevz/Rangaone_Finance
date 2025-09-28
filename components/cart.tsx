@@ -498,7 +498,7 @@ export default function CartPage() {
                           availableOptions.push({
                             key: "quarterly",
                             label: "Quarterly",
-                            badge: "Save 11%",
+                            // badge: "Save 11%",
                             savings: "Popular"
                           });
                         }
@@ -510,10 +510,19 @@ export default function CartPage() {
                         }, 0) || 0;
                         
                         if (yearlyPrice > 0) {
+                          const quarterlyTotal = cart?.items.reduce((total, item) => {
+                            const monthlyPrice = (item.portfolio as any).quarterlyemandateprice || item.portfolio.subscriptionFee.find(fee => fee.type === "monthly")?.price || 0;
+                            const price = (item.portfolio as any).quarterlyemandateprice || item.portfolio.subscriptionFee.find(fee => fee.type === "quarterly")?.price || (monthlyPrice * 3);
+                            return total + (price * item.quantity);
+                          }, 0) || 0;
+                          
+                          const annualFromQuarterly = quarterlyTotal * 4;
+                          const discountPct = (((annualFromQuarterly - yearlyPrice) / annualFromQuarterly) * 100)
+                          
                           availableOptions.push({
                             key: "yearly",
                             label: "Yearly",
-                            badge: "Save 17%",
+                            badge: `Save ${Math.max(0, discountPct)}%`,
                             savings: "Best Value"
                           });
                         }

@@ -490,7 +490,7 @@ export default function ModelPortfolioSection() {
                    {/* Description Section */}
                    <div className="mb-4 flex-grow">
                      <div 
-                       className="text-gray-800 dark:text-gray-300 text-sm line-clamp-2 [&>p]:m-0 [&>p]:leading-relaxed [&>strong]:font-semibold [&>em]:italic [&>ul]:list-disc [&>ol]:list-decimal [&>li]:ml-4"
+                       className="text-gray-800 dark:text-gray-300 text-sm line-clamp-3 [&>p]:m-0 [&>p]:leading-relaxed [&>strong]:font-semibold [&>em]:italic [&>ul]:list-disc [&>ol]:list-decimal [&>li]:ml-4"
                        dangerouslySetInnerHTML={{ __html: homeDescription || '' }}
                      />
                    </div>

@@ -24,11 +24,11 @@ const NavLinks = [
                {title: "Model Portfolio", href: "/#portfolio"}
             ],
   },
-  {
-    title: "About Us",
-    href: "/about-us",
-    sublinks: [],
-  },
+  // {
+  //   title: "About Us",
+  //   href: "/about-us",
+  //   sublinks: [],
+  // },
   {
     title: "Contact Us",
     href: "#contact-us",

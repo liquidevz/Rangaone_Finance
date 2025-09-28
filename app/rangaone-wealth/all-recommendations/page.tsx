@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/dashboard-layout';
 import { InnerPageHeader } from '@/components/inner-page-header';
 import { Card, CardContent } from '@/components/ui/card';
@@ -247,6 +247,7 @@ const TipCard = ({
 
 export default function AllRecommendationsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
   const [tips, setTips] = useState<Tip[]>([]);
@@ -264,6 +265,16 @@ export default function AllRecommendationsPage() {
     endDate: null as Date | null,
     horizon: 'Long Term' as string,
   });
+
+  // Handle URL parameters
+  useEffect(() => {
+    const filterParam = searchParams?.get('filter');
+    if (filterParam === 'closed') {
+      setFilters(prev => ({ ...prev, status: 'Closed' }));
+    } else if (filterParam === 'open') {
+      setFilters(prev => ({ ...prev, status: 'Active' }));
+    }
+  }, [searchParams]);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Fetch all tips (load all tips without server-side filtering)

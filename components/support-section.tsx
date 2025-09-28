@@ -173,6 +173,12 @@ const EnhancedNeumorphismButton = () => {
     setTimeout(() => {
       setRipples((prev) => prev.filter((ripple) => ripple.id !== newRipple.id))
     }, 600)
+
+    // Scroll to contact-us section
+    const contactSection = document.getElementById('contact-us')
+    if (contactSection) {
+      contactSection.scrollIntoView({ behavior: 'smooth' })
+    }
   }
 
   return (

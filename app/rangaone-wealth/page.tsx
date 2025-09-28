@@ -299,7 +299,7 @@ export default function RangaOneWealth() {
           {/* View All Recommendations Button */}
           <div className="flex justify-center">
             <Button
-              onClick={() => router.push('/rangaone-wealth/all-recommendations')}
+              onClick={() => router.push('/rangaone-wealth/all-recommendations?filter=live')}
               className="bg-gradient-to-r from-[#1e3a8a] to-[#3b82f6] hover:from-[#1d4ed8] hover:to-[#2563eb] text-white font-bold text-lg px-12 rounded-3xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02] border-0"
               style={{
                 background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',
@@ -349,7 +349,7 @@ export default function RangaOneWealth() {
           {/* View All Recommendations Button */}
           <div className="flex justify-center">
             <Button
-              onClick={() => router.push('/rangaone-wealth/all-recommendations')}
+              onClick={() => router.push('/rangaone-wealth/all-recommendations?filter=closed')}
               className="bg-gradient-to-r from-[#1e3a8a] to-[#3b82f6] hover:from-[#1d4ed8] hover:to-[#2563eb] text-white font-bold text-lg px-12 rounded-3xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02] border-0"
               style={{
                 background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',

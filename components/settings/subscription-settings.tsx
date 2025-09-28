@@ -148,19 +148,20 @@ export default function SubscriptionSettings() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
         <div>
-          <h2 className="text-2xl font-bold mb-2">Your Subscriptions</h2>
-          <p className="text-gray-600">Manage your active subscriptions and access details.</p>
+          <h2 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-2">Your Subscriptions</h2>
+          <p className="text-sm sm:text-base text-gray-600">Manage your active subscriptions and access details.</p>
         </div>
         <Button 
           onClick={handleRefresh} 
           disabled={refreshing}
           variant="outline"
           size="sm"
+          className="w-fit self-end sm:self-auto"
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-          Refresh
+          <span className="hidden xs:inline">Refresh</span>
         </Button>
       </div>
 
@@ -174,28 +175,28 @@ export default function SubscriptionSettings() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-500 mb-1">Subscription Type</p>
-                <Badge variant={accessData.subscriptionType === 'premium' ? 'default' : 'secondary'}>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="text-center p-3 sm:p-4 bg-gray-50 rounded-lg">
+                <p className="text-xs sm:text-sm text-gray-500 mb-1">Subscription Type</p>
+                <Badge variant={accessData.subscriptionType === 'premium' ? 'default' : 'secondary'} className="text-xs">
                   {accessData.subscriptionType.toUpperCase()}
                 </Badge>
               </div>
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-500 mb-1">Basic Access</p>
-                <Badge variant={accessData.hasBasic ? 'default' : 'secondary'}>
+              <div className="text-center p-3 sm:p-4 bg-gray-50 rounded-lg">
+                <p className="text-xs sm:text-sm text-gray-500 mb-1">Basic Access</p>
+                <Badge variant={accessData.hasBasic ? 'default' : 'secondary'} className="text-xs">
                   {accessData.hasBasic ? 'Yes' : 'No'}
                 </Badge>
               </div>
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-500 mb-1">Premium Access</p>
-                <Badge variant={accessData.hasPremium ? 'default' : 'secondary'}>
+              <div className="text-center p-3 sm:p-4 bg-gray-50 rounded-lg">
+                <p className="text-xs sm:text-sm text-gray-500 mb-1">Premium Access</p>
+                <Badge variant={accessData.hasPremium ? 'default' : 'secondary'} className="text-xs">
                   {accessData.hasPremium ? 'Yes' : 'No'}
                 </Badge>
               </div>
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-500 mb-1">Portfolio Access</p>
-                <p className="font-semibold">{accessData.portfolioAccess.length}</p>
+              <div className="text-center p-3 sm:p-4 bg-gray-50 rounded-lg">
+                <p className="text-xs sm:text-sm text-gray-500 mb-1">Portfolio Access</p>
+                <p className="text-sm sm:text-base font-semibold">{accessData.portfolioAccess.length}</p>
               </div>
             </div>
           </CardContent>
@@ -211,36 +212,37 @@ export default function SubscriptionSettings() {
               Telegram Community Access
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-6">
+          <CardContent className="p-3 sm:p-6">
             <div className="space-y-3">
               {telegramLinks.map((link, index) => (
-                <div key={index} className="flex items-center justify-between p-4 bg-white border border-blue-100 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-4 bg-white border border-blue-100 rounded-lg shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center">
-                      <MessageCircle className="h-5 w-5 text-white" />
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center flex-shrink-0">
+                      <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                     </div>
-                    <div>
-                      <p className="font-semibold text-gray-900">{link.productName}</p>
-                      <p className="text-sm text-blue-600">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm sm:text-base font-semibold text-gray-900 truncate">{link.productName}</p>
+                      <p className="text-xs sm:text-sm text-blue-600">
                         {link.expiresAt ? `Access expires: ${formatDate(link.expiresAt)}` : 'Exclusive community access'}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
                     {link.status && (
-                      <Badge variant={link.status === 'active' ? 'default' : 'secondary'} className="bg-green-100 text-green-800">
+                      <Badge variant={link.status === 'active' ? 'default' : 'secondary'} className="bg-green-100 text-green-800 text-xs">
                         {link.status.toUpperCase()}
                       </Badge>
                     )}
                     {link.inviteLink ? (
-                      <Button asChild className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white" size="sm">
+                      <Button asChild className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white text-xs sm:text-sm" size="sm">
                         <a href={link.inviteLink} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          Join Community
+                          <ExternalLink className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                          <span className="hidden xs:inline">Join Community</span>
+                          <span className="xs:hidden">Join</span>
                         </a>
                       </Button>
                     ) : (
-                      <Badge variant="secondary">Link Unavailable</Badge>
+                      <Badge variant="secondary" className="text-xs">Link Unavailable</Badge>
                     )}
                   </div>
                 </div>
@@ -262,64 +264,64 @@ export default function SubscriptionSettings() {
           subscriptions.map((subscription) => (
             <Card key={subscription._id} className="overflow-hidden">
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">{getProductName(subscription)}</CardTitle>
-                  <Badge variant={getStatusBadgeVariant(subscription)}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <CardTitle className="text-base sm:text-lg truncate">{getProductName(subscription)}</CardTitle>
+                  <Badge variant={getStatusBadgeVariant(subscription)} className="w-fit text-xs">
                     {subscription.isActive ? "Active" : "Inactive"}
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 sm:space-y-4">
                 {/* Basic Info */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Product Type</p>
-                    <p className="font-medium">{subscription.productType}</p>
+                    <p className="text-xs sm:text-sm text-gray-500 mb-1">Product Type</p>
+                    <p className="text-sm sm:text-base font-medium">{subscription.productType}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Plan Type</p>
-                    <p className="font-medium">{subscription.planType || 'Not specified'}</p>
+                    <p className="text-xs sm:text-sm text-gray-500 mb-1">Plan Type</p>
+                    <p className="text-sm sm:text-base font-medium">{subscription.planType || 'Not specified'}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Subscription Type</p>
-                    <p className="font-medium">{subscription.subscriptionType || 'Regular'}</p>
+                    <p className="text-xs sm:text-sm text-gray-500 mb-1">Subscription Type</p>
+                    <p className="text-sm sm:text-base font-medium">{subscription.subscriptionType || 'Regular'}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Subscription Amount</p>
-                    <p className="font-medium">{getSubscriptionAmount(subscription)}</p>
+                    <p className="text-xs sm:text-sm text-gray-500 mb-1">Subscription Amount</p>
+                    <p className="text-sm sm:text-base font-medium">{getSubscriptionAmount(subscription)}</p>
                   </div>
                 </div>
 
                 <Separator />
 
                 {/* Dates */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                   <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-gray-400" />
-                    <div>
-                      <p className="text-sm text-gray-500">Created</p>
-                      <p className="font-medium text-sm">{formatDate(subscription.createdAt)}</p>
+                    <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm text-gray-500">Created</p>
+                      <p className="text-xs sm:text-sm font-medium truncate">{formatDate(subscription.createdAt)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-gray-400" />
-                    <div>
-                      <p className="text-sm text-gray-500">Last Payment</p>
-                      <p className="font-medium text-sm">{formatDate((subscription as any).lastPaymentAt || subscription.lastPaidAt)}</p>
+                    <CreditCard className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm text-gray-500">Last Payment</p>
+                      <p className="text-xs sm:text-sm font-medium truncate">{formatDate((subscription as any).lastPaymentAt || subscription.lastPaidAt)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-gray-400" />
-                    <div>
-                      <p className="text-sm text-gray-500">Expires</p>
-                      <p className="font-medium text-sm">{formatDate((subscription as any).expiresAt || subscription.expiryDate)}</p>
+                    <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm text-gray-500">Expires</p>
+                      <p className="text-xs sm:text-sm font-medium truncate">{formatDate((subscription as any).expiresAt || subscription.expiryDate)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-gray-400" />
-                    <div>
-                      <p className="text-sm text-gray-500">Status</p>
-                      <p className="font-medium text-sm">{(subscription as any).status || (subscription.isActive ? 'Active' : 'Inactive')}</p>
+                    <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm text-gray-500">Status</p>
+                      <p className="text-xs sm:text-sm font-medium truncate">{(subscription as any).status || (subscription.isActive ? 'Active' : 'Inactive')}</p>
                     </div>
                   </div>
                 </div>
@@ -329,11 +331,11 @@ export default function SubscriptionSettings() {
                   <>
                     <Separator />
                     <div className="bg-blue-50 p-3 rounded-lg">
-                      <p className="text-sm font-medium text-blue-900 mb-1">eMandate Information</p>
+                      <p className="text-xs sm:text-sm font-medium text-blue-900 mb-1">eMandate Information</p>
                       {subscription.eMandateId && (
-                        <p className="text-sm text-blue-700">eMandate ID: {subscription.eMandateId}</p>
+                        <p className="text-xs sm:text-sm text-blue-700 break-all">eMandate ID: {subscription.eMandateId}</p>
                       )}
-                      <p className="text-sm text-blue-700">Automatic renewal enabled</p>
+                      <p className="text-xs sm:text-sm text-blue-700">Automatic renewal enabled</p>
                     </div>
                   </>
                 )}
