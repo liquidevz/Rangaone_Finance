@@ -5,10 +5,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2, Save, AlertCircle, CheckCircle } from "lucide-react"
+import { Loader2, Save, AlertCircle, CheckCircle, User, Mail, Phone, Calendar, MapPin, Shield, Edit3 } from "lucide-react"
 import { userService, UserProfile } from "@/services/user.service"
 import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function ProfileSettings() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -46,6 +45,12 @@ export default function ProfileSettings() {
     }))
   }
 
+  const getDateOfBirth = () => {
+    if (!profile?.dateOfBirth) return ""
+    const date = new Date(profile.dateOfBirth)
+    return date.toISOString().split('T')[0]
+  }
+
   const handleSave = async () => {
     if (!profile) return
     
@@ -54,9 +59,7 @@ export default function ProfileSettings() {
       const updatedProfile = await userService.updateProfile({
         fullName: profile.fullName,
         phone: profile.phone,
-        dateofBirth: profile.dateofBirth,
-        adharcard: profile.adharcard,
-        address: profile.address,
+        dateOfBirth: getDateOfBirth(),
         state: profile.state,
       })
       
@@ -81,268 +84,342 @@ export default function ProfileSettings() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600 mb-4" />
-        <p className="text-gray-600">Loading profile information...</p>
+      <div className="flex flex-col items-center justify-center py-16">
+        <div className="p-4 bg-indigo-50 rounded-full mb-4">
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+        </div>
+        <p className="text-gray-600 font-medium">Loading profile information...</p>
       </div>
     )
   }
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-end mb-4 sm:mb-6">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Profile Settings</h1>
+          <p className="text-gray-600 mt-1">Manage your personal information and account details</p>
+        </div>
         <Button
-          variant="outline"
-          size="sm"
+          variant={isEditing ? "outline" : "default"}
           onClick={() => setIsEditing(!isEditing)}
-          className="flex items-center gap-1.5 sm:gap-2 text-sm"
+          className={`flex items-center gap-2 ${isEditing ? 'border-gray-300 hover:bg-gray-50' : 'bg-indigo-600 hover:bg-indigo-700'}`}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-          <span className="hidden xs:inline">{isEditing ? 'Cancel' : 'Edit Profile'}</span>
-          <span className="xs:hidden">{isEditing ? 'Cancel' : 'Edit'}</span>
+          <Edit3 className="w-4 h-4" />
+          {isEditing ? 'Cancel' : 'Edit Profile'}
         </Button>
       </div>
         
-      <div>
-        {/* Profile Completion Status */}
-        <div className="mb-4 sm:mb-6">
-          <div className="flex flex-col xs:flex-row xs:items-center gap-2 mb-2">
-            <div className="flex items-center gap-2">
-              {profile?.profileComplete ? (
-                <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-              ) : (
-                <AlertCircle className="h-5 w-5 text-orange-600 flex-shrink-0" />
-              )}
-              <span className="font-medium text-sm sm:text-base">
+      {/* Profile Completion Status */}
+      <div className="mb-6">
+        <div className={`p-4 rounded-xl border-2 ${profile?.profileComplete ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}>
+          <div className="flex items-center gap-3">
+            {profile?.profileComplete ? (
+              <div className="p-2 bg-green-100 rounded-full">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              </div>
+            ) : (
+              <div className="p-2 bg-orange-100 rounded-full">
+                <AlertCircle className="h-5 w-5 text-orange-600" />
+              </div>
+            )}
+            <div className="flex-1">
+              <h3 className="font-semibold text-gray-900">
                 Profile {profile?.profileComplete ? 'Complete' : 'Incomplete'}
-              </span>
+              </h3>
+              {!profile?.profileComplete && profile?.missingFields && profile.missingFields.length > 0 && (
+                <p className="text-sm text-gray-600 mt-1">
+                  Missing: {profile.missingFields.join(', ')}
+                </p>
+              )}
             </div>
-            <Badge variant={profile?.profileComplete ? 'default' : 'secondary'} className="w-fit">
+            <Badge variant={profile?.profileComplete ? 'default' : 'secondary'} className={`${profile?.profileComplete ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}`}>
               {profile?.profileComplete ? 'Complete' : 'Incomplete'}
             </Badge>
           </div>
-          
-          {!profile?.profileComplete && profile?.missingFields && profile.missingFields.length > 0 && (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Please complete the following fields: {profile.missingFields.join(', ')}
-              </AlertDescription>
-            </Alert>
-          )}
-          
-          {profile?.forceComplete && (
-            <Alert className="mt-2">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Profile completion is required for your active subscription.
-              </AlertDescription>
-            </Alert>
-          )}
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+      <div className="flex flex-col lg:flex-row gap-8">
         <div className="lg:w-1/3">
-          <div className="flex flex-col items-center text-center">
-            <div className="relative mb-4">
-              <div className="h-24 w-24 sm:h-32 sm:w-32 rounded-full overflow-hidden border-4 border-white shadow-lg bg-gray-200 flex items-center justify-center">
-                <span className="text-2xl sm:text-3xl font-bold text-gray-400">
-                  {profile?.fullName?.charAt(0) || profile?.username?.charAt(0) || "U"}
-                </span>
+          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 rounded-2xl p-6 shadow-sm">
+            <div className="flex flex-col items-center text-center">
+              <div className="relative mb-6">
+                <div className="h-28 w-28 rounded-2xl overflow-hidden border-4 border-white shadow-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center">
+                  <span className="text-3xl font-bold text-white">
+                    {profile?.fullName?.charAt(0) || profile?.username?.charAt(0) || "U"}
+                  </span>
+                </div>
+                <div className="absolute -bottom-2 -right-2 p-2 bg-white rounded-full shadow-lg border-2 border-indigo-100">
+                  <User className="w-4 h-4 text-indigo-600" />
+                </div>
               </div>
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm text-gray-600 break-all">{profile?.email}</p>
-              <p className="text-sm text-gray-600">@{profile?.username}</p>
-              <p className="text-xs sm:text-sm text-gray-600">Member since {new Date(profile?.createdAt || '').toLocaleDateString()}</p>
-            </div>
-            <div className="flex items-center gap-2 mt-3">
-              <Badge variant={profile?.emailVerified ? 'default' : 'secondary'} className="text-xs">
-                {profile?.emailVerified ? 'Email Verified' : 'Email Not Verified'}
-              </Badge>
+              <div className="space-y-3 w-full">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">{profile?.fullName}</h3>
+                  <p className="text-sm text-gray-600">@{profile?.username}</p>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+                    <Mail className="w-4 h-4" />
+                    <span className="truncate">{profile?.email}</span>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+                    <Calendar className="w-4 h-4" />
+                    <span>Member since {new Date(profile?.createdAt || '').toLocaleDateString()}</span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap justify-center gap-2 mt-4">
+                  <Badge variant={profile?.emailVerified ? 'default' : 'secondary'} className="text-xs bg-green-100 text-green-800">
+                    <Mail className="w-3 h-3 mr-1" />
+                    Email Verified
+                  </Badge>
+                  {profile?.panVerified && (
+                    <Badge className="text-xs bg-blue-100 text-blue-800">
+                      <Shield className="w-3 h-3 mr-1" />
+                      PAN Verified
+                    </Badge>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="lg:w-2/3 space-y-4 sm:space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="fullName" className="text-sm font-medium">Full Name *</Label>
-              <Input 
-                id="fullName" 
-                name="fullName" 
-                value={profile?.fullName || ""} 
-                onChange={handleChange}
-                disabled={!isEditing}
-                className={`text-sm ${profile?.missingFields?.includes('fullName') ? 'border-red-300' : ''} ${!isEditing ? 'bg-gray-50' : ''}`}
-              />
-              {profile?.missingFields?.includes('fullName') && (
-                <p className="text-xs text-red-600">Full name is required</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium">Email Address</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={profile?.email || ""}
-                disabled
-                className="text-sm bg-gray-50"
-              />
-              <p className="text-xs text-gray-500">Email address cannot be changed. Contact support for assistance.</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="text-sm font-medium">Phone Number *</Label>
-              <Input 
-                id="phone" 
-                name="phone" 
-                value={profile?.phone || ""} 
-                onChange={handleChange}
-                placeholder="+1234567890"
-                disabled={!isEditing}
-                className={`text-sm ${profile?.missingFields?.includes('phone') ? 'border-red-300' : ''} ${!isEditing ? 'bg-gray-50' : ''}`}
-              />
-              {profile?.missingFields?.includes('phone') && (
-                <p className="text-xs text-red-600">Phone number is required</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="dateofBirth" className="text-sm font-medium">Date of Birth *</Label>
-              <Input 
-                id="dateofBirth" 
-                name="dateofBirth" 
-                type="date"
-                value={profile?.dateofBirth || ""} 
-                onChange={handleChange}
-                disabled={!isEditing}
-                className={`text-sm ${profile?.missingFields?.includes('dateofBirth') ? 'border-red-300' : ''} ${!isEditing ? 'bg-gray-50' : ''}`}
-              />
-              {profile?.missingFields?.includes('dateofBirth') && (
-                <p className="text-xs text-red-600">Date of birth is required</p>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="state" className="text-sm font-medium">State</Label>
-            <Input 
-              id="state" 
-              name="state" 
-              value={profile?.state || ""} 
-              onChange={handleChange}
-              placeholder="Your state"
-              disabled={!isEditing}
-              className={`text-sm ${!isEditing ? 'bg-gray-50' : ''}`}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="username" className="text-sm font-medium">Username</Label>
-            <Input
-              id="username"
-              name="username"
-              value={profile?.username || ""}
-              disabled
-              className="text-sm bg-gray-50"
-            />
-            <p className="text-xs text-gray-500">Username cannot be changed.</p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="pandetails" className="text-sm font-medium">PAN Details</Label>
-              <Input 
-                id="pandetails" 
-                name="pandetails" 
-                value={profile?.pandetails || "Not provided"} 
-                disabled
-                className="text-sm bg-gray-50"
-              />
-              <p className="text-xs text-gray-500">PAN cannot be changed. Contact support if needed.</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="adharcard" className="text-sm font-medium">Aadhar Card</Label>
-              <Input 
-                id="adharcard" 
-                name="adharcard" 
-                value={profile?.adharcard || ""} 
-                onChange={handleChange}
-                placeholder="1234-5678-9012"
-                disabled={!isEditing}
-                className={`text-sm ${!isEditing ? 'bg-gray-50' : ''}`}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="address" className="text-sm font-medium">Address</Label>
-            <Input 
-              id="address" 
-              name="address" 
-              value={profile?.address || ""} 
-              onChange={handleChange}
-              placeholder="Your complete address"
-              disabled={!isEditing}
-              className={`text-sm ${!isEditing ? 'bg-gray-50' : ''}`}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Account Information</Label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 rounded-lg">
-              <div className="space-y-1">
-                <p className="text-xs sm:text-sm font-medium text-gray-700">Provider</p>
-                <p className="text-xs sm:text-sm text-gray-600 capitalize">{profile?.provider}</p>
+        <div className="lg:w-2/3 space-y-6">
+          <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-indigo-100 rounded-xl">
+                <User className="w-5 h-5 text-indigo-600" />
               </div>
-              <div className="space-y-1">
-                <p className="text-xs sm:text-sm font-medium text-gray-700">Account Created</p>
-                <p className="text-xs sm:text-sm text-gray-600">{new Date(profile?.createdAt || '').toLocaleDateString()}</p>
+              <h3 className="text-lg font-semibold text-gray-900">Personal Information</h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="fullName" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Full Name *
+                </Label>
+                <Input 
+                  id="fullName" 
+                  name="fullName" 
+                  value={profile?.fullName || ""} 
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                  className={`h-11 ${profile?.missingFields?.includes('fullName') ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-indigo-500'} ${!isEditing ? 'bg-gray-50' : 'bg-white'} rounded-xl`}
+                />
+                {profile?.missingFields?.includes('fullName') && (
+                  <p className="text-xs text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    Full name is required
+                  </p>
+                )}
               </div>
-              <div className="space-y-1">
-                <p className="text-xs sm:text-sm font-medium text-gray-700">Last Updated</p>
-                <p className="text-xs sm:text-sm text-gray-600">{new Date(profile?.updatedAt || '').toLocaleDateString()}</p>
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Mail className="w-4 h-4" />
+                  Email Address
+                </Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={profile?.email || ""}
+                  disabled
+                  className="bg-gray-50 border-gray-200 h-11 rounded-xl"
+                />
+                <p className="text-xs text-gray-500 flex items-center gap-1">
+                  <Shield className="w-3 h-3" />
+                  Email cannot be changed
+                </p>
               </div>
-              <div className="space-y-1">
-                <p className="text-xs sm:text-sm font-medium text-gray-700">Email Status</p>
-                <Badge variant={profile?.emailVerified ? 'default' : 'secondary'} className="text-xs w-fit">
-                  {profile?.emailVerified ? 'Verified' : 'Not Verified'}
-                </Badge>
+            </div>
+          </div>
+
+          <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-green-100 rounded-xl">
+                <Phone className="w-5 h-5 text-green-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Contact Details</h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Phone className="w-4 h-4" />
+                  Phone Number *
+                </Label>
+                <Input 
+                  id="phone" 
+                  name="phone" 
+                  value={profile?.phone || ""} 
+                  onChange={handleChange}
+                  placeholder="+91 98765 43210"
+                  disabled={!isEditing}
+                  className={`h-11 ${profile?.missingFields?.includes('phone') ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-indigo-500'} ${!isEditing ? 'bg-gray-50' : 'bg-white'} rounded-xl`}
+                />
+                {profile?.missingFields?.includes('phone') && (
+                  <p className="text-xs text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    Phone number is required
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dateOfBirth" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Date of Birth *
+                </Label>
+                <Input 
+                  id="dateOfBirth" 
+                  name="dateOfBirth" 
+                  type="date"
+                  value={getDateOfBirth()} 
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                  className={`h-11 ${profile?.missingFields?.includes('dateOfBirth') ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-indigo-500'} ${!isEditing ? 'bg-gray-50' : 'bg-white'} rounded-xl`}
+                />
+                {profile?.missingFields?.includes('dateOfBirth') && (
+                  <p className="text-xs text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    Date of birth is required
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-purple-100 rounded-xl">
+                <MapPin className="w-5 h-5 text-purple-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Additional Information</h3>
+            </div>
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="state" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  State
+                </Label>
+                <Input 
+                  id="state" 
+                  name="state" 
+                  value={profile?.state || ""} 
+                  onChange={handleChange}
+                  placeholder="Select your state"
+                  disabled={!isEditing}
+                  className={`h-11 border-gray-200 focus:border-indigo-500 ${!isEditing ? 'bg-gray-50' : 'bg-white'} rounded-xl`}
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="username" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    Username
+                  </Label>
+                  <Input
+                    id="username"
+                    name="username"
+                    value={profile?.username || ""}
+                    disabled
+                    className="bg-gray-50 border-gray-200 h-11 rounded-xl"
+                  />
+                  <p className="text-xs text-gray-500 flex items-center gap-1">
+                    <Shield className="w-3 h-3" />
+                    Username cannot be changed
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pandetails" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <Shield className="w-4 h-4" />
+                    PAN Details
+                  </Label>
+                  <div className="relative">
+                    <Input 
+                      id="pandetails" 
+                      name="pandetails" 
+                      value={profile?.pandetails || "Not provided"} 
+                      disabled
+                      className="bg-gray-50 border-gray-200 h-11 rounded-xl pr-20"
+                    />
+                    {profile?.panVerified && (
+                      <Badge className="absolute right-2 top-2 text-xs bg-green-100 text-green-800 border-green-200">
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Verified
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 flex items-center gap-1">
+                    <Shield className="w-3 h-3" />
+                    PAN cannot be changed
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-2xl p-6 shadow-sm">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-gray-200 rounded-xl">
+                <Shield className="w-5 h-5 text-gray-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Account Information</h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="bg-white p-4 rounded-xl border border-gray-100">
+                <p className="text-sm font-medium text-gray-700 mb-2">Provider</p>
+                <p className="text-sm text-gray-900 font-medium capitalize">{profile?.provider}</p>
+              </div>
+              <div className="bg-white p-4 rounded-xl border border-gray-100">
+                <p className="text-sm font-medium text-gray-700 mb-2">Account Created</p>
+                <p className="text-sm text-gray-900 font-medium">{new Date(profile?.createdAt || '').toLocaleDateString()}</p>
+              </div>
+              <div className="bg-white p-4 rounded-xl border border-gray-100">
+                <p className="text-sm font-medium text-gray-700 mb-2">Last Updated</p>
+                <p className="text-sm text-gray-900 font-medium">{new Date(profile?.updatedAt || '').toLocaleDateString()}</p>
+              </div>
+              <div className="bg-white p-4 rounded-xl border border-gray-100">
+                <p className="text-sm font-medium text-gray-700 mb-3">Verification Status</p>
+                <div className="flex flex-wrap gap-2">
+                  <Badge className={`text-xs ${profile?.emailVerified ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                    <Mail className="w-3 h-3 mr-1" />
+                    Email {profile?.emailVerified ? 'Verified' : 'Pending'}
+                  </Badge>
+                  <Badge className={`text-xs ${profile?.panVerified ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>
+                    <Shield className="w-3 h-3 mr-1" />
+                    PAN {profile?.panVerified ? 'Verified' : 'Pending'}
+                  </Badge>
+                </div>
               </div>
             </div>
           </div>
 
           {isEditing && (
-            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-2">
-              <Button 
-                variant="outline" 
-                onClick={() => setIsEditing(false)}
-                disabled={saving}
-                className="w-full sm:w-auto text-sm"
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto bg-indigo-900 hover:bg-indigo-800 text-sm">
-                {saving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    <span className="hidden xs:inline">Saving...</span>
-                    <span className="xs:hidden">Saving</span>
-                  </>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    <span className="hidden xs:inline">Save Changes</span>
-                    <span className="xs:hidden">Save</span>
-                  </>
-                )}
-              </Button>
+            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-2xl p-6 shadow-sm">
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsEditing(false)}
+                  disabled={saving}
+                  className="w-full sm:w-auto border-gray-300 hover:bg-gray-50 h-11 rounded-xl"
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white h-11 rounded-xl shadow-lg">
+                  {saving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving Changes...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Save Changes
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           )}
         </div>

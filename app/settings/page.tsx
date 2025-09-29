@@ -5,10 +5,8 @@ import DashboardLayout from "@/components/dashboard-layout"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card } from "@/components/ui/card"
 import ProfileSettings from "@/components/settings/profile-settings"
-import PortfolioSettings from "@/components/settings/portfolio-settings"
 import SubscriptionSettings from "@/components/settings/subscription-settings"
-import PaymentSettings from "@/components/settings/payment-settings"
-import { User, Settings, Briefcase, CreditCard } from "lucide-react"
+import { User, Settings, Briefcase } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 
 export default function SettingsPage() {
@@ -35,13 +33,7 @@ export default function SettingsPage() {
                     <User className="h-4 w-4 mr-1.5 sm:mr-2 flex-shrink-0" />
                     <span className="hidden xs:inline">Profile</span>
                   </TabsTrigger>
-                  <TabsTrigger
-                    value="portfolios"
-                    className="flex items-center py-3 px-3 sm:py-4 sm:px-6 text-sm sm:text-base whitespace-nowrap data-[state=active]:border-b-2 data-[state=active]:border-indigo-900 data-[state=active]:text-indigo-900 data-[state=active]:font-medium rounded-none data-[state=active]:shadow-none data-[state=active]:bg-transparent hover:bg-gray-50 transition-colors"
-                  >
-                    <Briefcase className="h-4 w-4 mr-1.5 sm:mr-2 flex-shrink-0" />
-                    <span className="hidden xs:inline">Portfolios</span>
-                  </TabsTrigger>
+
                   <TabsTrigger
                     value="subscriptions"
                     className="flex items-center py-3 px-3 sm:py-4 sm:px-6 text-sm sm:text-base whitespace-nowrap data-[state=active]:border-b-2 data-[state=active]:border-indigo-900 data-[state=active]:text-indigo-900 data-[state=active]:font-medium rounded-none data-[state=active]:shadow-none data-[state=active]:bg-transparent hover:bg-gray-50 transition-colors"
@@ -49,13 +41,7 @@ export default function SettingsPage() {
                     <Settings className="h-4 w-4 mr-1.5 sm:mr-2 flex-shrink-0" />
                     <span className="hidden xs:inline">Subscriptions</span>
                   </TabsTrigger>
-                  <TabsTrigger
-                    value="payments"
-                    className="flex items-center py-3 px-3 sm:py-4 sm:px-6 text-sm sm:text-base whitespace-nowrap data-[state=active]:border-b-2 data-[state=active]:border-indigo-900 data-[state=active]:text-indigo-900 data-[state=active]:font-medium rounded-none data-[state=active]:shadow-none data-[state=active]:bg-transparent hover:bg-gray-50 transition-colors"
-                  >
-                    <CreditCard className="h-4 w-4 mr-1.5 sm:mr-2 flex-shrink-0" />
-                    <span className="hidden xs:inline">Payments</span>
-                  </TabsTrigger>
+
                 </TabsList>
               </div>
             </div>
@@ -64,17 +50,13 @@ export default function SettingsPage() {
               <ProfileSettings />
             </TabsContent>
 
-            <TabsContent value="portfolios" className="p-3 sm:p-6">
-              <PortfolioSettings />
-            </TabsContent>
+
 
             <TabsContent value="subscriptions" className="p-3 sm:p-6">
               <SubscriptionSettings />
             </TabsContent>
 
-            <TabsContent value="payments" className="p-3 sm:p-6">
-              <PaymentSettings />
-            </TabsContent>
+
           </Tabs>
         </Card>
       </div>

@@ -377,8 +377,40 @@ export const subscriptionService = {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      // Handle new comprehensive API response format - avoid duplicates
-      const allSubscriptions = response.subscriptions?.individual || response.individualSubscriptions || [];
+      // Get individual subscriptions and recurring subscription items
+      const individualSubs = response.subscriptions?.individual || [];
+      const recurringSubs = response.subscriptions?.recurring || [];
+      
+      // Flatten recurring items
+      const recurringItems = recurringSubs.flatMap((recurring: any) => 
+        recurring.items?.map((item: any) => ({
+          ...item,
+          status: recurring.status,
+          expiresAt: recurring.expiresAt,
+          category: recurring.category
+        })) || []
+      );
+      
+      // Get child portfolios from telegram_child_invites
+      const childPortfolios = recurringSubs.flatMap((recurring: any) => 
+        recurring.items?.flatMap((item: any) => 
+          item.telegram_child_invites?.map((child: any) => ({
+            _id: child.portfolioId,
+            productId: child.portfolioId,
+            productName: child.portfolioName,
+            productType: 'Portfolio',
+            status: recurring.status,
+            isActive: recurring.status === 'active',
+            expiryDate: recurring.expiresAt,
+            subscriptionDate: item.subscriptionDate,
+            planType: item.planType,
+            amount: recurring.totalAmount,
+            category: recurring.category
+          })) || []
+        ) || []
+      );
+      
+      const allSubscriptions = [...individualSubs, ...recurringItems, ...childPortfolios];
 
       const accessData: SubscriptionAccess = {
         hasBasic: response.has_basic || response.overview?.has_basic || false,

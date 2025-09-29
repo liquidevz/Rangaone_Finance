@@ -16,11 +16,19 @@ export interface UserProfile {
   state?: string;
   pnadetails?: string;
   pandetails?: string;
+  panVerified?: boolean;
+  panVerificationStatus?: string;
+  panVerifiedName?: string;
+  panVerifiedDob?: string;
   adharcard?: string;
   address?: string;
   profileComplete: boolean;
   forceComplete: boolean;
   missingFields: string[];
+  hasBasic?: boolean;
+  hasPremium?: boolean;
+  hasBasicAccess?: boolean;
+  hasPremiumAccess?: boolean;
 }
 
 export interface UserSubscription {
@@ -136,9 +144,7 @@ class UserService {
       if (typeof profileData.fullName !== 'undefined') allowedPayload.fullName = profileData.fullName;
       if (typeof profileData.phone !== 'undefined') allowedPayload.phone = profileData.phone;
       if (typeof (profileData as any).pandetails !== 'undefined') allowedPayload.pandetails = (profileData as any).pandetails;
-      if (typeof profileData.dateofBirth !== 'undefined') allowedPayload.dateofBirth = profileData.dateofBirth;
-      if (typeof (profileData as any).address !== 'undefined') allowedPayload.address = (profileData as any).address;
-      if (typeof (profileData as any).adharcard !== 'undefined') allowedPayload.adharcard = (profileData as any).adharcard;
+      if (typeof profileData.dateOfBirth !== 'undefined') allowedPayload.dateOfBirth = profileData.dateOfBirth;
       if (typeof (profileData as any).state !== 'undefined') allowedPayload.state = (profileData as any).state;
 
       const response = await axiosApi.put<UserProfile>(
