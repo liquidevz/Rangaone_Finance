@@ -432,7 +432,11 @@ export default function PortfolioDetailsPage() {
   // Display title should drop the word "Portfolio" and keep only the first word
   const getDisplayTitle = (value: any): string => {
     const name = safeString(value);
-    return name.replace(/\bportfolio\b/gi, '').trim() || name;
+    const portfolioIndex = name.toLowerCase().indexOf('portfolio');
+    if (portfolioIndex > 0) {
+      return name.substring(0, portfolioIndex).trim();
+    }
+    return name;
   };
 
   // Map UI periods to API periods (according to API spec: 1w, 1m, 3m, 6m, 1y, all)

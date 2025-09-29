@@ -12,6 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Send } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import SubscriptionContactTabs from "@/components/subscription-contact-tabs"
+import { contactService } from "@/services/contact.service"
 
 export default function DashboardContactUs() {
   const [formData, setFormData] = useState({
@@ -37,8 +38,8 @@ export default function DashboardContactUs() {
     e.preventDefault()
     setIsSubmitting(true)
 
-    setTimeout(() => {
-      setIsSubmitting(false)
+    try {
+      await contactService.sendInnerContactMessage(formData)
       toast({
         title: "Message Sent",
         description: "We'll get back to you as soon as possible.",
@@ -51,7 +52,15 @@ export default function DashboardContactUs() {
         message: "",
         preferredContact: "whatsapp",
       })
-    }, 1500)
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -97,54 +106,7 @@ export default function DashboardContactUs() {
                   </div>
                 </div>
 
-                <div>
-                  <h3 className="font-semibold mb-3">Support</h3>
-                  
-                  <div className="p-3 bg-gray-50 rounded-lg space-y-3">
-                    <div>
-                      <h4 className="font-medium text-sm mb-1">CustomerCare Number</h4>
-                      <p className="text-sm text-gray-600">+91-91676 94966</p>
-                    </div>
-
-                    <div>
-                      <h4 className="font-medium text-sm mb-1">Timing</h4>
-                      <p className="text-sm text-gray-600">Monday - Friday (10am-6pm)</p>
-                    </div>
-
-                    <div>
-                      <h4 className="font-medium text-sm mb-1">Email:</h4>
-                      <p className="text-sm text-gray-600 break-all">Support@rangaone.finance</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold mb-3">Company Details</h3>
-                  
-                  <div className="p-3 bg-gray-50 rounded-lg space-y-2 overflow-hidden">
-                    <div className="space-y-1 text-xs">
-                      <div className="flex justify-between items-start">
-                        <span className="font-medium text-gray-700 flex-shrink-0">Phone:</span>
-                        <span className="text-gray-600 text-right break-all">+91-93261 99388</span>
-                      </div>
-                      <div className="flex justify-between items-start">
-                        <span className="font-medium text-gray-700 flex-shrink-0">Email:</span>
-                        <span className="text-gray-600 text-right break-all">Support@rangaone.finance</span>
-                      </div>
-                      <div className="flex justify-between items-start">
-                        <span className="font-medium text-gray-700 flex-shrink-0">BSE Enlistment:</span>
-                        <span className="text-gray-600 text-right">6662</span>
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-700">CIN:</span><span className="text-gray-600 break-all ml-1">U85499MH2024PTC430894</span>
-                      </div>
-                      <div className="flex justify-between items-start">
-                        <span className="font-medium text-gray-700 flex-shrink-0">GST:</span>
-                        <span className="text-gray-600 text-right break-all">27AANCRR9959F1ZM</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                
               </CardContent>
             </Card>
           </div>
@@ -254,11 +216,61 @@ export default function DashboardContactUs() {
                     )}
                   </Button>
                 </form>
+                <div>
+                  <h3 className="font-semibold mt-2">Support</h3>
+                  
+                  <div className="p-3 bg-gray-50 rounded-lg space-y-3">
+                    <div>
+                      <h4 className="font-medium text-sm mb-1">CustomerCare Number</h4>
+                      <p className="text-sm text-gray-600">+91-91676 94966</p>
+                    </div>
+
+                    <div>
+                      <h4 className="font-medium text-sm mb-1">Timing</h4>
+                      <p className="text-sm text-gray-600">Monday - Friday (10am-6pm)</p>
+                    </div>
+
+                    <div>
+                      <h4 className="font-medium text-sm mb-1">Email:</h4>
+                      <p className="text-sm text-gray-600 break-all">Support@rangaone.finance</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold mb-3">Company Details</h3>
+                  
+                  <div className="p-3 bg-gray-50 rounded-lg space-y-2 overflow-hidden">
+                    <div className="space-y-1 text-xs">
+                      <div>
+                        <span className="font-medium text-gray-700 flex-shrink-0">Phone:</span>
+                        <span className="text-gray-600 break-all ml-2">+91-93261 99388</span>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700 flex-shrink-0">Email:</span>
+                        <span className="text-gray-600 break-all ml-2">Support@rangaone.finance</span>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">BSE Enlistment:</span>
+                        <span className="text-gray-600 break-all ml-2">6662</span>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">CIN:</span>
+                        <span className="text-gray-600 break-all ml-2">U85499MH2024PTC430894</span>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700 flex-shrink-0">GST:</span>
+                        <span className="text-gray-600 break-all ml-2">27AANCRR9959F1ZM</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
         </div>
       </div>
+      
     </DashboardLayout>
   )
 }

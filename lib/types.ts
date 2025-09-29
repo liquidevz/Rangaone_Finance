@@ -72,6 +72,7 @@ export interface YoutubeLink {
 }
 
 export interface Portfolio {
+  saleHistory: any;
   data: any;
   portfolio: any;
   _id: string;
