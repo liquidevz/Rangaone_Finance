@@ -284,33 +284,6 @@ export default function PortfolioPriceHistoryChart({
             </ResponsiveContainer>
           </div>
         </div>
-
-        {/* Performance Summary */}
-        {priceHistory.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-gray-600">Period Performance:</span>
-                <div className="font-semibold text-blue-600">
-                  {(() => {
-                    const firstValue = priceHistory[0]?.portfolioValue || 0;
-                    const lastValue = priceHistory[priceHistory.length - 1]?.portfolioValue || 0;
-                    const totalGain = lastValue - firstValue;
-                    const totalGainPercent = firstValue > 0 ? ((totalGain / firstValue) * 100) : 0;
-                    const isPositive = totalGain >= 0;
-                    return `${isPositive ? '+' : ''}₹${Math.abs(totalGain).toLocaleString('en-IN', { maximumFractionDigits: 0 })} (${isPositive ? '+' : ''}${totalGainPercent.toFixed(2)}%)`;
-                  })()}
-                </div>
-              </div>
-              <div>
-                <span className="text-gray-600">Current Value:</span>
-                <div className="font-semibold text-gray-900">
-                  ₹{(priceHistory[priceHistory.length - 1]?.portfolioValue || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   );

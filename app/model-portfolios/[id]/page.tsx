@@ -59,7 +59,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function PortfolioDetailsPage() {
   const params = useParams();
-  const portfolioId = params.id as string;
+  const portfolioId = params?.id as string;
   const { toast } = useToast();
   
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
@@ -281,7 +281,7 @@ export default function PortfolioDetailsPage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const wantsReports = window.location.hash === "#reports" || searchParams.get("scrollTo") === "reports";
+    const wantsReports = window.location.hash === "#reports" || searchParams?.get("scrollTo") === "reports";
     if (wantsReports && !loading) {
       const tryScroll = () => {
         const target = document.getElementById("reports");
@@ -432,13 +432,7 @@ export default function PortfolioDetailsPage() {
   // Display title should drop the word "Portfolio" and keep only the first word
   const getDisplayTitle = (value: any): string => {
     const name = safeString(value);
-    const withoutPortfolio = name.replace(/\bportfolio\b/gi, '').trim();
-    const firstWord = withoutPortfolio.split(/\s+/)[0] || withoutPortfolio;
-    // Don't return NIFTY as portfolio name - use the actual portfolio name
-    if (firstWord.toUpperCase() === 'NIFTY') {
-      return withoutPortfolio || name;
-    }
-    return firstWord;
+    return name.replace(/\bportfolio\b/gi, '').trim() || name;
   };
 
   // Map UI periods to API periods (according to API spec: 1w, 1m, 3m, 6m, 1y, all)
@@ -1247,16 +1241,7 @@ export default function PortfolioDetailsPage() {
       <div className="max-w-7xl mx-auto">
         <PageHeader 
           title={getDisplayTitle(portfolio.name)} 
-          subtitle={(() => {
-            if (Array.isArray(portfolio.description)) {
-              const homeCardDesc = portfolio.description.find((item: any) => item.key === "home card");
-              if (homeCardDesc && homeCardDesc.value) {
-                const textContent = homeCardDesc.value.replace(/<[^>]*>/g, '');
-                return textContent.length > 400 ? textContent.substring(0, 400) + '...' : textContent;
-              }
-            }
-            return safeString(portfolio.description);
-          })()} 
+          subtitle="Model Portfolio" 
         />
 
         {/* Portfolio Info Card */}
@@ -1627,7 +1612,7 @@ export default function PortfolioDetailsPage() {
                 </tr>
                   )}
                   {/* Sale History Rows */}
-                  {portfolio.saleHistory && portfolio.saleHistory.map((sale, index) => {
+                  {portfolio.saleHistory && portfolio.saleHistory.map((sale: any, index: number) => {
                     const profitPercent = sale.originalBuyPrice > 0 ? 
                       ((sale.salePrice - sale.originalBuyPrice) / sale.originalBuyPrice * 100) : 0;
                     
@@ -1760,7 +1745,7 @@ export default function PortfolioDetailsPage() {
                 </tr>
                   )}
                   {/* Sale History Rows */}
-                  {portfolio.saleHistory && portfolio.saleHistory.map((sale, index) => {
+                  {portfolio.saleHistory && portfolio.saleHistory.map((sale: any, index: number) => {
                     const profitPercent = sale.originalBuyPrice > 0 ? 
                       ((sale.salePrice - sale.originalBuyPrice) / sale.originalBuyPrice * 100) : 0;
                     
