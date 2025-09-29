@@ -22,6 +22,18 @@ import { stockSymbolCacheService } from '@/services/stock-symbol-cache.service';
 
 import { Tip } from '@/services/tip.service';
 
+// Helper function to extract exit-range from tip content
+const getExitRange = (content: string | { key: string; value: string; _id?: string; }[] | undefined): string | null => {
+  if (!content) return null;
+  
+  if (Array.isArray(content)) {
+    const exitRangeItem = content.find(item => item.key === 'exit-range');
+    return exitRangeItem?.value || null;
+  }
+  
+  return null;
+};
+
 interface TipCardData {
   id: string;
   portfolioId?: string;
@@ -31,6 +43,7 @@ interface TipCardData {
   exchange: string;
   weightage?: number;
   buyRange: string;
+  exitRange?: string;
   action: 'HOLD' | 'Partial Profit Booked' | 'BUY' | 'SELL';
   category: 'basic' | 'premium';
   title: string;
@@ -194,10 +207,10 @@ const TipCard = ({
           <div className="flex justify-between items-end mt-3 lg:mt-2 gap-3 lg:gap-2">
             <div className="min-w-0 flex-1">
               <p className="text-[15px] lg:text-xs text-black-500 mb-1 leading-tight font-medium">
-                Buy Range
+                {tip.status === 'closed' ? 'Exit Range' : 'Buy Range'}
               </p>
               <div className="text-xl lg:text-lg font-bold text-black truncate">
-                {tip.buyRange}
+                {tip.status === 'closed' ? (tip.exitRange || tip.buyRange) : tip.buyRange}
               </div>
             </div>
             <div className="flex-shrink-0">
@@ -562,6 +575,7 @@ export default function AllRecommendationsPage() {
       stockName,
       exchange: 'NSE',
       buyRange: tip.buyRange || '₹ 1000 - 1050',
+      exitRange: getExitRange(tip.content) || tip.exitPrice,
       action: (tip.action as 'HOLD' | 'Partial Profit Booked' | 'BUY' | 'SELL') || 'BUY',
       category: tip.category || 'basic',
       title: tip.title,

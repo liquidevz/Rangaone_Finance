@@ -89,6 +89,22 @@ export default function Footer() {
 
         <hr className="border-gray-300 mb-4 sm:mb-8" />
 
+                  {/* Support */}
+          <div>
+            <h4 className="text-[#001633] font-bold mb-2 text-base">Support</h4>
+            <div className="space-y-1 sm:space-y-2 text-sm mb-3">
+              <p><span className="font-semibold ">Customer Care Number</span></p>
+              <p>+91-70213 37693</p>
+              <p><span className="font-semibold">Timing</span></p>
+              <p>Monday - Friday</p>
+              <p>(10am-6pm)</p>
+              <p><span className="font-semibold">Email us:</span></p>
+              <p>Support@rangaone.finance</p>
+            </div>
+          </div>
+
+          <hr className="border-gray-300 mb-4 sm:mb-8" />
+
         {/* Company Details Section */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8 text-sm">
           {/* SEBI Details */}
@@ -169,20 +185,7 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Support */}
-          <div>
-            <h4 className="text-[#001633] font-bold mb-3">Support</h4>
-            <div className="space-y-1">
-              <p><span className="font-semibold">FAQ</span></p>
-              <p><span className="font-semibold">CustomerCare Number</span></p>
-              <p>+91-70213 37693</p>
-              <p><span className="font-semibold">Timing</span></p>
-              <p>Monday - Friday</p>
-              <p>(10am-6pm)</p>
-              <p><span className="font-semibold">Email us:</span></p>
-              <p>Support@rangaone.finance</p>
-            </div>
-          </div>
+
         </div>
 
         <hr className="border-gray-300 mb-4 sm:mb-6" />

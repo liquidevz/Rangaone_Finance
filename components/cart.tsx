@@ -522,7 +522,7 @@ export default function CartPage() {
                           availableOptions.push({
                             key: "yearly",
                             label: "Yearly",
-                            badge: `Save ${Math.max(0, discountPct)}%`,
+                            badge: `Save ${Math.round(Math.max(0, discountPct))}%`,
                             savings: "Best Value"
                           });
                         }
@@ -840,7 +840,7 @@ export default function CartPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-4 space-y-4">
-                      {/* Discount Coupon */}
+                      {/* Discount Coupon
                       <div>
                         <Label className="text-sm font-semibold mb-3 block text-gray-900 flex items-center gap-2">
                           <Tag className="w-4 h-4" />
@@ -875,7 +875,7 @@ export default function CartPage() {
                         </p>
                       </div>
 
-                      <Separator />
+                      <Separator /> */}
 
                       {/* Cart Items - Mobile View */}
                       <div>
@@ -943,8 +943,8 @@ export default function CartPage() {
                                       }))}
                                       className="flex items-center gap-2 flex-1 min-w-0 text-left hover:text-blue-600 transition-colors"
                                     >
-                                      <div className="font-medium text-gray-900 text-sm overflow-hidden whitespace-nowrap max-w-[120px]">
-                                        <div className="animate-marquee hover:animation-paused">{item.portfolio.name}</div>
+                                      <div className="font-medium text-gray-900 text-sm break-words">
+                                        {item.portfolio.name}
                                       </div>
                                       <motion.div
                                         animate={{ rotate: expandedItems[item.portfolio._id] ? 180 : 0 }}

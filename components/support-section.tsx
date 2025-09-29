@@ -174,8 +174,8 @@ const EnhancedNeumorphismButton = () => {
       setRipples((prev) => prev.filter((ripple) => ripple.id !== newRipple.id))
     }, 600)
 
-    // Scroll to contact-us section
-    const contactSection = document.getElementById('contact-us')
+    // Scroll to contact form section
+    const contactSection = document.getElementById('contact-form')
     if (contactSection) {
       contactSection.scrollIntoView({ behavior: 'smooth' })
     }

@@ -205,7 +205,7 @@ export default function FAQContactSection() {
           </div>
 
           {/* Contact Form */}
-          <div className="bg-[#001633] text-[#FFFFF0] rounded-xl p-6 md:p-8 shadow-lg">
+          <div id="contact-form" className="bg-[#001633] text-[#FFFFF0] rounded-xl p-6 md:p-8 shadow-lg">
             <h2 className="text-2xl font-bold mb-6">Contact us</h2>
             <form onSubmit={handleSubmit}>
               <div className="mb-6">
