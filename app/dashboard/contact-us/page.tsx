@@ -222,7 +222,7 @@ export default function DashboardContactUs() {
                   <div className="p-3 bg-gray-50 rounded-lg space-y-3">
                     <div>
                       <h4 className="font-medium text-sm mb-1">CustomerCare Number</h4>
-                      <p className="text-sm text-gray-600">+91-91676 94966</p>
+                      <p className="text-sm text-gray-600"> +91-70213 37693</p>
                     </div>
 
                     <div>
