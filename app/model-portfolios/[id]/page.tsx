@@ -1481,7 +1481,7 @@ export default function PortfolioDetailsPage() {
 
 
         {/* Portfolio & Weights Table */}
-        <Card className="mb-4 sm:mb-6">
+        <Card className="mb-4 sm:mb-6" id="portfolio-weights">
           <CardContent className="p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-blue-600 mb-2 sm:mb-0">Portfolio & Weights</h3>
