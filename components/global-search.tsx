@@ -3,9 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Search, X, TrendingUp, Briefcase, FileText, Clock, ArrowRight, Lightbulb } from "lucide-react"
-import { subscriptionService } from "@/services/subscription.service"
-import { portfolioService } from "@/services/portfolio.service"
-import { tipsService } from "@/services/tip.service"
 import { useAuth } from "@/components/auth/auth-context"
 import { cn } from "@/lib/utils"
 
@@ -27,20 +24,19 @@ interface SearchResult {
   createdAt?: string
   symbol?: string
   stockId?: string
+  onClick?: {
+    action: string
+    params?: Record<string, any>
+  }
 }
 
-const PAGES: SearchResult[] = [
-  { id: "dashboard", title: "Dashboard", type: "page", url: "/dashboard", description: "Your investment overview" },
-  { id: "model-portfolios", title: "Model Portfolios", type: "page", url: "/model-portfolios", description: "Investment portfolios" },
-  { id: "rangaone-wealth", title: "RangaOne Wealth", type: "page", url: "/rangaone-wealth", description: "Stock recommendations" },
-  { id: "all-recommendations", title: "All Recommendations", type: "page", url: "/rangaone-wealth/all-recommendations", description: "Browse all recommendations" },
-  { id: "open-recommendations", title: "Open Recommendations", type: "page", url: "/rangaone-wealth/open-recommendations", description: "Active recommendations" },
-  { id: "closed-recommendations", title: "Closed Recommendations", type: "page", url: "/rangaone-wealth/closed-recommendations", description: "Closed recommendations" },
-  { id: "my-portfolios", title: "My Portfolios", type: "page", url: "/rangaone-wealth/my-portfolios", description: "Your subscribed portfolios" },
-  { id: "settings", title: "Settings", type: "page", url: "/settings", description: "Account settings" },
-  { id: "investment-calculator", title: "Investment Calculator", type: "page", url: "/investment-calculator", description: "Calculate returns" },
-  { id: "videos-for-you", title: "Videos For You", type: "page", url: "/videos-for-you", description: "Educational videos" },
-]
+interface Suggestion {
+  text: string
+  type: "portfolio" | "subscription" | "page" | "tip" | "stock"
+  id: string
+}
+
+
 
 export function GlobalSearch() {
   const [query, setQuery] = useState("")
@@ -49,7 +45,7 @@ export function GlobalSearch() {
   const [loading, setLoading] = useState(false)
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [activeIndex, setActiveIndex] = useState(0)
-  const [searchData, setSearchData] = useState<SearchResult[]>([])
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const router = useRouter()
   const searchRef = useRef<HTMLDivElement>(null)
   const { isAuthenticated } = useAuth()
@@ -69,125 +65,72 @@ export function GlobalSearch() {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
   
-  useEffect(() => {
-    if (isAuthenticated) {
-      loadSearchData()
-    } else {
-      setSearchData(PAGES)
-    }
-  }, [isAuthenticated])
-  
-  const loadSearchData = async () => {
+
+
+  const searchAPI = async (searchQuery: string) => {
     try {
-      const [subscriptionsData, portfolios, tips] = await Promise.all([
-        subscriptionService.getUserSubscriptions().catch(() => ({ subscriptions: [] })),
-        portfolioService.getAll().catch(() => []),
-        isAuthenticated ? tipsService.getAll().catch(() => []) : Promise.resolve([])
-      ])
+      const { get } = await import('@/lib/axios')
+      const data = await get(`/api/search?q=${encodeURIComponent(searchQuery)}&limit=10`)
       
-      const searchItems: SearchResult[] = [...PAGES]
-      
-      // Add subscriptions data
-      subscriptionsData.subscriptions.forEach(sub => {
-        const productId = typeof sub.productId === 'string' ? sub.productId : sub.productId?._id
-        const productName = typeof sub.productId === 'object' ? sub.productId?.name : sub.productId
+      if (data.success) {
+        const stocks = (data.results.stocks || []).map(stock => ({
+          id: stock.id || stock._id,
+          title: stock.symbol,
+          type: 'stock',
+          url: stock.onclick || `/stocks/${stock.symbol}`,
+          description: `₹${stock.currentPrice} (${stock.priceChangePercent >= 0 ? '+' : ''}${stock.priceChangePercent}%)`,
+          symbol: stock.symbol
+        }))
         
-        if (productName && productId) {
-          searchItems.push({
-            id: productId,
-            title: productName,
-            type: sub.productType === 'Portfolio' ? 'portfolio' : 'subscription',
-            url: sub.productType === 'Portfolio' ? `/model-portfolios/${productId}` : `/dashboard`,
-            description: `${sub.productType} subscription - ${sub.planType || 'Active'}`,
-            category: sub.productType
-          })
+        return {
+          Pages: [],
+          Portfolios: data.results.portfolios || [],
+          Tips: [],
+          Stocks: stocks,
+          Subscriptions: data.results.bundles || []
         }
-      })
-      
-      // Add all portfolios
-      portfolios.forEach(portfolio => {
-        if (portfolio._id && portfolio.name) {
-          searchItems.push({
-            id: portfolio._id,
-            title: portfolio.name,
-            type: 'portfolio',
-            url: `/model-portfolios/${portfolio._id}`,
-            description: portfolio.description || `${portfolio.PortfolioCategory || 'Investment'} portfolio`,
-            category: portfolio.PortfolioCategory
-          })
-        }
-      })
-      
-      // Add tips/recommendations
-      tips.forEach(tip => {
-        if (tip._id && (tip.title || tip.stockId)) {
-          searchItems.push({
-            id: tip._id,
-            title: tip.title || tip.stockId || 'Recommendation',
-            type: 'tip',
-            url: `/tips/${tip._id}`,
-            description: `${tip.category || 'Basic'} recommendation - ${tip.action || 'Buy'}`,
-            category: tip.category,
-            createdAt: tip.createdAt,
-            stockId: tip.stockId,
-            symbol: tip.symbol
-          })
-        }
-      })
-      
-      // Add stock symbols from tips
-      const uniqueStocks = new Set()
-      tips.forEach(tip => {
-        if (tip.stockId && !uniqueStocks.has(tip.stockId)) {
-          uniqueStocks.add(tip.stockId)
-          searchItems.push({
-            id: `stock-${tip.stockId}`,
-            title: tip.stockId,
-            type: 'stock',
-            url: `/recommendations?stock=${tip.stockId}`,
-            description: `Stock recommendations for ${tip.stockId}`,
-            symbol: tip.stockId
-          })
-        }
-      })
-      
-      setSearchData(searchItems)
+      }
+      return { Pages: [], Portfolios: [], Tips: [], Stocks: [], Subscriptions: [] }
     } catch (error) {
-      console.error('Failed to load search data:', error)
-      setSearchData(PAGES)
+      console.error('Search API error:', error)
+      return { Pages: [], Portfolios: [], Tips: [], Stocks: [], Subscriptions: [] }
     }
   }
 
-  const searchItems = (searchQuery: string) => {
-    if (!searchQuery.trim()) return { Pages: [], Portfolios: [], Tips: [], Stocks: [], Subscriptions: [] }
-    
-    const query = searchQuery.toLowerCase()
-    const filtered = searchData.filter(item => 
-      item.title.toLowerCase().includes(query) ||
-      item.description?.toLowerCase().includes(query) ||
-      item.category?.toLowerCase().includes(query) ||
-      item.stockId?.toLowerCase().includes(query) ||
-      item.symbol?.toLowerCase().includes(query)
-    )
-    
-    return {
-      Pages: filtered.filter(item => item.type === 'page').slice(0, 3),
-      Portfolios: filtered.filter(item => item.type === 'portfolio').slice(0, 4),
-      Tips: filtered.filter(item => item.type === 'tip').slice(0, 5),
-      Stocks: filtered.filter(item => item.type === 'stock').slice(0, 3),
-      Subscriptions: filtered.filter(item => item.type === 'subscription').slice(0, 2)
+  const getSuggestions = async (searchQuery: string) => {
+    try {
+      const { get } = await import('@/lib/axios')
+      const data = await get(`/api/search/suggestions?q=${encodeURIComponent(searchQuery)}`)
+      
+      console.log('Suggestions response:', data)
+      
+      if (data.success && data.suggestions?.length > 0) {
+        setSuggestions(data.suggestions)
+      } else {
+        setSuggestions([])
+      }
+    } catch (error) {
+      console.error('Suggestions API error:', error)
+      setSuggestions([])
     }
   }
 
   const debouncedSearch = useCallback(
-    debounce((searchQuery: string) => {
+    debounce(async (searchQuery: string) => {
       setLoading(true)
-      const searchResults = searchItems(searchQuery)
+      const searchResults = await searchAPI(searchQuery)
       setResults(searchResults)
       setActiveIndex(0)
       setLoading(false)
     }, 200),
-    [searchData]
+    []
+  )
+
+  const debouncedSuggestions = useCallback(
+    debounce((searchQuery: string) => {
+      getSuggestions(searchQuery)
+    }, 150),
+    []
   )
 
   const handleInputChange = (value: string) => {
@@ -195,8 +138,10 @@ export function GlobalSearch() {
     setIsOpen(true)
     if (value.trim()) {
       debouncedSearch(value)
+      debouncedSuggestions(value)
     } else {
       setResults({})
+      setSuggestions([])
       setLoading(false)
     }
   }
@@ -224,7 +169,13 @@ export function GlobalSearch() {
 
   const handleResultClick = (result: SearchResult) => {
     saveRecentSearch(result.title)
-    router.push(result.url)
+    
+    if (result.onClick?.action === 'navigate' && result.onClick.params?.url) {
+      router.push(result.onClick.params.url)
+    } else {
+      router.push(result.url)
+    }
+    
     setIsOpen(false)
     setQuery("")
   }
@@ -285,6 +236,8 @@ export function GlobalSearch() {
   }
 
   const getResultBadge = (type: string, category?: string) => {
+    if (!type) return null
+    
     const badges = {
       tip: category === "premium" 
         ? { text: "Premium", className: "bg-gradient-to-r from-yellow-400 to-amber-500 text-white" }
@@ -395,7 +348,7 @@ export function GlobalSearch() {
                                   <div className="font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors duration-200">
                                     {highlightMatch(String(result.title || ''), query)}
                                   </div>
-                                  {getResultBadge(result.type, result.category)}
+                                  {getResultBadge(result.type, result.category) && getResultBadge(result.type, result.category)}
                                 </div>
                                 {result.description && (
                                   <div className="text-sm text-gray-600 truncate group-hover:text-gray-700 transition-colors duration-200">
@@ -437,7 +390,31 @@ export function GlobalSearch() {
                 </div>
               </div>
             </div>
-          ) : query ? (
+          ) : suggestions.length > 0 ? (
+            <div>
+              <div className="bg-gradient-to-r from-gray-50/90 to-blue-50/90 px-4 py-3 border-b border-gray-100/50">
+                <div className="flex items-center gap-2">
+                  <Search className="h-4 w-4 text-blue-500" />
+                  <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Suggestions</span>
+                </div>
+              </div>
+              <div className="py-1">
+                {suggestions.map((suggestion, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleInputChange(suggestion.text)}
+                    className="w-full px-4 py-3 text-left hover:bg-gradient-to-r hover:from-blue-50/80 hover:to-indigo-50/80 transition-all duration-200 text-sm text-gray-700 group border-b border-gray-50/80 last:border-b-0"
+                  >
+                    <div className="flex items-center gap-3">
+                      {getTypeIcon(suggestion.type)}
+                      <span className="group-hover:text-blue-700 transition-colors duration-200">{suggestion.text}</span>
+                      <ArrowRight className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200 ml-auto" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : query && suggestions.length === 0 ? (
             <div className="p-8 text-center">
               <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <Search className="h-8 w-8 text-gray-400" />
