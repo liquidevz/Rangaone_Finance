@@ -52,8 +52,8 @@ export default function RangaOneWealth() {
   const searchParams = useSearchParams();
 
   // Read filters from URL or default to 'basic'
-  const mainFilter = searchParams.get("open") || "basic";
-  const closedFilter = searchParams.get("closed") || "basic";
+  const mainFilter = searchParams?.get("open") || "basic";
+  const closedFilter = searchParams?.get("closed") || "basic";
   // --- END STATE MANAGEMENT ---
 
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -88,7 +88,7 @@ export default function RangaOneWealth() {
   // --- UPDATE URL ON FILTER CHANGE ---
   const handleMainFilterChange = (newFilter: string) => {
     if (newFilter === mainFilter) return;
-    const current = new URLSearchParams(Array.from(searchParams.entries()));
+    const current = new URLSearchParams(Array.from(searchParams?.entries() || []));
     current.set("open", newFilter);
     const search = current.toString();
     const query = search ? `?${search}` : "";
@@ -97,7 +97,7 @@ export default function RangaOneWealth() {
 
   const handleClosedFilterChange = (newFilter: string) => {
     if (newFilter === closedFilter) return;
-    const current = new URLSearchParams(Array.from(searchParams.entries()));
+    const current = new URLSearchParams(Array.from(searchParams?.entries() || []));
     current.set("closed", newFilter);
     const search = current.toString();
     const query = search ? `?${search}` : "";
