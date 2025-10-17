@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { Tip, tipsService } from "@/services/tip.service";
 import useEmblaCarousel from "embla-carousel-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation"; // Import hooks
 import { useCallback, useEffect, useState, useMemo } from "react";
 import { Slider } from "@/components/ui/slider";
 import { format, isSameDay } from "date-fns";
@@ -17,10 +17,10 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import TipsCarousel from "@/components/tips-carousel";
-import { useAuth } from "@/components/auth/auth-context"; // Import useAuth
-import { subscriptionService, type SubscriptionAccess } from "@/services/subscription.service"; // Import subscriptionService and SubscriptionAccess
+import { useAuth } from "@/components/auth/auth-context";
+import { subscriptionService, type SubscriptionAccess } from "@/services/subscription.service";
 
-// Helper function to format currency
+// Helper functions remain the same...
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
@@ -29,7 +29,6 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-// Helper function to parse buy range
 const parseBuyRange = (buyRange: string) => {
   if (!buyRange) return { min: 0, max: 0 };
   const cleanRange = buyRange.replace(/[₹,]/g, '').trim();
@@ -41,85 +40,40 @@ const parseBuyRange = (buyRange: string) => {
   return { min: value || 0, max: value || 0 };
 };
 
+
 export default function RangaOneWealth() {
   const [allTips, setAllTips] = useState<Tip[]>([]);
-  const [activeTips, setActiveTips] = useState<Tip[]>([]);
-  const [closedTips, setClosedTips] = useState<Tip[]>([]);
-  const [activeDate, setActiveDate] = useState<Date>(new Date());
-  const [closedDate, setClosedDate] = useState<Date>(new Date());
   const [loading, setLoading] = useState(true);
-  const [categoryLoading, setCategoryLoading] = useState<{basic: boolean, premium: boolean}>({basic: false, premium: false});
   const { toast } = useToast();
+  
+  // --- STATE MANAGEMENT WITH URL ---
   const router = useRouter();
-  const [mainFilter, setMainFilter] = useState<string>("basic");
-  const [closedFilter, setClosedFilter] = useState<string>("basic");
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  const { isAuthenticated, isLoading: authLoading } = useAuth(); // Get auth state
-  const [subscriptionAccess, setSubscriptionAccess] = useState<SubscriptionAccess | undefined>(); // State for subscription access
+  // Read filters from URL or default to 'basic'
+  const mainFilter = searchParams.get("open") || "basic";
+  const closedFilter = searchParams.get("closed") || "basic";
+  // --- END STATE MANAGEMENT ---
 
-  // Load tips efficiently by category
-  const loadTipsByCategory = async (category: 'basic' | 'premium') => {
-    setCategoryLoading(prev => ({ ...prev, [category]: true }));
-    try {
-      console.log(`Loading ${category} tips from API...`);
-      const data = await tipsService.getAll({ category }); // Server-side filtering
-      console.log(`${category} tips loaded:`, data.length);
-      
-      // Ensure data is an array
-      const tipsArray = Array.isArray(data) ? data : [];
-      
-      // Sort tips by date (oldest first for chronological order)
-      const sortedTips = [...tipsArray].sort((a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-      );
-      
-      // Update the appropriate tips based on category
-      const active = sortedTips.filter(tip => tip.status === "Active");
-      const closed = sortedTips.filter(tip => tip.status !== "Active");
-      
-      // Update state based on current filter
-      setActiveTips(prevActive => {
-        // Remove old tips of this category and add new ones
-        const filteredOld = prevActive.filter(tip => tip.category?.toLowerCase() !== category);
-        return [...filteredOld, ...active].sort((a, b) => 
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
-      });
-      
-      setClosedTips(prevClosed => {
-        // Remove old tips of this category and add new ones
-        const filteredOld = prevClosed.filter(tip => tip.category?.toLowerCase() !== category);
-        return [...filteredOld, ...closed].sort((a, b) => 
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
-      });
-      
-      console.log(`✅ ${category} tips loaded: ${active.length} active, ${closed.length} closed`);
-      
-    } catch (error) {
-      console.error(`Failed to load ${category} tips:`, error);
-      toast({
-        title: "Error",
-        description: `Failed to load ${category} tips. Please try again later.`,
-        variant: "destructive",
-      });
-    } finally {
-      setCategoryLoading(prev => ({ ...prev, [category]: false }));
-    }
-  };
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const [subscriptionAccess, setSubscriptionAccess] = useState<SubscriptionAccess | undefined>();
+  const [categoryLoading, setCategoryLoading] = useState({ basic: false, premium: false });
 
   // Load initial data and subscription access
   useEffect(() => {
     async function loadInitialData() {
       setLoading(true);
       try {
-        // Load subscription access
         const access = await subscriptionService.getSubscriptionAccess(true);
         setSubscriptionAccess(access);
-        console.log("Subscription access data:", access);
         
-        // Load initial category (basic) tips
-        await loadTipsByCategory('basic');
+        const data = await tipsService.getAll();
+        const tipsArray = Array.isArray(data) ? data : [];
+        const sortedTips = [...tipsArray].sort((a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+        setAllTips(sortedTips);
         
       } catch (error) {
         console.error("Failed to load initial data:", error);
@@ -131,96 +85,38 @@ export default function RangaOneWealth() {
     loadInitialData();
   }, [toast]);
 
-  // Handle filter changes
-  const handleMainFilterChange = async (newFilter: string) => {
-    if (newFilter === mainFilter) return; // No change
-    
-    setMainFilter(newFilter);
-    
-    if (newFilter === 'basic' || newFilter === 'premium') {
-      await loadTipsByCategory(newFilter as 'basic' | 'premium');
-    }
+  // --- UPDATE URL ON FILTER CHANGE ---
+  const handleMainFilterChange = (newFilter: string) => {
+    if (newFilter === mainFilter) return;
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+    current.set("open", newFilter);
+    const search = current.toString();
+    const query = search ? `?${search}` : "";
+    router.push(`${pathname}${query}`);
   };
 
-  const handleClosedFilterChange = async (newFilter: string) => {
-    if (newFilter === closedFilter) return; // No change
-    
-    setClosedFilter(newFilter);
-    
-    if (newFilter === 'basic' || newFilter === 'premium') {
-      await loadTipsByCategory(newFilter as 'basic' | 'premium');
-    }
+  const handleClosedFilterChange = (newFilter: string) => {
+    if (newFilter === closedFilter) return;
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+    current.set("closed", newFilter);
+    const search = current.toString();
+    const query = search ? `?${search}` : "";
+    router.push(`${pathname}${query}`);
   };
-
-  // Memoized date ranges
-  const { activeDateRange, closedDateRange } = useMemo(() => {
-    return {
-      activeDateRange: activeTips.length > 0 ? {
-        min: new Date(Math.min(...activeTips.map(tip => new Date(tip.createdAt).getTime()))),
-        max: new Date(Math.max(...activeTips.map(tip => new Date(tip.createdAt).getTime())))
-      } : {
-        min: new Date('2024-01-01'),
-        max: new Date('2025-12-31')
-      },
-      closedDateRange: closedTips.length > 0 ? {
-        min: new Date(Math.min(...closedTips.map(tip => new Date(tip.createdAt).getTime()))),
-        max: new Date(Math.max(...closedTips.map(tip => new Date(tip.createdAt).getTime())))
-      } : {
-        min: new Date('2024-01-01'),
-        max: new Date('2025-12-31')
-      }
-    };
-  }, [activeTips, closedTips]);
-
-  // Enhanced tip filtering with date and category handling
-  const filterTipsWithHighlight = useCallback((tips: Tip[], selectedDate: Date) => {
-    return tips
-      .filter(tip => {
-        const tipDate = new Date(tip.createdAt);
-        return tipDate <= selectedDate;
-      })
-      .map(tip => ({
-        ...tip,
-        isCurrentDate: isSameDay(new Date(tip.createdAt), selectedDate)
-      }))
-      .sort((a, b) => {
-        // Sort by current date first, then by creation date
-        if (a.isCurrentDate && !b.isCurrentDate) return -1;
-        if (!a.isCurrentDate && b.isCurrentDate) return 1;
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
-  }, []);
-
-  // Slider change handler with smooth updates and animations
-  const handleSliderChange = useCallback((value: number, setDate: (date: Date) => void) => {
-    const newDate = new Date(value);
-    setDate(newDate);
-  }, []);
+  // --- END URL UPDATE ---
 
   // Filtering logic for carousels - filter by status AND category
   const filteredMainTips = useMemo(() => {
-    // First filter by status (Active tips only)
-    const activeOnly = activeTips;
-    
-    // Then filter by category if needed
-    if (mainFilter === "all") {
-      return activeOnly;
-    } else {
-      return activeOnly.filter(tip => tip.category?.toLowerCase() === mainFilter);
-    }
-  }, [activeTips, mainFilter]);
+    return allTips
+      .filter(tip => tip.status === "Active")
+      .filter(tip => tip.category?.toLowerCase() === mainFilter);
+  }, [allTips, mainFilter]);
   
   const filteredClosedTips = useMemo(() => {
-    // First filter by status (Closed tips only)
-    const closedOnly = closedTips;
-    
-    // Then filter by category if needed
-    if (closedFilter === "all") {
-      return closedOnly;
-    } else {
-      return closedOnly.filter(tip => tip.category?.toLowerCase() === closedFilter);
-    }
-  }, [closedTips, closedFilter]);
+    return allTips
+      .filter(tip => tip.status !== "Active")
+      .filter(tip => tip.category?.toLowerCase() === closedFilter);
+  }, [allTips, closedFilter]);
 
   // Navigation handler for tips
   const handleTipClick = (tipId: string) => {
@@ -259,8 +155,6 @@ export default function RangaOneWealth() {
           subtitle="Expert Stock Recommendations"
       />
 
-
-
       {/* Open Recommendations Section */}
       <Card className="mt-1 mb-1 shadow-sm border border-gray-200" data-tour="recommendations-list">
         <CardContent className="p-6">
@@ -268,35 +162,34 @@ export default function RangaOneWealth() {
           <div className="flex justify-center mb-4 gap-3">
             <div 
               className={`p-[4px] rounded-xl inline-block shadow-sm cursor-pointer transition-all bg-gradient-to-r from-[#A0A2FF] to-[#6E6E6E] ${
-                categoryLoading.basic ? "opacity-50 pointer-events-none" : ""
+                mainFilter === 'basic' ? 'ring-2 ring-blue-400' : ''
               }`}
               onClick={() => handleMainFilterChange("basic")}
             >
               <div className="text-xl font-bold rounded-lg px-4 py-2 bg-gradient-to-r from-[#396C87] to-[#151D5C] text-white">
-                {categoryLoading.basic ? "Loading..." : "Basic"}
+                Basic
               </div>
             </div>
             <div 
               className={`p-[4px] rounded-xl inline-block shadow-sm cursor-pointer transition-all bg-gradient-to-r from-yellow-400 to-yellow-500 ${
-                categoryLoading.premium ? "opacity-50 pointer-events-none" : ""
+                mainFilter === 'premium' ? 'ring-2 ring-yellow-300' : ''
               }`}
               onClick={() => handleMainFilterChange("premium")}
             >
               <div className="text-xl font-outfit font-bold rounded-lg px-4 py-2 bg-gray-800 text-yellow-400">
-                {categoryLoading.premium ? "Loading..." : "Premium"}
+                Premium
               </div>
             </div>
           </div>
           <TipsCarousel 
             tips={filteredMainTips} 
-            loading={loading || categoryLoading[mainFilter as keyof typeof categoryLoading]} 
+            loading={loading} 
             onTipClick={handleTipClick} 
             categoryFilter={mainFilter as 'basic' | 'premium'}
             sliderSize="large"
-            userSubscriptionAccess={subscriptionAccess} // Pass subscription access
+            userSubscriptionAccess={subscriptionAccess}
           />
           
-          {/* View All Recommendations Button */}
           <div className="flex justify-center">
             <Button
               onClick={() => router.push('/rangaone-wealth/all-recommendations?filter=live')}
@@ -319,34 +212,33 @@ export default function RangaOneWealth() {
           <div className="flex justify-center mb-4 gap-3">
             <div 
               className={`p-[4px] rounded-xl inline-block shadow-sm cursor-pointer transition-all bg-gradient-to-r from-[#A0A2FF] to-[#6E6E6E] ${
-                categoryLoading.basic ? "opacity-50 pointer-events-none" : ""
+                closedFilter === 'basic' ? 'ring-2 ring-blue-400' : ''
               }`}
               onClick={() => handleClosedFilterChange("basic")}
             >
               <div className="text-xl font-bold rounded-lg px-4 py-2 bg-gradient-to-r from-[#396C87] to-[#151D5C] text-white">
-                {categoryLoading.basic ? "Loading..." : "Basic"}
+                Basic
               </div>
             </div>
             <div 
               className={`p-[4px] rounded-xl inline-block shadow-sm cursor-pointer transition-all bg-gradient-to-r from-yellow-400 to-yellow-500 ${
-                categoryLoading.premium ? "opacity-50 pointer-events-none" : ""
+                closedFilter === 'premium' ? 'ring-2 ring-yellow-300' : ''
               }`}
               onClick={() => handleClosedFilterChange("premium")}
             >
               <div className="text-xl font-outfit font-bold rounded-lg px-4 py-2 bg-gray-800 text-yellow-400">
-                {categoryLoading.premium ? "Loading..." : "Premium"}
+                Premium
               </div>
             </div>
           </div>
           <TipsCarousel 
             tips={filteredClosedTips} 
-            loading={loading || categoryLoading[closedFilter as keyof typeof categoryLoading]} 
+            loading={loading} 
             onTipClick={handleTipClick} 
             categoryFilter={closedFilter as 'basic' | 'premium'}
-            userSubscriptionAccess={subscriptionAccess} // Pass subscription access
+            userSubscriptionAccess={subscriptionAccess}
           />
           
-          {/* View All Recommendations Button */}
           <div className="flex justify-center">
             <Button
               onClick={() => router.push('/rangaone-wealth/all-recommendations?filter=closed')}

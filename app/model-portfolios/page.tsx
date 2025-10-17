@@ -112,6 +112,14 @@ export default function ModelPortfoliosPage() {
     return isNaN(num) ? 0 : num;
   };
 
+  // Helper: normalize API percent values and format for display
+  const normalizePercent = (value: any): number => {
+    if (value === null || value === undefined) return 0;
+    // Strip a trailing % if API ever returns strings like "12.3%"
+    const numeric = typeof value === 'string' ? Number(value.replace(/%/g, '')) : Number(value);
+    return isFinite(numeric) ? numeric : 0;
+  };
+
   // Check if user has access to a portfolio using subscription access data
   const hasPortfolioAccess = (portfolio: PortfolioWithMessage): boolean => {
     if (!isAuthenticated || !subscriptionAccess) {
@@ -417,11 +425,12 @@ export default function ModelPortfoliosPage() {
                             className={`text-lg sm:text-xl font-semibold ${
                               isLocked
                                 ? "blur-sm text-green-600"
-                                : safeNumber(portfolio.monthlyGains) >= 0
-                                ? "text-green-600"
-                                : "text-red-600"
+                                : (() => {
+                                    const monthlyGainsValue = normalizePercent(portfolio.monthlyGains);
+                                    return monthlyGainsValue > 0 ? "text-green-600" : monthlyGainsValue < 0 ? "text-red-600" : "text-gray-500";
+                                  })()
                             } ${
-                              safeNumber(portfolio.monthlyGains) === 0
+                              normalizePercent(portfolio.monthlyGains) === 0
                                 ? "cursor-help"
                                 : ""
                             }`}
@@ -430,10 +439,11 @@ export default function ModelPortfoliosPage() {
                               ? `+${
                                   Math.floor(Math.random() * 20) + 5
                                 }.${Math.floor(Math.random() * 99)}%`
-                              : safeNumber(portfolio.monthlyGains) === 0
-                              ? "-"
-                              : `${safeString(portfolio.monthlyGains)}%`}
-                            {safeNumber(portfolio.monthlyGains) === 0 && (
+                              : (() => {
+                                  const monthlyGainsValue = normalizePercent(portfolio.monthlyGains);
+                                  return monthlyGainsValue === 0 ? "-" : `${monthlyGainsValue > 0 ? '+' : ''}${monthlyGainsValue}%`;
+                                })()}
+                            {normalizePercent(portfolio.monthlyGains) === 0 && (
                               <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-[#FFFFF0] text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-20">
                                 Updates Frequently
                               </span>
@@ -454,11 +464,12 @@ export default function ModelPortfoliosPage() {
                             className={`text-lg sm:text-xl font-semibold ${
                               isLocked
                                 ? "blur-sm text-green-600"
-                                : safeNumber(portfolio.oneYearGains) >= 0
-                                ? "text-green-600"
-                                : "text-red-600"
+                                : (() => {
+                                    const oneYearGainsValue = normalizePercent(portfolio.oneYearGains);
+                                    return oneYearGainsValue > 0 ? "text-green-600" : oneYearGainsValue < 0 ? "text-red-600" : "text-gray-500";
+                                  })()
                             } ${
-                              safeNumber(portfolio.oneYearGains) === 0
+                              normalizePercent(portfolio.oneYearGains) === 0
                                 ? "cursor-help"
                                 : ""
                             }`}
@@ -467,10 +478,11 @@ export default function ModelPortfoliosPage() {
                               ? `+${
                                   Math.floor(Math.random() * 15) + 2
                                 }.${Math.floor(Math.random() * 99)}%`
-                              : safeNumber(portfolio.oneYearGains) === 0
-                              ? "-"
-                              : `${safeString(portfolio.oneYearGains)}%`}
-                            {safeNumber(portfolio.oneYearGains) === 0 && (
+                              : (() => {
+                                  const oneYearGainsValue = normalizePercent(portfolio.oneYearGains);
+                                  return oneYearGainsValue === 0 ? "-" : `${oneYearGainsValue > 0 ? '+' : ''}${oneYearGainsValue}%`;
+                                })()}
+                            {normalizePercent(portfolio.oneYearGains) === 0 && (
                               <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-[#FFFFF0] text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-20">
                                 Updates Frequently
                               </span>
@@ -491,11 +503,12 @@ export default function ModelPortfoliosPage() {
                             className={`text-lg sm:text-xl font-semibold ${
                               isLocked
                                 ? "blur-sm text-green-600"
-                                : safeNumber(portfolio.CAGRSinceInception) >= 0
-                                ? "text-green-600"
-                                : "text-red-600"
+                                : (() => {
+                                    const cagrSinceInceptionValue = normalizePercent(portfolio.CAGRSinceInception);
+                                    return cagrSinceInceptionValue > 0 ? "text-green-600" : cagrSinceInceptionValue < 0 ? "text-red-600" : "text-gray-500";
+                                  })()
                             } ${
-                              safeNumber(portfolio.CAGRSinceInception) === 0
+                              normalizePercent(portfolio.CAGRSinceInception) === 0
                                 ? "cursor-help"
                                 : ""
                             }`}
@@ -504,10 +517,11 @@ export default function ModelPortfoliosPage() {
                               ? `+${
                                   Math.floor(Math.random() * 25) + 10
                                 }.${Math.floor(Math.random() * 99)}%`
-                              : safeNumber(portfolio.CAGRSinceInception) === 0
-                              ? "-"
-                              : `${safeString(portfolio.CAGRSinceInception)}%`}
-                            {safeNumber(portfolio.CAGRSinceInception) === 0 && (
+                              : (() => {
+                                  const cagrSinceInceptionValue = normalizePercent(portfolio.CAGRSinceInception);
+                                  return cagrSinceInceptionValue === 0 ? "-" : `${cagrSinceInceptionValue > 0 ? '+' : ''}${cagrSinceInceptionValue}%`;
+                                })()}
+                            {normalizePercent(portfolio.CAGRSinceInception) === 0 && (
                               <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-[#FFFFF0] text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-20">
                                 Updates Frequently
                               </span>

@@ -4,13 +4,12 @@ import type React from "react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Menu, X, PanelLeft, HelpCircle } from "lucide-react";
+import { ChevronDown, Menu, X, PanelLeft } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth/auth-context";
 import Sidebar from "@/components/sidebar";
 import { GlobalSearch } from "@/components/global-search";
-import DemoTour from "@/components/demo-tour";
 
 export default function DashboardLayout({
   children,
@@ -23,27 +22,8 @@ export default function DashboardLayout({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showDemoTour, setShowDemoTour] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
   
-  // Resume tour after navigation
-  useEffect(() => {
-    const handleResumeTour = () => {
-      const tourActive = sessionStorage.getItem('demo-tour-active')
-      if (tourActive === 'true') {
-        setShowDemoTour(true)
-      }
-    }
-    
-    window.addEventListener('resume-demo-tour', handleResumeTour)
-    
-    // Check on mount
-    handleResumeTour()
-    
-    return () => {
-      window.removeEventListener('resume-demo-tour', handleResumeTour)
-    }
-  }, [])
   const router = useRouter();
 
   useEffect(() => {
@@ -53,8 +33,6 @@ export default function DashboardLayout({
     if (savedCollapsedState !== null) {
       setSidebarCollapsed(JSON.parse(savedCollapsedState));
     }
-    
-
     
     return () => setIsMounted(false);
   }, [isAuthenticated]);
@@ -193,29 +171,20 @@ export default function DashboardLayout({
                 />
               </div>
 
-              <div className="hidden md:flex flex-1 items-center gap-4 max-w-3xl" data-tour="search">
+              <div className="hidden md:flex flex-1 items-center gap-4 max-w-3xl">
                 <GlobalSearch />
               </div>
               
               <div className="flex-1 md:hidden"></div>
 
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowDemoTour(true)}
-                  className="flex items-center gap-2 rounded-xl p-2 text-gray-500 hover:bg-blue-50/80 hover:text-blue-600 transition-all duration-200 ring-1 ring-gray-200/50 hover:ring-blue-300/50"
-                  title="Start Demo Tour"
-                >
-                  <HelpCircle className="h-5 w-5" />
-                  <span className="hidden sm:inline text-sm font-medium">Tour</span>
-                </button>
-                
-                <div className="relative" data-tour="user-menu">
+                <div className="relative">
                   <button
                     onClick={() => setShowUserMenu(!showUserMenu)}
                     className="flex items-center gap-2 rounded-xl p-2 text-gray-700 hover:bg-gray-100/80 transition-all duration-200 ring-1 ring-gray-200/50 hover:ring-gray-300/50"
                   >
                     <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
-                      <span className="text-[#FFFFF0] font-semibold text-sm">
+                      <span className="text-white font-semibold text-sm">
                         {user?.username?.[0]?.toUpperCase() || "U"}
                       </span>
                     </div>
@@ -265,22 +234,13 @@ export default function DashboardLayout({
 
           <main className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 sm:px-6">
             <div className="max-w-7xl mx-auto">
-              <div data-tour="main-content">
+              <div>
                 {children}
               </div>
             </div>
           </main>
         </div>
       </div>
-      
-      <DemoTour 
-        isOpen={showDemoTour} 
-        onClose={() => {
-          setShowDemoTour(false)
-          sessionStorage.removeItem('demo-tour-active')
-          sessionStorage.removeItem('demo-tour-step')
-        }} 
-      />
     </div>
   );
 }

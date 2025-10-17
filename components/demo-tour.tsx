@@ -1,5 +1,7 @@
 "use client"
 
+// DEMO TOUR COMMENTED OUT FOR NOW
+/*
 import React, { useState, useEffect, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useRouter, usePathname } from 'next/navigation'
@@ -766,6 +768,13 @@ export function DemoTour({ isOpen, onClose }: DemoTourProps) {
       )}
     </AnimatePresence>
   )
+}
+
+*/
+
+// Placeholder component while demo tour is commented out
+export function DemoTour({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  return null
 }
 
 export default DemoTour

@@ -1202,13 +1202,13 @@ export default function PortfolioDetailsPage() {
   const oneYearGainsValue = normalizePercent((portfolio as any)?.oneYearGains);
   const cagrSinceInceptionValue = normalizePercent((portfolio as any)?.CAGRSinceInception);
 
-  // Create portfolio allocation data using ONLY Portfolio & Weights Table values
+  // Create portfolio allocation data using weightage percentage and investment value
   const portfolioAllocationData: PortfolioAllocationItem[] = portfolioMetrics.holdingsWithQuantities.length > 0 
     ? portfolioMetrics.holdingsWithQuantities
         .map((holding, index) => {
-          // Use EXACT table calculation: currentPrice * quantity
-          const tableCurrentValue = (holding.currentPrice || 0) * (holding.quantity || 0);
-          const tablePercentage = portfolioMetrics.holdingsValue > 0 ? (tableCurrentValue / portfolioMetrics.holdingsValue) * 100 : 0;
+          // Use weightage for percentage and investment value (buyPrice * quantity)
+          const investmentValue = (holding.buyPrice || 0) * (holding.quantity || 0);
+          const weightagePercentage = holding.weight || 0;
           
           const getColorForStock = (symbol: string, index: number) => {
             const stockColorMap: { [key: string]: string } = {
@@ -1227,10 +1227,10 @@ export default function PortfolioDetailsPage() {
           
           return {
             name: holding.symbol,
-            value: parseFloat(tablePercentage.toFixed(2)),
+            value: parseFloat(weightagePercentage.toFixed(2)),
             color: getColorForStock(holding.symbol, index),
             sector: holding.sector || holding.marketCap || 'Banking',
-            tableCurrentValue: tableCurrentValue // Store table value for Holdings Detail
+            tableCurrentValue: investmentValue // Store investment value for Holdings Detail
           };
         })
         .filter(item => item.value > 0)

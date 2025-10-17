@@ -53,10 +53,11 @@ function fuzzyMatch(text: string, query: string): number {
 
 async function getSearchData(): Promise<SearchResult[]> {
   try {
-    const [subscriptionsData, portfolios, tips] = await Promise.all([
+    const [subscriptionsData, portfolios, tips, portfolioTips] = await Promise.all([
       subscriptionService.getUserSubscriptions().catch(() => ({ subscriptions: [] })),
       portfolioService.getAll().catch(() => []),
-      tipsService.getAll().catch(() => [])
+      tipsService.getAll().catch(() => []),
+      tipsService.getPortfolioTips().catch(() => [])
     ])
     
     const searchItems: SearchResult[] = [...PAGES]
@@ -85,10 +86,10 @@ async function getSearchData(): Promise<SearchResult[]> {
       if (portfolio._id && portfolio.name) {
         searchItems.push({
           id: portfolio._id,
-          title: portfolio.name,
+          title: `${portfolio.name} Portfolio`,
           type: 'portfolio',
           url: `/model-portfolios/${portfolio._id}`,
-          description: portfolio.description || `${portfolio.PortfolioCategory || 'Investment'} portfolio`,
+          description: portfolio.description || `${portfolio.PortfolioCategory || 'Investment'} portfolio recommendations`,
           category: portfolio.PortfolioCategory,
           onClick: {
             action: 'navigate',
@@ -98,14 +99,39 @@ async function getSearchData(): Promise<SearchResult[]> {
       }
     })
     
+    // Add regular tips (non-portfolio)
     tips.forEach(tip => {
       if (tip._id && (tip.title || tip.stockId)) {
+        const bundleType = tip.category === 'premium' ? 'Premium' : 'Basic'
         searchItems.push({
           id: tip._id,
           title: tip.title || tip.stockId || 'Recommendation',
           type: 'tip',
           url: `/tips/${tip._id}`,
-          description: `${tip.category || 'Basic'} recommendation - ${tip.action || 'Buy'}`,
+          description: `${bundleType} Bundle - ${tip.action || 'Buy'} recommendation`,
+          category: tip.category,
+          createdAt: tip.createdAt,
+          stockId: tip.stockId,
+          symbol: tip.symbol,
+          onClick: {
+            action: 'navigate',
+            params: { url: `/tips/${tip._id}` }
+          }
+        })
+      }
+    })
+    
+    // Add portfolio-specific tips with portfolio names
+    portfolioTips.forEach(tip => {
+      if (tip._id && (tip.title || tip.stockId)) {
+        const portfolioName = typeof tip.portfolio === 'object' ? tip.portfolio.name : 'Portfolio'
+        const bundleType = tip.category === 'premium' ? 'Premium' : 'Basic'
+        searchItems.push({
+          id: `portfolio-tip-${tip._id}`,
+          title: `${tip.title || tip.stockId} - ${portfolioName}`,
+          type: 'tip',
+          url: `/tips/${tip._id}`,
+          description: `${portfolioName} Portfolio - ${bundleType} Bundle recommendation`,
           category: tip.category,
           createdAt: tip.createdAt,
           stockId: tip.stockId,

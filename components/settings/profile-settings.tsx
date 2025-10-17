@@ -16,6 +16,11 @@ export default function ProfileSettings() {
   const [isEditing, setIsEditing] = useState(false)
   const { toast } = useToast()
 
+  const maskPAN = (pan: string): string => {
+    if (!pan || pan === "Not provided" || pan.length < 3) return pan
+    return pan.charAt(0) + 'X'.repeat(pan.length - 2) + pan.charAt(pan.length - 1)
+  }
+
   useEffect(() => {
     const fetchProfile = async () => {
       setLoading(true)
@@ -339,7 +344,7 @@ export default function ProfileSettings() {
                     <Input 
                       id="pandetails" 
                       name="pandetails" 
-                      value={profile?.pandetails || "Not provided"} 
+                      value={maskPAN(profile?.pandetails || "Not provided")} 
                       disabled
                       className="bg-gray-50 border-gray-200 h-11 rounded-xl pr-20"
                     />

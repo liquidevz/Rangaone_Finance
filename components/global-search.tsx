@@ -183,7 +183,7 @@ export function GlobalSearch() {
   const getTypeIcon = (type: string, category?: string) => {
     switch (type) {
       case "portfolio": return (
-        <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg p-2 shadow-sm">
+        <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg p-2 shadow-sm">
           <Briefcase className="h-4 w-4 text-white" />
         </div>
       )
@@ -240,9 +240,9 @@ export function GlobalSearch() {
     
     const badges = {
       tip: category === "premium" 
-        ? { text: "Premium", className: "bg-gradient-to-r from-yellow-400 to-amber-500 text-white" }
-        : { text: "Basic", className: "bg-gradient-to-r from-blue-500 to-indigo-600 text-white" },
-      portfolio: { text: "Portfolio", className: "bg-gradient-to-r from-blue-500 to-indigo-600 text-white" },
+        ? { text: "Premium Bundle", className: "bg-gradient-to-r from-yellow-400 to-amber-500 text-white" }
+        : { text: "Basic Bundle", className: "bg-gradient-to-r from-blue-500 to-indigo-600 text-white" },
+      portfolio: { text: "Portfolio", className: "bg-gradient-to-r from-purple-500 to-indigo-600 text-white" },
       stock: { text: "Stock", className: "bg-gradient-to-r from-green-500 to-emerald-600 text-white" },
       subscription: { text: "Subscription", className: "bg-gradient-to-r from-green-500 to-emerald-600 text-white" },
       page: { text: "Page", className: "bg-gradient-to-r from-gray-500 to-slate-600 text-white" }
@@ -272,17 +272,17 @@ export function GlobalSearch() {
           onKeyDown={handleKeyDown}
           className={cn(
             "w-full bg-white backdrop-blur-sm border-gray-200/80 shadow-sm border rounded-xl",
-            "pl-12 lg:pl-20 pr-12 py-3",
+            "pl-10 sm:pl-12 lg:pl-24 pr-10 sm:pr-12 py-3",
             "focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:border-blue-400",
             "focus-visible:shadow-lg focus-visible:bg-white",
             "transition-all duration-300 ease-out",
             "hover:shadow-md hover:border-gray-300/80",
-            "placeholder:text-gray-400 outline-none text-base"
+            "placeholder:text-gray-400 outline-none text-sm sm:text-base"
           )}
           aria-label="Global search"
         />
-        <div className="absolute left-4 top-1/2 transform -translate-y-1/2 flex items-center gap-3 pointer-events-none">
-          <Search className="h-5 w-5 text-gray-500 group-focus-within:text-blue-600 transition-colors duration-200" />
+        <div className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 flex items-center gap-2 sm:gap-3 pointer-events-none">
+          <Search className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500 group-focus-within:text-blue-600 transition-colors duration-200 flex-shrink-0" />
           <div className="hidden lg:flex items-center gap-1 text-xs text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200">
             <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-200 rounded text-xs font-mono">⌘</kbd>
             <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-200 rounded text-xs font-mono">K</kbd>
@@ -295,10 +295,10 @@ export function GlobalSearch() {
               setResults({})
               setIsOpen(false)
             }}
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-all duration-200"
+            className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-all duration-200 flex-shrink-0"
             aria-label="Clear search"
           >
-            <X className="h-4 w-4" />
+            <X className="h-3 w-3 sm:h-4 sm:w-4" />
           </button>
         )}
       </div>

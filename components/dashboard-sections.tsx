@@ -24,6 +24,14 @@ import axiosApi from "@/lib/axios"
 import { cache } from "@/lib/cache"
 import MarketIndices from "@/components/market-indices"
 
+// Helper: normalize API percent values and format for display
+const normalizePercent = (value: any): number => {
+  if (value === null || value === undefined) return 0;
+  // Strip a trailing % if API ever returns strings like "12.3%"
+  const numeric = typeof value === 'string' ? Number(value.replace(/%/g, '')) : Number(value);
+  return isFinite(numeric) ? numeric : 0;
+};
+
 
 // Mobile Global Search Component
 function MobileGlobalSearch() {
@@ -35,35 +43,22 @@ function MobileGlobalSearch() {
 }
 
 // Stock Symbol Display Component
-function StockSymbolDisplay({ stockId }: { stockId?: string }) {
-  const [symbol, setSymbol] = useState("STOCK")
+function StockSymbolDisplay({ stockId, tipTitle }: { stockId?: string; tipTitle?: string }) {
+  // Use stockId directly from API as it contains the stock symbol
+  if (stockId && stockId !== "STOCK") {
+    return <>{stockId}</>
+  }
   
-  useEffect(() => {
-    if (stockId) {
-      console.log('🔍 Fetching symbol for stockId:', stockId)
-      const cachedSymbol = stockSymbolCacheService.getCachedSymbol(stockId)
-      if (cachedSymbol) {
-        console.log('✅ Found cached symbol:', cachedSymbol)
-        setSymbol(cachedSymbol)
-      } else {
-        console.log('📡 Making API call for stockId:', stockId)
-        axiosApi.get(`/api/stock-symbols/${stockId}`)
-          .then(response => {
-            console.log('📊 API response:', response.data)
-            if (response.data?.symbol) {
-              setSymbol(response.data.symbol)
-            } else if (response.data?.name) {
-              setSymbol(response.data.name)
-            }
-          })
-          .catch(error => {
-            console.error('❌ API call failed:', error)
-          })
-      }
+  // Fallback to extracting from title
+  if (tipTitle) {
+    const titleParts = tipTitle.split(/[:\-\s]/);
+    const potentialSymbol = titleParts[0]?.trim().toUpperCase();
+    if (potentialSymbol && potentialSymbol.length > 1 && /^[A-Z0-9&\-\.]+$/i.test(potentialSymbol)) {
+      return <>{potentialSymbol}</>
     }
-  }, [stockId])
+  }
   
-  return <>{symbol}</>
+  return <>STOCK</>
 }
 
 // Market Indices Component
@@ -468,7 +463,7 @@ export function ModelPortfolioSection() {
           cache.set(cacheKey, portfolioData, 10)
         }
         
-        setPortfolios(portfolioData.slice(0, 4))
+        setPortfolios(portfolioData)
         
         // Fetch detailed data for each portfolio
         if (isAuthenticated && portfolioData.length > 0) {
@@ -478,7 +473,7 @@ export function ModelPortfolioSection() {
           if (!detailsMap) {
             console.log("🔍 Fetching detailed data for portfolios:", portfolioData.slice(0, 6).map(p => p._id))
             
-            const detailsPromises = portfolioData.slice(0, 6).map(async (portfolio) => {
+            const detailsPromises = portfolioData.map(async (portfolio) => {
               try {
                 console.log(`📡 Fetching details for portfolio ${portfolio._id}`)
                 const details = await portfolioService.getById(portfolio._id)
@@ -841,7 +836,25 @@ function ModelPortfolioTipCard({ tip, subscriptionAccess }: { tip: Tip; subscrip
                   </div>
                 </div>
                 <h3 className="text-lg font-bold" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>
-                  <StockSymbolDisplay stockId={tip.stockId} />
+                  {(() => {
+                    console.log('🔍 Tip data:', { stockId: tip.stockId, title: tip.title, _id: tip._id });
+                    
+                    // Use stockId if available and not an ObjectId
+                    if (tip.stockId && !tip.stockId.match(/^[0-9a-fA-F]{24}$/)) {
+                      return tip.stockId;
+                    }
+                    
+                    // Extract from title
+                    if (tip.title) {
+                      const titleParts = tip.title.split(/[:\-\s]/);
+                      const symbol = titleParts[0]?.trim().toUpperCase();
+                      if (symbol && symbol.length > 1 && /^[A-Z0-9&\-\.]+$/i.test(symbol)) {
+                        return symbol;
+                      }
+                    }
+                    
+                    return "STOCK";
+                  })()} 
                 </h3>
                 <p className="text-sm font-light text-gray-600" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>NSE</p>
               </div>
@@ -935,26 +948,28 @@ function PortfolioCard({
         CAGRSinceInception: portfolioDetails.CAGRSinceInception
       })
       
+      const monthlyGainsValue = normalizePercent(portfolioDetails.monthlyGains);
+      const oneYearGainsValue = normalizePercent(portfolioDetails.oneYearGains);
+      const cagrSinceInceptionValue = normalizePercent(portfolioDetails.CAGRSinceInception);
+      
       return {
-        monthlyGains: portfolioDetails.monthlyGains !== undefined ? 
-          (portfolioDetails.monthlyGains === 0 || String(portfolioDetails.monthlyGains) === '0%' ? '-' : `${portfolioDetails.monthlyGains >= 0 ? '+₹' : '-₹'}${Math.abs(portfolioDetails.monthlyGains)}`) : 
-          (portfolio.monthlyGains === 0 || String(portfolio.monthlyGains) === '0%' ? '-' : `+₹${portfolio.monthlyGains || '13.78'}`),
-        oneYearGains: portfolioDetails.oneYearGains !== undefined ? 
-          (portfolioDetails.oneYearGains === 0 || String(portfolioDetails.oneYearGains) === '0%' ? '-' : `${portfolioDetails.oneYearGains >= 0 ? '+₹' : '-₹'}${Math.abs(portfolioDetails.oneYearGains)}`) : 
-          (portfolio.oneYearGains === 0 || String(portfolio.oneYearGains) === '0%' ? '-' : `+₹${portfolio.oneYearGains || '2.86'}`),
-        cagr: portfolioDetails.CAGRSinceInception !== undefined ? 
-          (portfolioDetails.CAGRSinceInception === 0 || String(portfolioDetails.CAGRSinceInception) === '0%' ? '-' : `${portfolioDetails.CAGRSinceInception >= 0 ? '+₹' : '-₹'}${Math.abs(portfolioDetails.CAGRSinceInception)}`) : 
-          (portfolio.cagr === 0 || String(portfolio.cagr) === '0%' ? '-' : `+₹${portfolio.cagr || '19.78'}`)
+        monthlyGains: monthlyGainsValue === 0 ? '-' : `${monthlyGainsValue > 0 ? '+' : ''}${monthlyGainsValue}%`,
+        oneYearGains: oneYearGainsValue === 0 ? '-' : `${oneYearGainsValue > 0 ? '+' : ''}${oneYearGainsValue}%`,
+        cagr: cagrSinceInceptionValue === 0 ? '-' : `${cagrSinceInceptionValue > 0 ? '+' : ''}${cagrSinceInceptionValue}%`
       }
     }
     
     console.log(`⚠️ Using fallback data for portfolio ${portfolio._id}`)
     
-    // Fallback to original data or defaults
+    // Fallback to original data or defaults with consistent formatting
+    const monthlyGainsValue = normalizePercent(portfolio.monthlyGains);
+    const oneYearGainsValue = normalizePercent(portfolio.oneYearGains);
+    const cagrValue = normalizePercent(portfolio.cagr);
+    
     return {
-      monthlyGains: portfolio.monthlyGains === 0 ? '-' : `+₹${portfolio.monthlyGains || '13.78'}`,
-      oneYearGains: portfolio.oneYearGains === 0 ? '-' : `+₹${portfolio.oneYearGains || '2.86'}`,
-      cagr: portfolio.cagr === 0 ? '-' : `+₹${portfolio.cagr || '19.78'}`
+      monthlyGains: monthlyGainsValue === 0 ? '-' : `${monthlyGainsValue > 0 ? '+' : ''}${monthlyGainsValue}%`,
+      oneYearGains: oneYearGainsValue === 0 ? '-' : `${oneYearGainsValue > 0 ? '+' : ''}${oneYearGainsValue}%`,
+      cagr: cagrValue === 0 ? '-' : `${cagrValue > 0 ? '+' : ''}${cagrValue}%`
     }
   }
 
@@ -1026,36 +1041,36 @@ function PortfolioCard({
             <div className="text-xs text-gray-500 mb-1">Monthly Gains</div>
             <div className={`text-sm sm:text-lg font-bold ${isLocked ? 'blur-sm select-none' : ''} ${
               isLocked ? 'text-green-600' : 
-              (portfolioDetails?.monthlyGains !== undefined ? 
-                (portfolioDetails.monthlyGains >= 0 ? 'text-green-600' : 'text-red-600') :
-                'text-green-600'
-              )
+              (() => {
+                const monthlyGainsValue = normalizePercent(portfolioDetails?.monthlyGains || portfolio.monthlyGains);
+                return monthlyGainsValue > 0 ? 'text-green-600' : monthlyGainsValue < 0 ? 'text-red-600' : 'text-gray-500';
+              })()
             }`}>
-              {isLocked ? fakeData.monthlyGains : performanceData.monthlyGains}
+              {isLocked ? `${fakeData.monthlyGains}%` : performanceData.monthlyGains}
             </div>
           </div>
           <div className="text-center">
             <div className="text-xs text-gray-500 mb-1">1 Year Gains</div>
             <div className={`text-sm sm:text-lg font-bold ${isLocked ? 'blur-sm select-none' : ''} ${
               isLocked ? 'text-green-600' : 
-              (portfolioDetails?.oneYearGains !== undefined ? 
-                (portfolioDetails.oneYearGains >= 0 ? 'text-green-600' : 'text-red-600') :
-                'text-green-600'
-              )
+              (() => {
+                const oneYearGainsValue = normalizePercent(portfolioDetails?.oneYearGains || portfolio.oneYearGains);
+                return oneYearGainsValue > 0 ? 'text-green-600' : oneYearGainsValue < 0 ? 'text-red-600' : 'text-gray-500';
+              })()
             }`}>
-              {isLocked ? fakeData.oneYearGains : performanceData.oneYearGains}
+              {isLocked ? `${fakeData.oneYearGains}%` : performanceData.oneYearGains}
             </div>
           </div>
           <div className="text-center">
             <div className="text-xs text-gray-500 mb-1">CAGR Since Inception</div>
             <div className={`text-sm sm:text-lg font-bold ${isLocked ? 'blur-sm select-none' : ''} ${
               isLocked ? 'text-green-600' : 
-              (portfolioDetails?.CAGRSinceInception !== undefined ? 
-                (portfolioDetails.CAGRSinceInception >= 0 ? 'text-green-600' : 'text-red-600') :
-                'text-green-600'
-              )
+              (() => {
+                const cagrSinceInceptionValue = normalizePercent(portfolioDetails?.CAGRSinceInception || portfolio.cagr);
+                return cagrSinceInceptionValue > 0 ? 'text-green-600' : cagrSinceInceptionValue < 0 ? 'text-red-600' : 'text-gray-500';
+              })()
             }`}>
-              {isLocked ? fakeData.cagr : performanceData.cagr}
+              {isLocked ? `${fakeData.cagr}%` : performanceData.cagr}
             </div>
           </div>
         </div>
