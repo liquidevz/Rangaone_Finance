@@ -392,6 +392,11 @@ const TipCard = ({
       return false;
     }
 
+    // For model portfolio tips, check portfolio access first
+    if (isModelPortfolio && tip.portfolioId) {
+      return subscriptionAccess.portfolioAccess.includes(tip.portfolioId);
+    }
+
     if (subscriptionAccess.hasPremium) {
       return true;
     }
