@@ -765,7 +765,7 @@ function GeneralTipCard({ tip, subscriptionAccess }: { tip: Tip; subscriptionAcc
 function ModelPortfolioTipCard({ tip, subscriptionAccess }: { tip: Tip; subscriptionAccess: SubscriptionAccess | null }) {
   const router = useRouter()
   
-  // Check access for model portfolio tips
+  // Check access for model portfolio tips - based on portfolio access only
   const hasAccess = () => {
     if (!subscriptionAccess) {
       return false;
@@ -776,7 +776,7 @@ function ModelPortfolioTipCard({ tip, subscriptionAccess }: { tip: Tip; subscrip
       return subscriptionAccess.portfolioAccess.includes(portfolioId);
     }
     
-    return subscriptionAccess.hasPremium;
+    return false; // No access if no portfolio ID
   };
   
   const canAccessTip = hasAccess();
@@ -861,9 +861,9 @@ function ModelPortfolioTipCard({ tip, subscriptionAccess }: { tip: Tip; subscrip
               
               <div className="bg-gradient-to-r from-[#00B7FF] to-[#85D437] p-[3px] rounded-xl">
                 <div className="bg-cyan-50 rounded-lg text-center min-w-[70px] py-0.5 px-1">
-                  <p className="text-xs text-gray-700 font-bold text-center mb-0" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>Target</p>
-                  <p className="text-2xl font-bold text-black -mt-1 mb-0" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>{formatPercentage(tip.targetPercentage)}</p>
-                  <p className="text-xs text-black font-bold text-right px-1 -mt-1" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>Upto</p>
+                  <p className="text-xs text-gray-700 font-bold text-center mb-0" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>Weightage</p>
+                  <p className="text-2xl font-bold text-black -mt-1 mb-0" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>{((tip as any).mpWeightage || (tip as any).weightage) ? ((tip as any).mpWeightage || (tip as any).weightage).toFixed(1) + '%' : '-'}</p>
+                  <p className="text-xs text-black font-bold text-right px-1 -mt-1" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}></p>
                 </div>
               </div>
             </div>

@@ -19,19 +19,19 @@ const contactConfig: Record<string, ContactDetails> = {
     whatsapp: "917021337693",
     phone: "+917021337693",
     label: "General Support",
-    description: "Basic support for general inquiries"
+    description: "Phone: 7021337693 | Email: support@rangaone.finance"
   },
   basic: {
     whatsapp: "917021337693",
     phone: "+917021337693", 
     label: "Basic Support",
-    description: "Priority support for Basic subscribers"
+    description: "Phone: 7021337693 | Email: support@rangaone.finance"
   },
   premium: {
-    whatsapp: "919326199388",
-    phone: "+919167694966",
+    whatsapp: "919324837693",
+    phone: "+919324837693",
     label: "Premium Support",
-    description: "Dedicated premium support with faster response"
+    description: "Phone: 9324837693 | Email: premium@rangaone.finance"
   }
 }
 
@@ -65,6 +65,14 @@ export default function SubscriptionContactTabs() {
     if (subscriptionAccess.hasPremium) return "premium"
     if (subscriptionAccess.hasBasic) return "basic"
     return "general"
+  }
+
+  const getAvailableTabs = () => {
+    if (!subscriptionAccess) return ["general"]
+    if (subscriptionAccess.hasPremium) return ["general", "basic", "premium"]
+    if (subscriptionAccess.hasBasic) return ["general", "basic"]
+    if (subscriptionAccess.portfolioAccess && subscriptionAccess.portfolioAccess.length > 0) return ["general", "basic"]
+    return ["general"]
   }
 
   const ContactCard = ({ type, config }: { type: string; config: ContactDetails }) => (
@@ -114,27 +122,35 @@ export default function SubscriptionContactTabs() {
 
   return (
     <Tabs defaultValue={getActiveTab()} className="w-full">
-      <TabsList className="grid w-full grid-cols-3">
-        <TabsTrigger value="general">General</TabsTrigger>
-        <TabsTrigger value="basic" disabled={!subscriptionAccess?.hasBasic && !subscriptionAccess?.hasPremium}>
-          Basic
-        </TabsTrigger>
-        <TabsTrigger value="premium" disabled={!subscriptionAccess?.hasPremium}>
-          Premium
-        </TabsTrigger>
+      <TabsList className={`grid w-full ${getAvailableTabs().length === 1 ? 'grid-cols-1' : getAvailableTabs().length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+        {getAvailableTabs().includes("general") && (
+          <TabsTrigger value="general">General</TabsTrigger>
+        )}
+        {getAvailableTabs().includes("basic") && (
+          <TabsTrigger value="basic">Basic</TabsTrigger>
+        )}
+        {getAvailableTabs().includes("premium") && (
+          <TabsTrigger value="premium">Premium</TabsTrigger>
+        )}
       </TabsList>
       
-      <TabsContent value="general" className="mt-4">
-        <ContactCard type="general" config={contactConfig.general} />
-      </TabsContent>
+      {getAvailableTabs().includes("general") && (
+        <TabsContent value="general" className="mt-4">
+          <ContactCard type="general" config={contactConfig.general} />
+        </TabsContent>
+      )}
       
-      <TabsContent value="basic" className="mt-4">
-        <ContactCard type="basic" config={contactConfig.basic} />
-      </TabsContent>
+      {getAvailableTabs().includes("basic") && (
+        <TabsContent value="basic" className="mt-4">
+          <ContactCard type="basic" config={contactConfig.basic} />
+        </TabsContent>
+      )}
       
-      <TabsContent value="premium" className="mt-4">
-        <ContactCard type="premium" config={contactConfig.premium} />
-      </TabsContent>
+      {getAvailableTabs().includes("premium") && (
+        <TabsContent value="premium" className="mt-4">
+          <ContactCard type="premium" config={contactConfig.premium} />
+        </TabsContent>
+      )}
     </Tabs>
   )
 }

@@ -64,6 +64,13 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
   const [appliedCoupon, setAppliedCoupon] = useState<CouponValidationResponse["coupon"] | null>(null);
   const [finalTotal, setFinalTotal] = useState(total);
 
+  // Update finalTotal when total changes (e.g., when subscription type changes)
+  useEffect(() => {
+    if (!appliedCoupon) {
+      setFinalTotal(total);
+    }
+  }, [total, appliedCoupon]);
+
   const cancelRequested = useRef(false);
   const { isAuthenticated, user } = useAuth();
   const { cart } = useCart();

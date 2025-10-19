@@ -618,20 +618,9 @@ export default function ModelPortfoliosPage() {
                         <Button
                           size="sm"
                           className="bg-gradient-to-br from-yellow-400 to-amber-500 rounded-full p-2 shadow-lg transition-transform hover:scale-110"
-                          onClick={() => {
-                            // Create a bundle-like object for the portfolio
-                            const portfolioBundle: PortfolioBundle = {
-                              _id: portfolio._id,
-                              name: portfolio.name,
-                              description: renderDescription(portfolio.description),
-                              category: 'portfolio',
-                              portfolios: [{ name: portfolio.name }],
-                              quarterlyPrice: portfolio.subscriptionFee?.find(f => f.type === 'quarterly')?.price || 0,
-                              yearlyPrice: portfolio.subscriptionFee?.find(f => f.type === 'yearly')?.price || 0,
-                              monthlyPrice: portfolio.subscriptionFee?.find(f => f.type === 'monthly')?.price || 0
-                            };
-                            setSelectedPortfolioBundle(portfolioBundle);
-                            setShowPaymentModal(true);
+                          onClick={async () => {
+                            await handleAddToCart(portfolio);
+                            router.push('/cart');
                           }}
                         >
                           <ShoppingCart className="h-4 w-4 mr-1" />

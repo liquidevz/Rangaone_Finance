@@ -1121,11 +1121,9 @@ export default function PortfolioDetailsPage() {
     });
   };
 
-  // Calculate portfolio metrics based on live pricing with EXACT precision
+  // Calculate portfolio metrics using API response data
   const calculatePortfolioMetrics = () => {
     const minInvestment = (portfolio as any)?.minInvestment || 30000;
-    
-    console.log(`📊 Calculating exact portfolio metrics for min investment: ₹${minInvestment}`);
     
     // Use backend calculated values instead of frontend calculations
     const holdingsWithQuantities = useBackendCalculatedValues(holdingsWithPrices, minInvestment);
@@ -1133,29 +1131,14 @@ export default function PortfolioDetailsPage() {
     // Calculate holdings value using currentPrice * quantity for consistency
     const actualHoldingsValue = holdingsWithQuantities.reduce((sum: number, holding: any) => {
       const currentValue = parseFloat(((holding.currentPrice || 0) * (holding.quantity || 0)).toFixed(2));
-      console.log(`📈 ${holding.symbol}: Current Value: ₹${currentValue} (${holding.currentPrice} × ${holding.quantity})`);
       return parseFloat((sum + currentValue).toFixed(2));
     }, 0);
     
-    // Calculate total actual investments using buyPrice * quantity for consistency
-    const totalActualInvestments = holdingsWithQuantities.reduce((sum: number, holding: any) => {
-      const actualInvestment = parseFloat(((holding.buyPrice || 0) * (holding.quantity || 0)).toFixed(2));
-      return parseFloat((sum + actualInvestment).toFixed(2));
-    }, 0);
+    // Use cashBalance directly from API response if available
+    const apiCashBalance = (portfolio as any)?.cashBalance;
+    const finalCashBalance = typeof apiCashBalance === 'number' ? apiCashBalance : 0;
     
-    // Calculate cash: Minimum Investment - Sum of All Actual Investments (Investment Column)
-    const exactCashBalance = parseFloat((minInvestment - totalActualInvestments).toFixed(2));
-    
-    // Ensure cash is not negative (can't have negative cash in reality)
-    const finalCashBalance = Math.max(0, exactCashBalance);
-    
-    console.log(`💰 Cash Calculation Details:`, {
-      minInvestment,
-      totalActualInvestments,
-      calculatedCash: exactCashBalance,
-      finalCashBalance: finalCashBalance,
-      note: "Cash = Min Investment - Sum of Investment Column (not affected by current value changes)"
-    });
+    console.log(`💰 Using API Cash Balance: ₹${finalCashBalance}`);
     
     // Total portfolio value with EXACT precision
     const exactTotalPortfolioValue = parseFloat((actualHoldingsValue + finalCashBalance).toFixed(2));
@@ -1163,14 +1146,6 @@ export default function PortfolioDetailsPage() {
     // Calculate cash percentage based on current portfolio value
     const cashPercentage = exactTotalPortfolioValue > 0 ? 
       parseFloat(((finalCashBalance / exactTotalPortfolioValue) * 100).toFixed(2)) : 0;
-    
-    console.log(`📋 Portfolio Metrics (EXACT):`, {
-      holdingsValue: actualHoldingsValue,
-      cashBalance: finalCashBalance,
-      totalValue: exactTotalPortfolioValue,
-      cashPercentage: cashPercentage,
-      totalActualInvestments
-    });
     
     return {
       holdingsValue: actualHoldingsValue,
@@ -1180,9 +1155,7 @@ export default function PortfolioDetailsPage() {
       minInvestment: minInvestment,
       pnl: parseFloat((exactTotalPortfolioValue - minInvestment).toFixed(2)),
       pnlPercentage: parseFloat((((exactTotalPortfolioValue - minInvestment) / minInvestment) * 100).toFixed(2)),
-      holdingsWithQuantities,
-      // Additional details for debugging/display
-      totalActualInvestments
+      holdingsWithQuantities
     };
   };
   
