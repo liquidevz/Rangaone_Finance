@@ -2,15 +2,15 @@ name: Zero Downtime Deploy
 
 on:
   push:
-    branches: 
+    branches:
       - main
   workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    
+    timeout-minutes: 20
+
     steps:
       - name: Deploy to server via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -18,118 +18,108 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          timeout: 900s
+          timeout: 1200s
           script: |
-            set -e
-            
-            echo "Starting zero downtime deployment..."
-            
-            # Navigate to app directory
-            cd /home/rangaone/htdocs/www.rangaone.finance/Rangaone_Finance
-            
-            # Pull latest code
-            echo "Pulling latest code..."
+            set -euo pipefail
+
+            APP_PATH="/home/rangaone/htdocs/www.rangaone.finance/Rangaone_Finance"
+            IMAGE_PREFIX="rangaone-fe"
+            CONTAINER_OLD="Rangaone_Finance"
+            CONTAINER_NEW="Rangaone_Finance_new"
+            NEW_PORT=3003
+            PROD_PORT=3000
+
+            echo "🚀 Starting zero downtime deployment..."
+
+            cd $APP_PATH
+
+            echo "📥 Pulling latest code..."
             git stash || true
             git pull origin main --force
-            
-            # Build new image with timestamp
+
             TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-            NEW_IMAGE="rangaone-fe:$TIMESTAMP"
-            echo "Building new image: $NEW_IMAGE"
-            docker build --no-cache -t $NEW_IMAGE .
-            
-            # Start new container on port 3003 first
-            echo "Starting new container on port 3003..."
+            NEW_IMAGE="${IMAGE_PREFIX}:${TIMESTAMP}"
+            echo "🐳 Building new Docker image: $NEW_IMAGE"
+
+            # Use build cache from latest image if exists
+            docker build --pull --progress=plain -t $NEW_IMAGE .
+
+            echo "🧪 Starting new container on port $NEW_PORT..."
             docker run -d \
-              --name Rangaone_Finance_new \
-              -p 3003:3000 \
+              --name $CONTAINER_NEW \
+              -p ${NEW_PORT}:3000 \
               --restart unless-stopped \
               -e NODE_ENV=production \
               -e NEXT_TELEMETRY_DISABLED=1 \
               -e VERCEL=1 \
               -e CI=true \
               $NEW_IMAGE
-            
-            # Wait and test new container
-            echo "Testing new container..."
-            sleep 10
-            
-            # Health check new container
-            count=0
+
+            echo "🩺 Waiting for new container to become healthy..."
             max_attempts=30
-            while [ $count -lt $max_attempts ]; do
-              if curl -f -s http://localhost:3003/ > /dev/null 2>&1; then
-                echo "New container is healthy!"
-                break
-              fi
-              echo "Waiting for new container... ($count/$max_attempts)"
-              sleep 2
+            count=0
+            until curl -fs http://localhost:${NEW_PORT}/ >/dev/null 2>&1 || [ $count -eq $max_attempts ]; do
+              echo "⏳ Waiting for new container... ($count/$max_attempts)"
               count=$((count + 1))
+              sleep 2
             done
-            
+
             if [ $count -eq $max_attempts ]; then
-              echo "New container failed health check, rolling back..."
-              docker stop Rangaone_Finance_new 2>/dev/null || true
-              docker rm Rangaone_Finance_new 2>/dev/null || true
-              docker rmi $NEW_IMAGE 2>/dev/null || true
+              echo "❌ New container failed health check, rolling back..."
+              docker logs $CONTAINER_NEW || true
+              docker stop $CONTAINER_NEW || true
+              docker rm $CONTAINER_NEW || true
+              docker rmi $NEW_IMAGE || true
               exit 1
             fi
-            
-            # Switch traffic (this is the only moment of potential downtime)
-            echo "Switching traffic to new container..."
-            
-            # Stop ALL containers that might be using port 3000
-            echo "Stopping all containers on port 3000..."
-            docker ps --format "table {{.Names}}\t{{.Ports}}" | grep "3000" | awk '{print $1}' | xargs -r docker stop 2>/dev/null || true
-            docker ps -a --format "table {{.Names}}\t{{.Ports}}" | grep "3000" | awk '{print $1}' | xargs -r docker rm 2>/dev/null || true
-            
-            # Stop and remove specific containers
-            docker stop Rangaone_Finance 2>/dev/null || true
-            docker rm Rangaone_Finance 2>/dev/null || true
-            docker stop Rangaone_Finance_new 2>/dev/null || true
-            docker rm Rangaone_Finance_new 2>/dev/null || true
-            
-            # Wait for port to be released
-            echo "Waiting for port 3000 to be released..."
+
+            echo "✅ New container is healthy! Proceeding with switch..."
+
+            echo "🛑 Stopping any containers on port $PROD_PORT..."
+            docker ps --format "table {{.Names}}\t{{.Ports}}" | grep "${PROD_PORT}" | awk '{print $1}' | xargs -r docker stop || true
+            docker ps -a --format "table {{.Names}}\t{{.Ports}}" | grep "${PROD_PORT}" | awk '{print $1}' | xargs -r docker rm || true
+
+            docker stop $CONTAINER_OLD 2>/dev/null || true
+            docker rm $CONTAINER_OLD 2>/dev/null || true
+
+            echo "⌛ Waiting for port $PROD_PORT to be released..."
             sleep 3
-            
-            # Check if port is still in use
-            if netstat -tulpn | grep :3000 > /dev/null 2>&1; then
-              echo "Port 3000 is still in use, waiting longer..."
+            if netstat -tulpn | grep :${PROD_PORT} > /dev/null 2>&1; then
+              echo "⚠️ Port still busy, waiting longer..."
               sleep 5
             fi
-            
-            # Start final container on port 3000
-            echo "Starting final container on port 3000..."
+
+            echo "🚀 Promoting new container to production..."
             docker run -d \
-              --name Rangaone_Finance \
-              -p 3000:3000 \
+              --name $CONTAINER_OLD \
+              -p ${PROD_PORT}:3000 \
               --restart unless-stopped \
               -e NODE_ENV=production \
               -e NEXT_TELEMETRY_DISABLED=1 \
               -e VERCEL=1 \
               -e CI=true \
               $NEW_IMAGE
-            
-            # Final health check
+
+            echo "🧪 Final health check..."
             sleep 5
-            if docker ps | grep -q "Rangaone_Finance"; then
-              echo "Deployment successful!"
-              
-              # Cleanup old images (keep last 2 versions)
-              echo "Cleaning up old images..."
-              OLD_IMAGES=$(docker images rangaone-fe --format "{{.Tag}}" | grep -E "^[0-9]{8}-[0-9]{6}$" | sort -r | tail -n +3)
-              for tag in $OLD_IMAGES; do
-                docker rmi "rangaone-fe:$tag" 2>/dev/null || true
-              done
-              docker image prune -f
-              
-              docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | head -1
-              docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep Rangaone_Finance
-            else
-              echo "Final deployment failed!"
-              docker logs Rangaone_Finance
+            if ! docker ps | grep -q "$CONTAINER_OLD"; then
+              echo "❌ Final deployment failed, rolling back..."
+              docker logs $CONTAINER_OLD
               exit 1
             fi
-            
-            echo "Zero downtime deployment completed!"
+
+            echo "🧹 Cleaning up old containers and images..."
+            docker stop $CONTAINER_NEW 2>/dev/null || true
+            docker rm $CONTAINER_NEW 2>/dev/null || true
+
+            # Keep last 2 builds
+            OLD_IMAGES=$(docker images $IMAGE_PREFIX --format "{{.Tag}}" | grep -E "^[0-9]{8}-[0-9]{6}$" | sort -r | tail -n +3)
+            for tag in $OLD_IMAGES; do
+              docker rmi "${IMAGE_PREFIX}:${tag}" 2>/dev/null || true
+            done
+            docker image prune -f
+
+            echo "📊 Current running containers:"
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep $CONTAINER_OLD
+
+            echo "🎉 Zero downtime deployment completed successfully!"
