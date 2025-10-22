@@ -250,6 +250,11 @@ export function ExpertRecommendationsSection() {
         const cacheKey = `tips_${activeTab}`
         let tips = cache.get<Tip[]>(cacheKey)
         
+        // Always fetch fresh data for model portfolio tips to show latest
+        if (activeTab === "modelPortfolio") {
+          tips = null
+        }
+        
         if (!tips) {
           if (activeTab === "RangaOneWealth") {
             // Fetch general investment tips from /api/user/tips
@@ -765,18 +770,23 @@ function GeneralTipCard({ tip, subscriptionAccess }: { tip: Tip; subscriptionAcc
 function ModelPortfolioTipCard({ tip, subscriptionAccess }: { tip: Tip; subscriptionAccess: SubscriptionAccess | null }) {
   const router = useRouter()
   
-  // Check access for model portfolio tips - based on portfolio access only
+  // Check access for model portfolio tips - based on portfolio access first
   const hasAccess = () => {
     if (!subscriptionAccess) {
       return false;
     }
     
+    // For model portfolio tips, check portfolio access first
     const portfolioId = typeof tip.portfolio === 'string' ? tip.portfolio : tip.portfolio?._id;
-    if (portfolioId) {
-      return subscriptionAccess.portfolioAccess.includes(portfolioId);
+    if (portfolioId && subscriptionAccess.portfolioAccess?.includes(portfolioId)) {
+      return true;
     }
     
-    return false; // No access if no portfolio ID
+    // Fallback to regular subscription check
+    if (tip.category === "premium") return subscriptionAccess.hasPremium;
+    if (tip.category === "basic") return subscriptionAccess.hasBasic || subscriptionAccess.hasPremium;
+    
+    return false;
   };
   
   const canAccessTip = hasAccess();

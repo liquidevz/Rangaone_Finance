@@ -393,10 +393,11 @@ const TipCard = ({
     }
 
     // For model portfolio tips, check portfolio access first
-    if (isModelPortfolio && tip.portfolioId) {
-      return subscriptionAccess.portfolioAccess.includes(tip.portfolioId);
+    if (tip.portfolioId && subscriptionAccess.portfolioAccess?.includes(tip.portfolioId)) {
+      return true;
     }
 
+    // Fallback to regular subscription check
     if (subscriptionAccess.hasPremium) {
       return true;
     }
@@ -405,10 +406,6 @@ const TipCard = ({
       return false;
     } else if (tip.category === "basic") {
       return subscriptionAccess.hasBasic;
-    }
-
-    if (tip.portfolioId) {
-      return subscriptionAccess.portfolioAccess.includes(tip.portfolioId);
     }
 
     return true;

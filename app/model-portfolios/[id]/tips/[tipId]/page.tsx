@@ -62,6 +62,13 @@ export default function PortfolioTipDetailsPage() {
 
   const hasAccess = () => {
     if (!subscriptionAccess || !tipData) return false;
+    
+    // For tips accessed through model portfolio route, check portfolio access first
+    if (portfolioId && subscriptionAccess.portfolioAccess?.includes(portfolioId)) {
+      return true;
+    }
+    
+    // For regular tips, check subscription level
     if (tipData.category === "premium") return subscriptionAccess.hasPremium;
     if (tipData.category === "basic") return subscriptionAccess.hasBasic || subscriptionAccess.hasPremium;
     return true;
