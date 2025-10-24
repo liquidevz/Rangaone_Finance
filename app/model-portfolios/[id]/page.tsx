@@ -2153,7 +2153,7 @@ export default function PortfolioDetailsPage() {
                       ...((portfolio as any)?.links || []),
                       ...((portfolio as any)?.reports || [])
                     ];
-                    const uniqueTypes = [...new Set(allLinks.map(link => link.linkType).filter(Boolean))];
+                    const uniqueTypes = Array.from(new Set(allLinks.map(link => link.linkType).filter(Boolean)));
                     return uniqueTypes.map(type => (
                       <option key={type} value={type}>{type}</option>
                     ));
@@ -2175,7 +2175,7 @@ export default function PortfolioDetailsPage() {
                   ...((portfolio as any)?.reports || [])
                 ];
                 
-                const uniqueTypes = [...new Set(allLinks.map(link => link.linkType).filter(Boolean))];
+                const uniqueTypes = Array.from(new Set(allLinks.map(link => link.linkType).filter(Boolean)));
                 console.log('Available link types:', uniqueTypes);
                 
                 const filteredLinks = allLinks.filter(link => {
