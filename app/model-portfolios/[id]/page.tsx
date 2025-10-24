@@ -95,6 +95,7 @@ export default function PortfolioDetailsPage() {
     sinceInceptionPnl: { value: 0, percent: 0 } 
   });
   const [pnlLoading, setPnlLoading] = useState(false);
+  const [reportFilter, setReportFilter] = useState('all');
   const inceptionGainPercent = useMemo(() => {
     const series = (fullPriceHistory && fullPriceHistory.length > 0) ? fullPriceHistory : priceHistory;
     if (!series || series.length < 2) return null;
@@ -2139,10 +2140,24 @@ export default function PortfolioDetailsPage() {
               </h2>
               <div className="flex items-center space-x-2 flex-shrink-0">
                 <span className="text-xs sm:text-sm text-gray-600">Filter By:</span>
-                <select className="border border-gray-300 rounded px-2 sm:px-3 py-1 text-xs sm:text-sm">
-                  <option>All</option>
-                  <option>PDF</option>
-                  <option>Research</option>
+                <select 
+                  className="border border-gray-300 rounded px-2 sm:px-3 py-1 text-xs sm:text-sm"
+                  onChange={(e) => setReportFilter(e.target.value)}
+                  value={reportFilter}
+                >
+                  <option value="all">All</option>
+                  {(() => {
+                    const allLinks = [
+                      ...((portfolio as any)?.downloadLinks || []),
+                      ...((portfolio as any)?.researchLinks || []),
+                      ...((portfolio as any)?.links || []),
+                      ...((portfolio as any)?.reports || [])
+                    ];
+                    const uniqueTypes = [...new Set(allLinks.map(link => link.linkType).filter(Boolean))];
+                    return uniqueTypes.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ));
+                  })()}
                 </select>
               </div>
             </div>
@@ -2152,40 +2167,66 @@ export default function PortfolioDetailsPage() {
             </div>
 
             <div className="space-y-6">
-              
-              {(portfolio as any)?.downloadLinks && (portfolio as any).downloadLinks.length > 0 ? (
-                (portfolio as any).downloadLinks.map((link: any, index: number) => (
-                  <div key={index} className="border-b border-gray-100 pb-6 last:border-b-0">
-                    <p className="px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 rounded text-xs sm:text-sm md:text-base font-medium bg-gray-700 text-[#FFFFF0] inline-block whitespace-nowrap">
-                      {link.linkType || 'Research document and analysis for portfolio subscribers.'}
-                    </p>
-                    <h4 className="font-semibold text-gray-900 text-lg mb-2">
-                      {link.name || link.linkDiscription || `${link.linkType?.charAt(0).toUpperCase() + link.linkType?.slice(1) || 'Document'} Report`}
-                    </h4>
+              {(() => {
+                const allLinks = [
+                  ...((portfolio as any)?.downloadLinks || []),
+                  ...((portfolio as any)?.researchLinks || []),
+                  ...((portfolio as any)?.links || []),
+                  ...((portfolio as any)?.reports || [])
+                ];
+                
+                const uniqueTypes = [...new Set(allLinks.map(link => link.linkType).filter(Boolean))];
+                console.log('Available link types:', uniqueTypes);
+                
+                const filteredLinks = allLinks.filter(link => {
+                  if (reportFilter === 'all') return true;
+                  return link.linkType?.toLowerCase() === reportFilter.toLowerCase();
+                });
+                
+                console.log('Filtered links:', filteredLinks);
+                
+                return filteredLinks.length > 0 ? (
+                  filteredLinks.map((link: any, index: number) => {
+                    const linkUrl = link.linkUrl || link.url || link.link || link.downloadUrl || link.href;
+                    
+                    return (
+                      <div key={index} className="border-b border-gray-100 pb-6 last:border-b-0">
+                        <p className="px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 rounded text-xs sm:text-sm md:text-base font-medium bg-gray-700 text-[#FFFFF0] inline-block whitespace-nowrap">
+                          {link.linkType || 'Research document and analysis for portfolio subscribers.'}
+                        </p>
+                        <h4 className="font-semibold text-gray-900 text-lg mb-2">
+                          {link.name || link.linkDiscription || link.linkDescription || link.title || `${link.linkType?.charAt(0).toUpperCase() + link.linkType?.slice(1) || 'Document'} Report`}
+                        </h4>
 
-                    <div className="flex items-center text-sm text-gray-600 mb-2">
-                      <span>Publish on {new Date(link.createdAt).toLocaleDateString('en-GB', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric'
-                      })}</span>
-                    </div>
-                    <a 
-                      href={link.linkUrl || link.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-orange-500 text-sm font-medium hover:text-orange-600 transition-colors"
-                    >
-                      Details →
-                    </a>
+                        <div className="flex items-center text-sm text-gray-600 mb-2">
+                          <span>Publish on {new Date(link.createdAt || link.publishedAt || link.dateCreated || Date.now()).toLocaleDateString('en-GB', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric'
+                          })}</span>
+                        </div>
+                        {linkUrl ? (
+                          <a 
+                            href={linkUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-orange-500 text-sm font-medium hover:text-orange-600 transition-colors"
+                          >
+                            Details →
+                          </a>
+                        ) : (
+                          <span className="text-gray-400 text-sm">Link not available</span>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="text-gray-400 mb-2">📄</div>
+                    <p className="text-gray-600">No research reports available at the moment.</p>
                   </div>
-                ))
-              ) : (
-                <div className="text-center py-8">
-                  <div className="text-gray-400 mb-2">📄</div>
-                  <p className="text-gray-600">No research reports available at the moment.</p>
-                </div>
-              )}
+                );
+              })()}
             </div>
 
             {/* Compact Performance Summary for mobile placed below chart */}

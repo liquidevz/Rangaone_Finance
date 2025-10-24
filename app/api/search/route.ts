@@ -36,8 +36,13 @@ function fuzzyMatch(text: string, query: string): number {
   const textLower = text.toLowerCase()
   const queryLower = query.toLowerCase()
   
-  if (textLower.includes(queryLower)) return 1
+  // Exact match gets highest score
+  if (textLower === queryLower) return 10
   
+  // Contains match gets high score
+  if (textLower.includes(queryLower)) return 5
+  
+  // Fuzzy character matching gets lower score
   let score = 0
   let queryIndex = 0
   
@@ -170,6 +175,14 @@ async function getSearchData(): Promise<SearchResult[]> {
   }
 }
 
+function exactMatch(text: string, query: string): boolean {
+  return text.toLowerCase() === query.toLowerCase()
+}
+
+function startsWithMatch(text: string, query: string): boolean {
+  return text.toLowerCase().startsWith(query.toLowerCase())
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -186,17 +199,36 @@ export async function GET(request: NextRequest) {
 
     const searchData = await getSearchData()
     
+    // Prioritize exact matches, then starts-with matches, then fuzzy matches
     let filteredResults = searchData
-      .map(item => ({
-        ...item,
-        score: Math.max(
+      .map(item => {
+        const titleExact = exactMatch(item.title, query)
+        const symbolExact = exactMatch(item.symbol || '', query)
+        const stockIdExact = exactMatch(item.stockId || '', query)
+        
+        const titleStartsWith = startsWithMatch(item.title, query)
+        const symbolStartsWith = startsWithMatch(item.symbol || '', query)
+        const stockIdStartsWith = startsWithMatch(item.stockId || '', query)
+        
+        const fuzzyScore = Math.max(
           fuzzyMatch(item.title, query),
           fuzzyMatch(item.description || '', query),
           fuzzyMatch(item.category || '', query),
           fuzzyMatch(item.stockId || '', query),
           fuzzyMatch(item.symbol || '', query)
         )
-      }))
+        
+        let score = 0
+        if (titleExact || symbolExact || stockIdExact) {
+          score = 100 // Highest priority for exact matches
+        } else if (titleStartsWith || symbolStartsWith || stockIdStartsWith) {
+          score = 50 // Medium priority for starts-with matches
+        } else if (fuzzyScore > 0) {
+          score = fuzzyScore // Lowest priority for fuzzy matches
+        }
+        
+        return { ...item, score }
+      })
       .filter(item => item.score > 0)
       .sort((a, b) => b.score - a.score)
 
@@ -204,21 +236,44 @@ export async function GET(request: NextRequest) {
       filteredResults = filteredResults.filter(item => item.type === type)
     }
 
+    // Separate stocks into direct stocks and portfolio holdings
+    const stockResults = filteredResults.filter(item => item.type === 'stock').slice(0, limit)
+    const portfolioHoldings = filteredResults.filter(item => item.type === 'portfolio').slice(0, limit)
+    
     const results = {
+      stocks: stockResults.map(stock => ({
+        id: stock.id,
+        symbol: stock.symbol || stock.title,
+        exchange: 'NSE', // Default exchange
+        currentPrice: 0, // Will be populated by real-time data
+        priceChange: 0,
+        priceChangePercent: 0,
+        onclick: stock.url,
+        action: 'navigate'
+      })),
+      portfolio_holdings: portfolioHoldings.map(portfolio => ({
+        id: `${portfolio.id}_${portfolio.symbol || portfolio.title}`,
+        symbol: portfolio.symbol || portfolio.title,
+        sector: portfolio.category || 'General',
+        currentPrice: 0, // Will be populated by real-time data
+        weight: 0, // Will be populated by portfolio data
+        portfolioId: portfolio.id,
+        portfolioName: portfolio.title,
+        onclick: portfolio.url,
+        action: 'navigate'
+      })),
       pages: filteredResults.filter(item => item.type === 'page').slice(0, limit),
-      portfolios: filteredResults.filter(item => item.type === 'portfolio').slice(0, limit),
       tips: filteredResults.filter(item => item.type === 'tip').slice(0, limit),
-      stocks: filteredResults.filter(item => item.type === 'stock').slice(0, limit),
       subscriptions: filteredResults.filter(item => item.type === 'subscription').slice(0, limit)
     }
 
-    const totalResults = Object.values(results).reduce((sum, arr) => sum + arr.length, 0)
+    const totalResults = results.stocks.length + results.portfolio_holdings.length + 
+                        results.pages.length + results.tips.length + results.subscriptions.length
 
     return NextResponse.json({
       success: true,
       query,
       totalResults,
-      searchType: 'text',
       results
     })
 

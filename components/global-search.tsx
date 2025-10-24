@@ -24,6 +24,8 @@ interface SearchResult {
   createdAt?: string
   symbol?: string
   stockId?: string
+  portfolioName?: string
+  portfolioId?: string
   onClick?: {
     action: string
     params?: Record<string, any>
@@ -73,21 +75,39 @@ export function GlobalSearch() {
       const data = await get(`/api/search?q=${encodeURIComponent(searchQuery)}&limit=10`)
       
       if (data.success) {
+        // Handle direct stocks
         const stocks = (data.results.stocks || []).map(stock => ({
-          id: stock.id || stock._id,
+          id: stock.id,
           title: stock.symbol,
-          type: 'stock',
+          type: 'stock' as const,
           url: stock.onclick || `/stocks/${stock.symbol}`,
-          description: `₹${stock.currentPrice} (${stock.priceChangePercent >= 0 ? '+' : ''}${stock.priceChangePercent}%)`,
-          symbol: stock.symbol
+          description: stock.currentPrice ? `₹${stock.currentPrice} (${stock.priceChangePercent >= 0 ? '+' : ''}${stock.priceChangePercent}%)` : `Stock: ${stock.symbol}`,
+          symbol: stock.symbol,
+          category: 'direct'
         }))
         
+        // Handle portfolio holdings
+        const portfolioHoldings = (data.results.portfolio_holdings || []).map(holding => ({
+          id: holding.id,
+          title: holding.symbol,
+          type: 'stock' as const,
+          url: `${holding.onclick || `/model-portfolios/${holding.portfolioId}`}#portfolio-investment-tips`,
+          description: `${holding.portfolioName} - ${holding.sector}${holding.currentPrice ? ` | ₹${holding.currentPrice}` : ''}${holding.weight ? ` | ${holding.weight}%` : ''}`,
+          symbol: holding.symbol,
+          category: 'portfolio',
+          portfolioName: holding.portfolioName,
+          portfolioId: holding.portfolioId
+        }))
+        
+        // Combine stocks and portfolio holdings
+        const allStocks = [...stocks, ...portfolioHoldings]
+        
         return {
-          Pages: [],
+          Pages: data.results.pages || [],
           Portfolios: data.results.portfolios || [],
-          Tips: [],
-          Stocks: stocks,
-          Subscriptions: data.results.bundles || []
+          Tips: data.results.tips || [],
+          Stocks: allStocks,
+          Subscriptions: data.results.subscriptions || []
         }
       }
       return { Pages: [], Portfolios: [], Tips: [], Stocks: [], Subscriptions: [] }
@@ -240,19 +260,21 @@ export function GlobalSearch() {
     
     const badges = {
       tip: category === "premium" 
-        ? { text: "Premium Bundle", className: "bg-gradient-to-r from-yellow-400 to-amber-500 text-white" }
-        : { text: "Basic Bundle", className: "bg-gradient-to-r from-blue-500 to-indigo-600 text-white" },
-      portfolio: { text: "Portfolio", className: "bg-gradient-to-r from-purple-500 to-indigo-600 text-white" },
-      stock: { text: "Stock", className: "bg-gradient-to-r from-green-500 to-emerald-600 text-white" },
-      subscription: { text: "Subscription", className: "bg-gradient-to-r from-green-500 to-emerald-600 text-white" },
-      page: { text: "Page", className: "bg-gradient-to-r from-gray-500 to-slate-600 text-white" }
+        ? { text: "Premium Bundle", className: "bg-gradient-to-r from-yellow-400 to-amber-500 text-white shadow-lg" }
+        : { text: "Basic Bundle", className: "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg" },
+      portfolio: { text: "Portfolio", className: "bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg" },
+      stock: category === "portfolio" 
+        ? { text: "Portfolio Stock", className: "bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg" }
+        : { text: "Stock", className: "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg" },
+      subscription: { text: "Subscription", className: "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg" },
+      page: { text: "Page", className: "bg-gradient-to-r from-gray-500 to-slate-600 text-white shadow-lg" }
     }
     
     const badge = badges[type as keyof typeof badges] || { text: type.charAt(0).toUpperCase() + type.slice(1), className: "bg-gray-100 text-gray-600" }
     
     return (
       <span className={cn(
-        "text-xs font-medium px-2 py-1 rounded-full shadow-sm",
+        "text-xs font-semibold px-3 py-1.5 rounded-full shadow-md border border-white/20",
         badge.className
       )}>
         {badge.text}
@@ -271,12 +293,12 @@ export function GlobalSearch() {
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
           className={cn(
-            "w-full bg-white backdrop-blur-sm border-gray-200/80 shadow-sm border rounded-xl",
+            "w-full bg-white border border-gray-300 shadow-sm rounded-xl",
             "pl-10 sm:pl-12 lg:pl-24 pr-10 sm:pr-12 py-3",
-            "focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:border-blue-400",
-            "focus-visible:shadow-lg focus-visible:bg-white",
+            "focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400",
+            "focus:shadow-lg focus:bg-white",
             "transition-all duration-300 ease-out",
-            "hover:shadow-md hover:border-gray-300/80",
+            "hover:shadow-md hover:border-gray-400",
             "placeholder:text-gray-400 outline-none text-sm sm:text-base"
           )}
           aria-label="Global search"
@@ -295,34 +317,40 @@ export function GlobalSearch() {
               setResults({})
               setIsOpen(false)
             }}
-            className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-all duration-200 flex-shrink-0"
+            className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full p-2 transition-all duration-300 flex-shrink-0 hover:scale-110"
             aria-label="Clear search"
           >
-            <X className="h-3 w-3 sm:h-4 sm:w-4" />
+            <X className="h-4 w-4" />
           </button>
         )}
       </div>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-3 bg-white/95 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-2xl z-50 max-h-[32rem] overflow-hidden" role="listbox">
+        <div className="absolute top-full left-0 right-0 mt-3 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 max-h-[32rem] overflow-hidden" role="listbox">
           {loading ? (
-            <div className="p-6 text-center">
-              <div className="relative mx-auto w-8 h-8 mb-3">
-                <div className="absolute inset-0 border-3 border-blue-200 rounded-full"></div>
-                <div className="absolute inset-0 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="p-8 text-center">
+              <div className="relative mx-auto w-12 h-12 mb-4">
+                <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
+                <div className="absolute inset-0 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
-              <p className="text-sm font-medium text-gray-600">Searching...</p>
-              <p className="text-xs text-gray-400 mt-1">Finding portfolios, tips, stocks & pages</p>
+              <p className="text-base font-semibold text-gray-700">Searching...</p>
+              <p className="text-sm text-gray-500 mt-2">Finding portfolios, tips, stocks & pages</p>
             </div>
           ) : query && flatResults.length > 0 ? (
             <div className="max-h-[30rem] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-              {Object.entries(results).map(([section, items]) => (
-                items.length > 0 && (
+              {Object.entries(results)
+                .filter(([section, items]) => items.length > 0)
+                .sort(([a], [b]) => {
+                  // Sort order: Stocks, Portfolios, Tips, Pages, Subscriptions
+                  const order = ['Stocks', 'Portfolios', 'Tips', 'Pages', 'Subscriptions']
+                  return order.indexOf(a) - order.indexOf(b)
+                })
+                .map(([section, items]) => (
                   <div key={section} className="border-b border-gray-100/80 last:border-b-0">
-                    <div className="sticky top-0 bg-gradient-to-r from-gray-50/90 to-blue-50/90 backdrop-blur-sm px-4 py-3 border-b border-gray-100/50">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">{section}</span>
-                        <span className="text-xs text-gray-400 bg-gray-200/80 px-2 py-0.5 rounded-full">{items.length}</span>
+                    <div className="sticky top-0 bg-gradient-to-r from-blue-50/95 to-indigo-50/95 backdrop-blur-md px-5 py-4 border-b border-blue-100/60">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold text-gray-800 uppercase tracking-wide">{section}</span>
+                        <span className="text-xs text-blue-600 bg-blue-100/80 px-3 py-1 rounded-full font-medium">{items.length}</span>
                       </div>
                     </div>
                     <div className="py-1">
@@ -333,10 +361,10 @@ export function GlobalSearch() {
                             key={result.id}
                             onClick={() => handleResultClick(result)}
                             className={cn(
-                              "w-full px-4 py-3 text-left transition-all duration-200 group relative",
-                              "hover:bg-gradient-to-r hover:from-blue-50/80 hover:to-indigo-50/80",
-                              "border-b border-gray-50/80 last:border-b-0",
-                              isActive && "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200/50"
+                              "w-full px-5 py-4 text-left transition-all duration-300 group relative",
+                              "hover:bg-gradient-to-r hover:from-blue-50/90 hover:to-indigo-50/90 hover:scale-[1.01]",
+                              "border-b border-gray-100/60 last:border-b-0",
+                              isActive && "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200/60 shadow-sm"
                             )}
                             role="option"
                             aria-selected={isActive}
@@ -344,26 +372,29 @@ export function GlobalSearch() {
                             <div className="flex items-start gap-3">
                               {getTypeIcon(result.type, result.category)}
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <div className="font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors duration-200">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <div className="font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors duration-300 text-base">
                                     {highlightMatch(String(result.title || ''), query)}
+                                    {result.portfolioName && result.category === 'portfolio' && (
+                                      <span className="text-sm text-blue-600 ml-2 font-medium">in {result.portfolioName}</span>
+                                    )}
                                   </div>
                                   {getResultBadge(result.type, result.category) && getResultBadge(result.type, result.category)}
                                 </div>
                                 {result.description && (
-                                  <div className="text-sm text-gray-600 truncate group-hover:text-gray-700 transition-colors duration-200">
+                                  <div className="text-sm text-gray-600 truncate group-hover:text-gray-700 transition-colors duration-300">
                                     {highlightMatch(String(result.description), query)}
                                   </div>
                                 )}
                                 {result.createdAt && (
-                                  <div className="text-xs text-gray-400 mt-1">
+                                  <div className="text-xs text-gray-500 mt-2 font-medium">
                                     {new Date(result.createdAt).toLocaleDateString()}
                                   </div>
                                 )}
                               </div>
                               <ArrowRight className={cn(
-                                "h-4 w-4 text-gray-400 transition-all duration-200 opacity-0 group-hover:opacity-100 group-hover:translate-x-1",
-                                isActive && "opacity-100 text-blue-500"
+                                "h-5 w-5 text-gray-400 transition-all duration-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-2 group-hover:text-blue-600",
+                                isActive && "opacity-100 text-blue-500 translate-x-1"
                               )} />
                             </div>
                           </button>
@@ -371,21 +402,20 @@ export function GlobalSearch() {
                       })}
                     </div>
                   </div>
-                )
-              ))}
-              <div className="p-3 bg-gradient-to-r from-gray-50/50 to-blue-50/50 border-t border-gray-100/80">
-                <div className="flex items-center justify-center gap-3 text-xs text-gray-500">
-                  <div className="flex items-center gap-1">
-                    <kbd className="px-1.5 py-0.5 bg-white border border-gray-200 rounded text-xs font-mono">↑↓</kbd>
-                    <span>Navigate</span>
+                ))}
+              <div className="p-4 bg-gradient-to-r from-blue-50/60 to-indigo-50/60 border-t border-blue-100/60">
+                <div className="flex items-center justify-center gap-4 text-sm text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-white border border-gray-300 rounded-md text-xs font-mono shadow-sm">↑↓</kbd>
+                    <span className="font-medium">Navigate</span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <kbd className="px-1.5 py-0.5 bg-white border border-gray-200 rounded text-xs font-mono">↵</kbd>
-                    <span>Select</span>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-white border border-gray-300 rounded-md text-xs font-mono shadow-sm">↵</kbd>
+                    <span className="font-medium">Select</span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <kbd className="px-1.5 py-0.5 bg-white border border-gray-200 rounded text-xs font-mono">Esc</kbd>
-                    <span>Close</span>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-white border border-gray-300 rounded-md text-xs font-mono shadow-sm">Esc</kbd>
+                    <span className="font-medium">Close</span>
                   </div>
                 </div>
               </div>

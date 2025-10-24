@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2, ExternalLink, Calendar, CreditCard, Users, MessageCircle, RefreshCw } from "lucide-react"
+import { Loader2, ExternalLink, Calendar, CreditCard, Users, MessageCircle, RefreshCw, Briefcase } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -108,6 +108,18 @@ export default function SubscriptionSettings() {
       return subscription.productId.name
     }
     return subscription.portfolio?.name || subscription.bundle?.name || 'Unknown Product'
+  }
+
+  const getPurchaseDate = (subscription: any) => {
+    return subscription.subscriptionDate || subscription.createdAt
+  }
+
+  const getPaymentAmount = (subscription: any) => {
+    return subscription.amount || subscription.monthlyAmount || subscription.totalAmount
+  }
+
+  const getPaymentType = (subscription: any) => {
+    return subscription.type || 'Regular'
   }
 
   const formatDate = (dateString?: string | null) => {
@@ -262,69 +274,48 @@ export default function SubscriptionSettings() {
           </Card>
         ) : (
           subscriptions.map((subscription) => (
-            <Card key={subscription._id} className="overflow-hidden">
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <CardTitle className="text-base sm:text-lg truncate">{getProductName(subscription)}</CardTitle>
-                  <Badge variant={getStatusBadgeVariant(subscription)} className="w-fit text-xs">
+            <Card key={subscription._id} className="overflow-hidden border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow">
+              <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 pb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+                      <Briefcase className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg font-bold text-gray-900">{getProductName(subscription)}</CardTitle>
+                      <p className="text-sm text-gray-600">Subscription Details</p>
+                    </div>
+                  </div>
+                  <Badge variant={getStatusBadgeVariant(subscription)} className="px-3 py-1 text-sm font-semibold">
                     {subscription.isActive ? "Active" : "Inactive"}
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3 sm:space-y-4">
-                {/* Basic Info */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                  <div>
-                    <p className="text-xs sm:text-sm text-gray-500 mb-1">Product Type</p>
-                    <p className="text-sm sm:text-base font-medium">{subscription.productType}</p>
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+                    <CreditCard className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                    <p className="text-xs text-green-700 font-medium mb-1">Amount Paid</p>
+                    <p className="text-lg font-bold text-green-800">{formatAmount(getPaymentAmount(subscription))}</p>
                   </div>
-                  <div>
-                    <p className="text-xs sm:text-sm text-gray-500 mb-1">Plan Type</p>
-                    <p className="text-sm sm:text-base font-medium">{subscription.planType || 'Not specified'}</p>
+                  <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <Calendar className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+                    <p className="text-xs text-blue-700 font-medium mb-1">Purchase Date</p>
+                    <p className="text-sm font-semibold text-blue-800">{formatDate(getPurchaseDate(subscription))}</p>
                   </div>
-                  <div>
-                    <p className="text-xs sm:text-sm text-gray-500 mb-1">Subscription Type</p>
-                    <p className="text-sm sm:text-base font-medium">{subscription.subscriptionType || 'Regular'}</p>
+                  <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <CreditCard className="h-8 w-8 text-purple-600 mx-auto mb-2" />
+                    <p className="text-xs text-purple-700 font-medium mb-1">Payment Type</p>
+                    <p className="text-sm font-semibold text-purple-800 capitalize">{getPaymentType(subscription).replace('_', ' ')}</p>
                   </div>
-                  <div>
-                    <p className="text-xs sm:text-sm text-gray-500 mb-1">Subscription Amount</p>
-                    <p className="text-sm sm:text-base font-medium">{getSubscriptionAmount(subscription)}</p>
+                  <div className="text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <Calendar className="h-8 w-8 text-gray-600 mx-auto mb-2" />
+                    <p className="text-xs text-gray-700 font-medium mb-1">Plan Type</p>
+                    <p className="text-sm font-semibold text-gray-800">{subscription.planType || 'Standard'}</p>
                   </div>
                 </div>
 
-                <Separator />
 
-                {/* Dates */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-xs sm:text-sm text-gray-500">Created</p>
-                      <p className="text-xs sm:text-sm font-medium truncate">{formatDate(subscription.createdAt)}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-xs sm:text-sm text-gray-500">Last Payment</p>
-                      <p className="text-xs sm:text-sm font-medium truncate">{formatDate((subscription as any).lastPaymentAt || subscription.lastPaidAt)}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-xs sm:text-sm text-gray-500">Expires</p>
-                      <p className="text-xs sm:text-sm font-medium truncate">{formatDate((subscription as any).expiresAt || subscription.expiryDate)}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-xs sm:text-sm text-gray-500">Status</p>
-                      <p className="text-xs sm:text-sm font-medium truncate">{(subscription as any).status || (subscription.isActive ? 'Active' : 'Inactive')}</p>
-                    </div>
-                  </div>
-                </div>
 
                 {/* Additional Info */}
                 {(subscription.eMandateId || subscription.subscriptionType === 'yearlyEmandate') && (
