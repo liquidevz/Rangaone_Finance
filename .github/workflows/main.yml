@@ -9,7 +9,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Deploy to server via SSH
@@ -21,105 +21,149 @@ jobs:
           timeout: 36000s
           script: |
             set -euo pipefail
+            IFS=$'\n\t'
 
+            ########################################
+            # Config (adjust to your environment)
+            ########################################
             APP_PATH="/home/rangaone/htdocs/www.rangaone.finance/Rangaone_Finance"
             IMAGE_PREFIX="rangaone-fe"
-            CONTAINER_OLD="Rangaone_Finance"
-            CONTAINER_NEW="Rangaone_Finance_new"
-            NEW_PORT=3003
-            PROD_PORT=3000
+            CONTAINER_PROD="rangaone_fe_prod"       # production container name
+            CONTAINER_TMP="rangaone_fe_tmp"         # temporary (new) container name
+            NEW_PORT=3003                            # port for new container during test
+            PROD_PORT=3000                           # production port exposed to internet
+            HEALTH_PATH="/api/health"                # health endpoint to check
+            HEALTH_TIMEOUT=60                        # seconds (total wait)
+            HEALTH_INTERVAL=2                        # seconds between attempts
+            KEEP_BUILDS=2                            # how many image tags to keep
+            ENV_FILE=".env"                          # optional env file (must exist in repo)
+            ########################################
 
-            echo "🚀 Starting zero downtime deployment..."
+            echo "🚀 Starting zero-downtime deployment..."
 
-            cd $APP_PATH
+            cd "$APP_PATH"
 
-            echo "📥 Pulling latest code..."
-            git stash || true
-            git pull origin main --force
+            echo "📥 Git: stash local changes and pull main..."
+            git stash --all || true
+            git fetch origin main --quiet
+            git reset --hard origin/main
 
             TIMESTAMP=$(date +%Y%m%d-%H%M%S)
             NEW_IMAGE="${IMAGE_PREFIX}:${TIMESTAMP}"
-            echo "🐳 Building new Docker image: $NEW_IMAGE"
+            echo "🐳 New image tag: $NEW_IMAGE"
 
-            # Use build cache from latest image if exists
-            docker build --pull --progress=plain -t $NEW_IMAGE .
+            # Clean up any leftover temporary containers from previous runs
+            echo "🧹 Removing stale temporary containers/images if any..."
+            docker rm -f "${CONTAINER_TMP}" 2>/dev/null || true
 
-            echo "🧪 Starting new container on port $NEW_PORT..."
-            docker run -d \
-              --name $CONTAINER_NEW \
-              -p ${NEW_PORT}:3000 \
-              --restart unless-stopped \
-              -e NODE_ENV=production \
-              -e NEXT_TELEMETRY_DISABLED=1 \
-              -e VERCEL=1 \
-              -e CI=true \
-              $NEW_IMAGE
+            # Build the image (use cache where possible)
+            echo "🔨 Building Docker image..."
+            docker build --pull --progress=plain -t "${NEW_IMAGE}" .
 
-            echo "🩺 Waiting for new container to become healthy..."
-            max_attempts=30
-            count=0
-            until curl -fs http://localhost:${NEW_PORT}/ >/dev/null 2>&1 || [ $count -eq $max_attempts ]; do
-              echo "⏳ Waiting for new container... ($count/$max_attempts)"
-              count=$((count + 1))
-              sleep 2
-            done
+            # Run new container on NEW_PORT for health testing
+            echo "🧪 Starting temporary container ${CONTAINER_TMP} on port ${NEW_PORT}..."
+            RUN_CMD=(docker run -d --name "${CONTAINER_TMP}" --restart unless-stopped -p "${NEW_PORT}:3000" -e NODE_ENV=production -e NEXT_TELEMETRY_DISABLED=1 -e VERCEL=1 -e CI=true)
 
-            if [ $count -eq $max_attempts ]; then
-              echo "❌ New container failed health check, rolling back..."
-              docker logs $CONTAINER_NEW || true
-              docker stop $CONTAINER_NEW || true
-              docker rm $CONTAINER_NEW || true
-              docker rmi $NEW_IMAGE || true
-              exit 1
+            # attach env-file if present
+            if [ -f "${ENV_FILE}" ]; then
+              echo "🔐 Using env file: ${ENV_FILE}"
+              RUN_CMD+=(--env-file "${ENV_FILE}")
             fi
 
-            echo "✅ New container is healthy! Proceeding with switch..."
+            RUN_CMD+=("${NEW_IMAGE}")
 
-            echo "🛑 Stopping any containers on port $PROD_PORT..."
-            docker ps --format "table {{.Names}}\t{{.Ports}}" | grep "${PROD_PORT}" | awk '{print $1}' | xargs -r docker stop || true
-            docker ps -a --format "table {{.Names}}\t{{.Ports}}" | grep "${PROD_PORT}" | awk '{print $1}' | xargs -r docker rm || true
+            # Start container
+            "${RUN_CMD[@]}"
 
-            docker stop $CONTAINER_OLD 2>/dev/null || true
-            docker rm $CONTAINER_OLD 2>/dev/null || true
+            # Wait for health check
+            echo "⏳ Waiting for ${CONTAINER_TMP} health on http://localhost:${NEW_PORT}${HEALTH_PATH} ..."
+            elapsed=0
+            until curl -fsS "http://localhost:${NEW_PORT}${HEALTH_PATH}" >/dev/null 2>&1; do
+              if [ "$elapsed" -ge "$HEALTH_TIMEOUT" ]; then
+                echo "❌ Health check timed out after ${HEALTH_TIMEOUT}s. Rolling back..."
+                echo "===== Logs from ${CONTAINER_TMP} ====="
+                docker logs "${CONTAINER_TMP}" || true
+                docker rm -f "${CONTAINER_TMP}" 2>/dev/null || true
+                docker rmi "${NEW_IMAGE}" 2>/dev/null || true
+                exit 1
+              fi
+              printf " ."
+              sleep "${HEALTH_INTERVAL}"
+              elapsed=$((elapsed + HEALTH_INTERVAL))
+            done
+            echo ""
+            echo "✅ Temporary container is healthy!"
 
-            echo "⌛ Waiting for port $PROD_PORT to be released..."
+            # Stop & remove current production container (if exists)
+            if docker ps -a --format '{{.Names}}' | grep -xq "${CONTAINER_PROD}"; then
+              echo "🛑 Stopping current production container ${CONTAINER_PROD}..."
+              docker stop "${CONTAINER_PROD}" || true
+              docker rm "${CONTAINER_PROD}" || true
+            else
+              # Also remove any container listening on PROD_PORT to free it
+              echo "🔎 No named prod container found; checking processes bound to port ${PROD_PORT}..."
+              docker ps --format "table {{.Names}}\t{{.Ports}}" | grep ":${PROD_PORT}" | awk '{print $1}' | xargs -r docker stop || true
+              docker ps -a --format "table {{.Names}}\t{{.Ports}}" | grep ":${PROD_PORT}" | awk '{print $1}' | xargs -r docker rm || true
+            fi
+
+            # Give the OS a moment to release the port
+            echo "⌛ Waiting for port ${PROD_PORT} to be released..."
+            sleep 2
+            if ss -ltn "( sport = :${PROD_PORT} )" >/dev/null 2>&1; then
+              echo "⚠️ Port ${PROD_PORT} still in use; waiting a bit more..."
+              sleep 3
+            fi
+
+            # Start production container using the same image (bind to PROD_PORT)
+            echo "🚀 Starting production container ${CONTAINER_PROD} on port ${PROD_PORT}..."
+            PROD_RUN_CMD=(docker run -d --name "${CONTAINER_PROD}" --restart unless-stopped -p "${PROD_PORT}:3000" -e NODE_ENV=production -e NEXT_TELEMETRY_DISABLED=1 -e VERCEL=1 -e CI=true)
+            if [ -f "${ENV_FILE}" ]; then
+              PROD_RUN_CMD+=(--env-file "${ENV_FILE}")
+            fi
+            PROD_RUN_CMD+=("${NEW_IMAGE}")
+
+            "${PROD_RUN_CMD[@]}"
+
+            # Final health check on prod
+            echo "🔁 Final health check on production..."
             sleep 3
-            if netstat -tulpn | grep :${PROD_PORT} > /dev/null 2>&1; then
-              echo "⚠️ Port still busy, waiting longer..."
-              sleep 5
-            fi
-
-            echo "🚀 Promoting new container to production..."
-            docker run -d \
-              --name $CONTAINER_OLD \
-              -p ${PROD_PORT}:3000 \
-              --restart unless-stopped \
-              -e NODE_ENV=production \
-              -e NEXT_TELEMETRY_DISABLED=1 \
-              -e VERCEL=1 \
-              -e CI=true \
-              $NEW_IMAGE
-
-            echo "🧪 Final health check..."
-            sleep 5
-            if ! docker ps | grep -q "$CONTAINER_OLD"; then
-              echo "❌ Final deployment failed, rolling back..."
-              docker logs $CONTAINER_OLD
+            if ! curl -fsS "http://localhost:${PROD_PORT}${HEALTH_PATH}" >/dev/null 2>&1; then
+              echo "❌ Production health check failed. Rolling back..."
+              echo "===== Logs from prod container (${CONTAINER_PROD}) ====="
+              docker logs "${CONTAINER_PROD}" || true
+              # Try to rollback: remove failed prod container and restart old if available
+              docker rm -f "${CONTAINER_PROD}" 2>/dev/null || true
+              # Attempt to re-run previous image (most recent previous tag)
+              PREV_IMAGE=$(docker images "${IMAGE_PREFIX}" --format '{{.Repository}}:{{.Tag}}' | grep -E "${IMAGE_PREFIX}:[0-9]{8}-[0-9]{6}" | grep -v "${TIMESTAMP}" | head -n1 || true)
+              if [ -n "${PREV_IMAGE}" ]; then
+                echo "🔁 Attempting to bring back previous image: ${PREV_IMAGE}"
+                docker run -d --name "${CONTAINER_PROD}" --restart unless-stopped -p "${PROD_PORT}:3000" -e NODE_ENV=production -e NEXT_TELEMETRY_DISABLED=1 "${PREV_IMAGE}" || true
+                sleep 3
+              fi
+              # cleanup tmp container and new image
+              docker rm -f "${CONTAINER_TMP}" 2>/dev/null || true
+              docker rmi "${NEW_IMAGE}" 2>/dev/null || true
               exit 1
             fi
 
-            echo "🧹 Cleaning up old containers and images..."
-            docker stop $CONTAINER_NEW 2>/dev/null || true
-            docker rm $CONTAINER_NEW 2>/dev/null || true
+            echo "✅ Production is healthy and serving on port ${PROD_PORT}."
 
-            # Keep last 2 builds
-            OLD_IMAGES=$(docker images $IMAGE_PREFIX --format "{{.Tag}}" | grep -E "^[0-9]{8}-[0-9]{6}$" | sort -r | tail -n +3)
-            for tag in $OLD_IMAGES; do
-              docker rmi "${IMAGE_PREFIX}:${tag}" 2>/dev/null || true
-            done
-            docker image prune -f
+            # Cleanup temporary container
+            echo "🧹 Removing temporary container ${CONTAINER_TMP}..."
+            docker rm -f "${CONTAINER_TMP}" 2>/dev/null || true
 
-            echo "📊 Current running containers:"
-            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep $CONTAINER_OLD
+            # Keep only last $KEEP_BUILDS builds and remove older images
+            echo "🗑️ Cleaning up old images (keeping last ${KEEP_BUILDS})..."
+            mapfile -t TAGS < <(docker images "${IMAGE_PREFIX}" --format '{{.Tag}}' | grep -E "^[0-9]{8}-[0-9]{6}$" | sort -r)
+            if [ "${#TAGS[@]}" -gt "${KEEP_BUILDS}" ]; then
+              for t in "${TAGS[@]:${KEEP_BUILDS}}"; do
+                echo "Removing image ${IMAGE_PREFIX}:${t}"
+                docker rmi "${IMAGE_PREFIX}:${t}" 2>/dev/null || true
+              done
+            fi
+            docker image prune -f || true
 
-            echo "🎉 Zero downtime deployment completed successfully!"
+            echo "📦 Current running containers:"
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+            echo "🎉 Deployment complete: ${NEW_IMAGE} promoted to ${CONTAINER_PROD}."
