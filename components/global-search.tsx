@@ -86,27 +86,36 @@ export function GlobalSearch() {
           category: 'direct'
         }))
         
-        // Handle portfolio holdings
-        const portfolioHoldings = (data.results.portfolio_holdings || []).map(holding => ({
-          id: holding.id,
-          title: holding.symbol,
-          type: 'stock' as const,
-          url: `${holding.onclick || `/model-portfolios/${holding.portfolioId}`}#portfolio-investment-tips`,
-          description: `${holding.portfolioName} - ${holding.sector}${holding.currentPrice ? ` | ₹${holding.currentPrice}` : ''}${holding.weight ? ` | ${holding.weight}%` : ''}`,
-          symbol: holding.symbol,
-          category: 'portfolio',
-          portfolioName: holding.portfolioName,
-          portfolioId: holding.portfolioId
+        // Separate tips with portfolio from regular tips
+        const allTips = [...(data.results.portfolios || []), ...(data.results.tips || [])]
+        
+        const portfolios = allTips.filter(item => item.title && item.title.includes(' - ')).map(portfolio => ({
+          id: portfolio.id,
+          title: portfolio.title,
+          type: 'portfolio' as const,
+          url: portfolio.onclick || portfolio.url,
+          description: `Buy Range: ${portfolio.buyRange || 'N/A'} | Target: ${portfolio.targetPrice || 'N/A'} | Status: ${portfolio.status || 'N/A'}`,
+          category: portfolio.category,
+          createdAt: portfolio.createdAt,
+          onClick: portfolio.onClick
         }))
         
-        // Combine stocks and portfolio holdings
-        const allStocks = [...stocks, ...portfolioHoldings]
+        const tips = allTips.filter(item => !item.title || !item.title.includes(' - ')).map(tip => ({
+          id: tip.id,
+          title: tip.title,
+          type: 'tip' as const,
+          url: tip.onclick || tip.url,
+          description: `Buy Range: ${tip.buyRange || 'N/A'} | Target: ${tip.targetPrice || 'N/A'} | Status: ${tip.status || 'N/A'}`,
+          category: tip.category,
+          createdAt: tip.createdAt,
+          onClick: tip.onClick
+        }))
         
         return {
           Pages: data.results.pages || [],
-          Portfolios: data.results.portfolios || [],
-          Tips: data.results.tips || [],
-          Stocks: allStocks,
+          Portfolios: portfolios,
+          Tips: tips,
+          Stocks: stocks,
           Subscriptions: data.results.subscriptions || []
         }
       }
@@ -190,11 +199,8 @@ export function GlobalSearch() {
   const handleResultClick = (result: SearchResult) => {
     saveRecentSearch(result.title)
     
-    if (result.onClick?.action === 'navigate' && result.onClick.params?.url) {
-      router.push(result.onClick.params.url)
-    } else {
-      router.push(result.url)
-    }
+    // Use url directly for navigation
+    router.push(result.url)
     
     setIsOpen(false)
     setQuery("")
@@ -283,7 +289,7 @@ export function GlobalSearch() {
   }
 
   return (
-    <div ref={searchRef} className="relative flex-1 max-w-2xl">
+    <div ref={searchRef} className="relative flex-1 max-w-2xl z-[100]">
       <div className="relative group">
         <input
           type="text"
@@ -326,7 +332,7 @@ export function GlobalSearch() {
       </div>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-3 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 max-h-[32rem] overflow-hidden" role="listbox">
+        <div className="absolute top-full left-0 right-0 mt-3 bg-white border border-gray-200 rounded-2xl shadow-xl z-[9999] max-h-[32rem] overflow-hidden" role="listbox">
           {loading ? (
             <div className="p-8 text-center">
               <div className="relative mx-auto w-12 h-12 mb-4">

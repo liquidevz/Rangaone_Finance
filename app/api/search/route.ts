@@ -104,48 +104,57 @@ async function getSearchData(): Promise<SearchResult[]> {
       }
     })
     
-    // Add regular tips (non-portfolio)
-    tips.forEach(tip => {
-      if (tip._id && (tip.title || tip.stockId)) {
-        const bundleType = tip.category === 'premium' ? 'Premium' : 'Basic'
-        searchItems.push({
-          id: tip._id,
-          title: tip.title || tip.stockId || 'Recommendation',
-          type: 'tip',
-          url: `/tips/${tip._id}`,
-          description: `${bundleType} Bundle - ${tip.action || 'Buy'} recommendation`,
-          category: tip.category,
-          createdAt: tip.createdAt,
-          stockId: tip.stockId,
-          symbol: tip.symbol,
-          onClick: {
-            action: 'navigate',
-            params: { url: `/tips/${tip._id}` }
-          }
-        })
-      }
-    })
+    // Track processed tip IDs to avoid duplicates
+    const processedTipIds = new Set()
     
-    // Add portfolio-specific tips with portfolio names
-    portfolioTips.forEach(tip => {
-      if (tip._id && (tip.title || tip.stockId)) {
-        const portfolioName = typeof tip.portfolio === 'object' ? tip.portfolio.name : 'Portfolio'
+    // Combine all tips and check for portfolio association
+    const allTips = [...tips, ...portfolioTips]
+    
+    allTips.forEach(tip => {
+      if (tip._id && (tip.title || tip.stockId) && !processedTipIds.has(tip._id)) {
+        processedTipIds.add(tip._id)
         const bundleType = tip.category === 'premium' ? 'Premium' : 'Basic'
-        searchItems.push({
-          id: `portfolio-tip-${tip._id}`,
-          title: `${tip.title || tip.stockId} - ${portfolioName}`,
-          type: 'tip',
-          url: `/tips/${tip._id}`,
-          description: `${portfolioName} Portfolio - ${bundleType} Bundle recommendation`,
-          category: tip.category,
-          createdAt: tip.createdAt,
-          stockId: tip.stockId,
-          symbol: tip.symbol,
-          onClick: {
-            action: 'navigate',
-            params: { url: `/tips/${tip._id}` }
-          }
-        })
+        
+        // Check if tip has portfolio ID
+        const hasPortfolio = tip.portfolio && (typeof tip.portfolio === 'string' || typeof tip.portfolio === 'object')
+        console.log('Tip data:', { id: tip._id, buyRange: tip.buyRange, targetPrice: tip.targetPrice, status: tip.status })
+        
+        if (hasPortfolio) {
+          // Add to portfolios section
+          const portfolioName = typeof tip.portfolio === 'object' ? tip.portfolio.name : 'Portfolio'
+          searchItems.push({
+            id: tip._id,
+            title: `${tip.title || tip.stockId} - ${portfolioName}`,
+            type: 'portfolio',
+            url: `/tips/${tip._id}`,
+            description: `Buy Range: ${tip.buyRange || 'N/A'} | Target: ${tip.targetPrice || 'N/A'} | Status: ${tip.status || 'N/A'}`,
+            category: tip.category,
+            createdAt: tip.createdAt,
+            stockId: tip.stockId,
+            symbol: tip.symbol,
+            onClick: {
+              action: 'navigate',
+              params: { url: `/tips/${tip._id}` }
+            }
+          })
+        } else {
+          // Add to tips section
+          searchItems.push({
+            id: tip._id,
+            title: tip.title || tip.stockId || 'Recommendation',
+            type: 'tip',
+            url: `/tips/${tip._id}`,
+            description: `Buy Range: ${tip.buyRange || 'N/A'} | Target: ${tip.targetPrice || 'N/A'} | Status: ${tip.status || 'N/A'}`,
+            category: tip.category,
+            createdAt: tip.createdAt,
+            stockId: tip.stockId,
+            symbol: tip.symbol,
+            onClick: {
+              action: 'navigate',
+              params: { url: `/tips/${tip._id}` }
+            }
+          })
+        }
       }
     })
     
@@ -236,38 +245,39 @@ export async function GET(request: NextRequest) {
       filteredResults = filteredResults.filter(item => item.type === type)
     }
 
-    // Separate stocks into direct stocks and portfolio holdings
+    // Separate results by type
     const stockResults = filteredResults.filter(item => item.type === 'stock').slice(0, limit)
-    const portfolioHoldings = filteredResults.filter(item => item.type === 'portfolio').slice(0, limit)
+    const portfolioResults = filteredResults.filter(item => item.type === 'portfolio').slice(0, limit)
+    const tipResults = filteredResults.filter(item => item.type === 'tip').slice(0, limit)
+    const pageResults = filteredResults.filter(item => item.type === 'page').slice(0, limit)
+    const subscriptionResults = filteredResults.filter(item => item.type === 'subscription').slice(0, limit)
     
     const results = {
       stocks: stockResults.map(stock => ({
         id: stock.id,
         symbol: stock.symbol || stock.title,
-        exchange: 'NSE', // Default exchange
-        currentPrice: 0, // Will be populated by real-time data
+        exchange: 'NSE',
+        currentPrice: 0,
         priceChange: 0,
         priceChangePercent: 0,
         onclick: stock.url,
         action: 'navigate'
       })),
-      portfolio_holdings: portfolioHoldings.map(portfolio => ({
-        id: `${portfolio.id}_${portfolio.symbol || portfolio.title}`,
-        symbol: portfolio.symbol || portfolio.title,
-        sector: portfolio.category || 'General',
-        currentPrice: 0, // Will be populated by real-time data
-        weight: 0, // Will be populated by portfolio data
-        portfolioId: portfolio.id,
-        portfolioName: portfolio.title,
+      portfolios: portfolioResults.map(portfolio => ({
+        ...portfolio,
         onclick: portfolio.url,
         action: 'navigate'
       })),
-      pages: filteredResults.filter(item => item.type === 'page').slice(0, limit),
-      tips: filteredResults.filter(item => item.type === 'tip').slice(0, limit),
-      subscriptions: filteredResults.filter(item => item.type === 'subscription').slice(0, limit)
+      tips: tipResults.map(tip => ({
+        ...tip,
+        onclick: tip.url,
+        action: 'navigate'
+      })),
+      pages: pageResults,
+      subscriptions: subscriptionResults
     }
 
-    const totalResults = results.stocks.length + results.portfolio_holdings.length + 
+    const totalResults = results.stocks.length + results.portfolios.length + 
                         results.pages.length + results.tips.length + results.subscriptions.length
 
     return NextResponse.json({

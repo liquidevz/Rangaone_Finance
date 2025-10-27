@@ -56,6 +56,7 @@ import { useRouter } from "next/navigation";
 import { motion, useMotionValue, animate } from "framer-motion";
 import { format, isSameDay, addDays, differenceInDays } from "date-fns";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { formatActionForDisplay, getActionColorScheme } from '@/lib/action-display-utils';
 
 export default function PortfolioDetailsPage() {
   const params = useParams();
@@ -627,39 +628,7 @@ export default function PortfolioDetailsPage() {
     return 'Mid cap';
   };
 
-  // Helper function to get status color scheme
-  const getStatusColorScheme = (status: string) => {
-    const normalizedStatus = status?.toUpperCase() || 'FRESH-BUY';
-    
-    switch (normalizedStatus) {
-      case 'FRESH-BUY':
-      case 'BUY':
-        return 'bg-green-100 text-green-700';
-      case 'HOLD':
-      case 'MAINTAIN':
-        return 'bg-blue-100 text-blue-700';
-      case 'SELL':
-      case 'EXIT':
-        return 'bg-red-100 text-red-700';
-      case 'PARTIAL-SELL':
-      case 'REDUCE':
-        return 'bg-orange-100 text-orange-700';
-      case 'WATCH':
-      case 'MONITOR':
-        return 'bg-yellow-100 text-yellow-700';
-      case 'ADD':
-      case 'ACCUMULATE':
-        return 'bg-emerald-100 text-emerald-700';
-      case 'STOP-LOSS':
-      case 'SL':
-        return 'bg-rose-100 text-rose-700';
-      case 'TARGET':
-      case 'PROFIT-BOOKING':
-        return 'bg-purple-100 text-purple-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
-    }
-  };
+
 
   // Validate and clean holdings data from backend
   const validateHoldingsData = (holdings: any[], portfolioId: string): Holding[] => {
@@ -1552,8 +1521,8 @@ export default function PortfolioDetailsPage() {
                               <div>
                                 <span className="text-gray-600 font-medium">Action:</span>
                                 <div className="text-gray-800">
-                                  <span className={`px-1 py-0.5 rounded text-xs font-medium ${getStatusColorScheme(holding.status?.toUpperCase())}`}>
-                                    {holding.status?.toUpperCase()}
+                                  <span className={`px-1 py-0.5 rounded text-xs font-medium ${getActionColorScheme(holding.status || '')}`}>
+                                    {formatActionForDisplay(holding.status || '')}
                                   </span>
                                 </div>
                               </div>
@@ -1664,8 +1633,8 @@ export default function PortfolioDetailsPage() {
                       </td>
                       <td className="px-2 py-2 text-center font-medium">{holding.weight.toFixed(2)}%</td>
                       <td className="px-2 py-2 text-center">
-                        <span className={`px-1 py-0.5 rounded text-xs font-medium ${getStatusColorScheme(holding.status?.toUpperCase())}`}>
-                          {holding.status?.toUpperCase()}
+                        <span className={`px-1 py-0.5 rounded text-xs font-medium ${getActionColorScheme(holding.status || '')}`}>
+                          {formatActionForDisplay(holding.status || '')}
                         </span>
                   </td>
                       <td className="px-2 py-2 text-center">

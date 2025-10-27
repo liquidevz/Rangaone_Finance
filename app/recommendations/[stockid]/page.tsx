@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
+import { formatActionForDisplay } from '@/lib/action-display-utils';
 
 export default function StockRecommendationPage() {
   const params = useParams();
@@ -268,7 +269,7 @@ export default function StockRecommendationPage() {
                 {tipData.action && (
                   <div className="md:text-center sm:text-center text-left">
                     <p className="font-bold mb-1">Action</p>
-                    <p className="text-xl text-green-600 font-bold">{tipData.action}</p>
+                    <p className="text-xl text-green-600 font-bold">{formatActionForDisplay(tipData.action)}</p>
                   </div>
                 )}
                 

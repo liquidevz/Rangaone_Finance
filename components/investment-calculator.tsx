@@ -11,6 +11,7 @@ import { portfolioService } from '@/services/portfolio.service';
 import { Portfolio } from '@/lib/types';
 import { Loader2, Calculator, TrendingUp, AlertCircle, Download, Copy } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { formatActionForDisplay, getActionColorScheme } from '@/lib/action-display-utils';
 
 interface StockAllocation {
   symbol: string;
@@ -113,6 +114,7 @@ export function InvestmentCalculator() {
         holding.status &&
         !excludeFromBuying(holding) &&
         (holding.status.toLowerCase().includes('buy more') || 
+         holding.status.toLowerCase().includes('addon-buy') ||
          holding.status.toLowerCase().includes('fresh-buy') ||
          (holding.status.toLowerCase().includes('buy') && !holding.status.toLowerCase().includes('fresh')))
       );
@@ -137,7 +139,7 @@ export function InvestmentCalculator() {
       const getStatusPriority = (status: string) => {
         if (!status) return 0;
         const s = status.toLowerCase();
-        if (s.includes('buy more')) return 3;
+        if (s.includes('buy more') || s.includes('addon-buy')) return 3;
         if (s.includes('buy') && !s.includes('fresh')) return 2;
         if (s.includes('fresh-buy')) return 1;
         return 0;
@@ -164,7 +166,7 @@ export function InvestmentCalculator() {
         const getStatusPriority = (status: string) => {
           if (!status) return 0;
           const s = status.toLowerCase();
-          if (s.includes('buy more')) return 3;
+          if (s.includes('buy more') || s.includes('addon-buy')) return 3;
           if (s.includes('buy') && !s.includes('fresh')) return 2;
           if (s.includes('fresh-buy')) return 1;
           return 0;
@@ -273,7 +275,7 @@ export function InvestmentCalculator() {
     const headers = ['Stock Symbol', 'Action', 'Weight %', 'Price', 'Shares Bought', 'Investment Amount'];
     const rows = result.stocks.map(stock => [
       stock.symbol,
-      stock.action,
+      formatActionForDisplay(stock.action),
       stock.weight.toFixed(2),
       stock.price.toFixed(2),
       stock.sharesBought,
@@ -444,13 +446,8 @@ export function InvestmentCalculator() {
                             <div className="text-gray-500 text-xs">NSE : {stock.symbol}</div>
                           </td>
                           <td className="px-2 py-2 text-center">
-                            <span className={`px-1 py-0.5 rounded text-xs font-medium ${
-                              stock.action?.toLowerCase().includes('buy more') ? 'bg-green-100 text-green-700' :
-                              stock.action?.toLowerCase().includes('buy') && !stock.action?.toLowerCase().includes('more') ? 'bg-blue-100 text-blue-700' :
-                              stock.action?.toLowerCase().includes('hold') ? 'bg-gray-100 text-gray-700' :
-                              'bg-orange-100 text-orange-700'
-                            }`}>
-                              {stock.action}
+                            <span className={`px-1 py-0.5 rounded text-xs font-medium ${getActionColorScheme(stock.action || '')}`}>
+                              {formatActionForDisplay(stock.action || '')}
                             </span>
                           </td>
                           <td className="px-2 py-2 text-center font-medium">{stock.weight.toFixed(2)}%</td>
@@ -505,13 +502,8 @@ export function InvestmentCalculator() {
                           <div className="text-gray-500 text-xs">NSE : {stock.symbol}</div>
                         </td>
                         <td className="px-2 py-2 text-center">
-                          <span className={`px-1 py-0.5 rounded text-xs font-medium ${
-                            stock.action?.toLowerCase().includes('buy more') ? 'bg-green-100 text-green-700' :
-                            stock.action?.toLowerCase().includes('buy') && !stock.action?.toLowerCase().includes('more') ? 'bg-blue-100 text-blue-700' :
-                            stock.action?.toLowerCase().includes('hold') ? 'bg-gray-100 text-gray-700' :
-                            'bg-orange-100 text-orange-700'
-                          }`}>
-                            {stock.action}
+                          <span className={`px-1 py-0.5 rounded text-xs font-medium ${getActionColorScheme(stock.action || '')}`}>
+                            {formatActionForDisplay(stock.action || '')}
                           </span>
                         </td>
                         <td className="px-2 py-2 text-center font-medium">{stock.weight.toFixed(2)}%</td>
