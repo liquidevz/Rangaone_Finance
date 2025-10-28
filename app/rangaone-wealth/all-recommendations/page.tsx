@@ -19,6 +19,7 @@ import { useAuth } from '@/components/auth/auth-context';
 import { subscriptionService, type SubscriptionAccess } from '@/services/subscription.service';
 import { useToast } from '@/components/ui/use-toast';
 import { stockSymbolCacheService } from '@/services/stock-symbol-cache.service';
+import { useRecommendationFilters } from '@/hooks/use-recommendation-filters';
 
 import { Tip } from '@/services/tip.service';
 
@@ -263,31 +264,15 @@ export default function AllRecommendationsPage() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
+  const { filters, updateFilter, clearFilters, hasActiveFilters } = useRecommendationFilters();
   const [tips, setTips] = useState<Tip[]>([]);
   const [loading, setLoading] = useState(true);
   const [subscriptionAccess, setSubscriptionAccess] = useState<SubscriptionAccess | undefined>();
   const [stockSymbols, setStockSymbols] = useState<Map<string, string>>(new Map());
   const [currentPage, setCurrentPage] = useState(1);
   const tipsPerPage = 999;
-  const [filters, setFilters] = useState({
-    category: 'all',
-    status: 'Active',
-    action: 'all',
-    stockId: '',
-    startDate: null as Date | null,
-    endDate: null as Date | null,
-    horizon: 'Long Term' as string,
-  });
 
-  // Handle URL parameters
-  useEffect(() => {
-    const filterParam = searchParams?.get('filter');
-    if (filterParam === 'closed') {
-      setFilters(prev => ({ ...prev, status: 'Closed' }));
-    } else if (filterParam === 'open') {
-      setFilters(prev => ({ ...prev, status: 'Active' }));
-    }
-  }, [searchParams]);
+  // URL parameters are now handled by the useRecommendationFilters hook
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Fetch all tips (load all tips without server-side filtering)
@@ -457,20 +442,12 @@ export default function AllRecommendationsPage() {
 
   // Handle filter changes
   const handleFilterChange = (key: string, value: any) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+    updateFilter(key as keyof typeof filters, value);
   };
 
-  // Clear all filters
-  const clearFilters = () => {
-    setFilters({
-      category: 'all',
-      status: 'all', // Show all tips when clearing filters
-      action: 'all',
-      stockId: '',
-      startDate: null,
-      endDate: null,
-      horizon: 'Long Term',
-    });
+  // Clear all filters with page reset
+  const handleClearFilters = () => {
+    clearFilters();
     setCurrentPage(1);
     setShowDatePicker(false);
   };
@@ -608,7 +585,7 @@ export default function AllRecommendationsPage() {
     <DashboardLayout userId="1">
       <InnerPageHeader
         title="All Recommendations"
-        subtitle="Complete list of investment tips"
+        subtitle={hasActiveFilters ? "Filtered investment tips" : "Complete list of investment tips"}
       />
 
       {/* Filters Section - Exact UI Match */}
@@ -745,8 +722,8 @@ export default function AllRecommendationsPage() {
                       variant="outline" 
                       size="sm" 
                       onClick={() => {
-                        handleFilterChange('startDate', null);
-                        handleFilterChange('endDate', null);
+                        updateFilter('startDate', null);
+                        updateFilter('endDate', null);
                         setShowDatePicker(false);
                       }}
                     >
@@ -826,14 +803,24 @@ export default function AllRecommendationsPage() {
       <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <h3 className="text-base lg:text-lg font-semibold">
           {filteredTips.length} Recommendation{filteredTips.length !== 1 ? 's' : ''} Found
+          {hasActiveFilters && (
+            <span className="ml-2 text-sm text-gray-500 font-normal">
+              (filtered)
+            </span>
+          )}
         </h3>
         <Button 
-          onClick={clearFilters} 
+          onClick={handleClearFilters} 
           variant="outline" 
           size="sm"
-          className="text-sm w-full sm:w-auto"
+          className={cn("text-sm w-full sm:w-auto", hasActiveFilters && "border-orange-500 text-orange-600 hover:bg-orange-50")}
         >
           Clear All Filters
+          {hasActiveFilters && (
+            <span className="ml-2 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+              Active
+            </span>
+          )}
         </Button>
       </div>
 
@@ -1031,7 +1018,7 @@ export default function AllRecommendationsPage() {
         <Card>
           <CardContent className="p-12 text-center">
             <p className="text-gray-500 text-lg">No recommendations found matching your filters.</p>
-            <Button onClick={clearFilters} className="mt-4">
+            <Button onClick={handleClearFilters} className="mt-4">
               Clear Filters
             </Button>
           </CardContent>

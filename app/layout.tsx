@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-context";
 import { CartProvider } from "@/components/cart/cart-context";
-
+import { FilterProvider } from "@/components/recommendations/filter-state-context";
 
 import AuthGuard from "@/components/auth/auth-guard";
 import { Toaster } from "@/components/ui/toaster";
@@ -32,15 +32,17 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
             <CartProvider>
-              <AuthGuard>
-                <div className="min-h-screen bg-gray-50 overflow-x-hidden">
-                  <main>
-                    {children}
-                  </main>
-                </div>
+              <FilterProvider>
+                <AuthGuard>
+                  <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+                    <main>
+                      {children}
+                    </main>
+                  </div>
 
-                <Toaster />
-              </AuthGuard>
+                  <Toaster />
+                </AuthGuard>
+              </FilterProvider>
             </CartProvider>
         </AuthProvider>
       </body>
