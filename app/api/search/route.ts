@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { subscriptionService } from '@/services/subscription.service'
 import { portfolioService } from '@/services/portfolio.service'
 import { tipsService } from '@/services/tip.service'
+import { authService } from '@/services/auth.service'
 
 interface SearchResult {
   id: string
@@ -13,6 +14,7 @@ interface SearchResult {
   createdAt?: string
   symbol?: string
   stockId?: string
+  hasAccess?: boolean
   onClick?: {
     action: string
     params?: Record<string, any>
@@ -58,8 +60,24 @@ function fuzzyMatch(text: string, query: string): number {
 
 async function getSearchData(): Promise<SearchResult[]> {
   try {
-    const [subscriptionsData, portfolios, tips, portfolioTips] = await Promise.all([
-      subscriptionService.getUserSubscriptions().catch(() => ({ subscriptions: [] })),
+    // Direct API call to get user subscriptions
+    const subscriptionsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.rangaone.finance'}/api/user/subscriptions`, {
+      headers: {
+        'Authorization': `Bearer ${authService.getAccessToken()}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    const subscriptionsData = subscriptionsResponse.ok ? await subscriptionsResponse.json() : { subscriptions: [], has_basic: false, has_premium: false, access: { portfolioIds: [] } }
+    
+    const accessData = {
+      hasBasic: subscriptionsData.has_basic || false,
+      hasPremium: subscriptionsData.has_premium || false,
+      portfolioAccess: subscriptionsData.access?.portfolioIds || [],
+      subscriptionType: subscriptionsData.overview?.subscriptionType || 'none'
+    }
+    
+    const [portfolios, tips, portfolioTips] = await Promise.all([
       portfolioService.getAll().catch(() => []),
       tipsService.getAll().catch(() => []),
       tipsService.getPortfolioTips().catch(() => [])
@@ -67,7 +85,7 @@ async function getSearchData(): Promise<SearchResult[]> {
     
     const searchItems: SearchResult[] = [...PAGES]
     
-    subscriptionsData.subscriptions.forEach(sub => {
+    (subscriptionsData.subscriptions || []).forEach(sub => {
       const productId = typeof sub.productId === 'string' ? sub.productId : sub.productId?._id
       const productName = typeof sub.productId === 'object' ? sub.productId?.name : sub.productId
       
@@ -87,8 +105,10 @@ async function getSearchData(): Promise<SearchResult[]> {
       }
     })
     
+    // Show all portfolios but mark access status
     portfolios.forEach(portfolio => {
       if (portfolio._id && portfolio.name) {
+        const hasAccess = accessData.portfolioAccess.includes(portfolio._id)
         searchItems.push({
           id: portfolio._id,
           title: `${portfolio.name} Portfolio`,
@@ -96,6 +116,7 @@ async function getSearchData(): Promise<SearchResult[]> {
           url: `/model-portfolios/${portfolio._id}`,
           description: portfolio.description || `${portfolio.PortfolioCategory || 'Investment'} portfolio recommendations`,
           category: portfolio.PortfolioCategory,
+          hasAccess,
           onClick: {
             action: 'navigate',
             params: { url: `/model-portfolios/${portfolio._id}` }
@@ -115,13 +136,16 @@ async function getSearchData(): Promise<SearchResult[]> {
         processedTipIds.add(tip._id)
         const bundleType = tip.category === 'premium' ? 'Premium' : 'Basic'
         
+        // Check access based on tip category
+        const hasAccess = tip.category === 'premium' ? accessData.hasPremium : accessData.hasBasic
+        
         // Check if tip has portfolio ID
         const hasPortfolio = tip.portfolio && (typeof tip.portfolio === 'string' || typeof tip.portfolio === 'object')
         console.log('Tip data:', { id: tip._id, buyRange: tip.buyRange, targetPrice: tip.targetPrice, status: tip.status })
         
         if (hasPortfolio) {
           // Add to portfolios section
-          const portfolioName = typeof tip.portfolio === 'object' ? tip.portfolio.name : 'Portfolio'
+          const portfolioName = tip.portfolioName || (typeof tip.portfolio === 'object' ? tip.portfolio.name : 'Portfolio')
           searchItems.push({
             id: tip._id,
             title: `${tip.title || tip.stockId} - ${portfolioName}`,
@@ -132,6 +156,7 @@ async function getSearchData(): Promise<SearchResult[]> {
             createdAt: tip.createdAt,
             stockId: tip.stockId,
             symbol: tip.symbol,
+            hasAccess,
             onClick: {
               action: 'navigate',
               params: { url: `/tips/${tip._id}` }
@@ -149,6 +174,7 @@ async function getSearchData(): Promise<SearchResult[]> {
             createdAt: tip.createdAt,
             stockId: tip.stockId,
             symbol: tip.symbol,
+            hasAccess,
             onClick: {
               action: 'navigate',
               params: { url: `/tips/${tip._id}` }
@@ -158,9 +184,11 @@ async function getSearchData(): Promise<SearchResult[]> {
       }
     })
     
+    // Show all stocks but mark access status
     const uniqueStocks = new Set()
-    tips.forEach(tip => {
+    allTips.forEach(tip => {
       if (tip.stockId && !uniqueStocks.has(tip.stockId)) {
+        const hasAccess = tip.category === 'premium' ? accessData.hasPremium : accessData.hasBasic
         uniqueStocks.add(tip.stockId)
         searchItems.push({
           id: `stock-${tip.stockId}`,
@@ -169,6 +197,7 @@ async function getSearchData(): Promise<SearchResult[]> {
           url: `/recommendations?stock=${tip.stockId}`,
           description: `Stock recommendations for ${tip.stockId}`,
           symbol: tip.stockId,
+          hasAccess,
           onClick: {
             action: 'navigate',
             params: { url: `/recommendations?stock=${tip.stockId}` }
@@ -207,6 +236,8 @@ export async function GET(request: NextRequest) {
     }
 
     const searchData = await getSearchData()
+    console.log('Search data length:', searchData.length)
+    console.log('Sample search items:', searchData.slice(0, 3))
     
     // Prioritize exact matches, then starts-with matches, then fuzzy matches
     let filteredResults = searchData
@@ -261,17 +292,20 @@ export async function GET(request: NextRequest) {
         priceChange: 0,
         priceChangePercent: 0,
         onclick: stock.url,
-        action: 'navigate'
+        action: 'navigate',
+        hasAccess: stock.hasAccess
       })),
       portfolios: portfolioResults.map(portfolio => ({
         ...portfolio,
         onclick: portfolio.url,
-        action: 'navigate'
+        action: 'navigate',
+        hasAccess: portfolio.hasAccess
       })),
       tips: tipResults.map(tip => ({
         ...tip,
         onclick: tip.url,
-        action: 'navigate'
+        action: 'navigate',
+        hasAccess: tip.hasAccess
       })),
       pages: pageResults,
       subscriptions: subscriptionResults

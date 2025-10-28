@@ -26,6 +26,7 @@ interface SearchResult {
   stockId?: string
   portfolioName?: string
   portfolioId?: string
+  hasAccess?: boolean
   onClick?: {
     action: string
     params?: Record<string, any>
@@ -36,6 +37,8 @@ interface Suggestion {
   text: string
   type: "portfolio" | "subscription" | "page" | "tip" | "stock"
   id: string
+  hasAccess?: boolean
+  category?: string
 }
 
 
@@ -72,24 +75,25 @@ export function GlobalSearch() {
   const searchAPI = async (searchQuery: string) => {
     try {
       const { get } = await import('@/lib/axios')
-      const data = await get(`/api/search?q=${encodeURIComponent(searchQuery)}&limit=10`)
+      const data: any = await get(`/api/search?q=${encodeURIComponent(searchQuery)}&limit=10`)
       
       if (data.success) {
         // Handle direct stocks
-        const stocks = (data.results.stocks || []).map(stock => ({
+        const stocks = (data.results.stocks || []).map((stock: any) => ({
           id: stock.id,
           title: stock.symbol,
           type: 'stock' as const,
           url: stock.onclick || `/stocks/${stock.symbol}`,
           description: stock.currentPrice ? `₹${stock.currentPrice} (${stock.priceChangePercent >= 0 ? '+' : ''}${stock.priceChangePercent}%)` : `Stock: ${stock.symbol}`,
           symbol: stock.symbol,
-          category: 'direct'
+          category: 'direct',
+          hasAccess: stock.hasAccess
         }))
         
         // Separate tips with portfolio from regular tips
         const allTips = [...(data.results.portfolios || []), ...(data.results.tips || [])]
         
-        const portfolios = allTips.filter(item => item.title && item.title.includes(' - ')).map(portfolio => ({
+        const portfolios = allTips.filter((item: any) => item.title && item.title.includes(' - ')).map((portfolio: any) => ({
           id: portfolio.id,
           title: portfolio.title,
           type: 'portfolio' as const,
@@ -97,10 +101,12 @@ export function GlobalSearch() {
           description: `Buy Range: ${portfolio.buyRange || 'N/A'} | Target: ${portfolio.targetPrice || 'N/A'} | Status: ${portfolio.status || 'N/A'}`,
           category: portfolio.category,
           createdAt: portfolio.createdAt,
-          onClick: portfolio.onClick
+          onClick: portfolio.onClick,
+          portfolioName: portfolio.portfolioName,
+          hasAccess: portfolio.hasAccess
         }))
         
-        const tips = allTips.filter(item => !item.title || !item.title.includes(' - ')).map(tip => ({
+        const tips = allTips.filter((item: any) => !item.title || !item.title.includes(' - ')).map((tip: any) => ({
           id: tip.id,
           title: tip.title,
           type: 'tip' as const,
@@ -108,7 +114,8 @@ export function GlobalSearch() {
           description: `Buy Range: ${tip.buyRange || 'N/A'} | Target: ${tip.targetPrice || 'N/A'} | Status: ${tip.status || 'N/A'}`,
           category: tip.category,
           createdAt: tip.createdAt,
-          onClick: tip.onClick
+          onClick: tip.onClick,
+          hasAccess: tip.hasAccess
         }))
         
         return {
@@ -129,7 +136,7 @@ export function GlobalSearch() {
   const getSuggestions = async (searchQuery: string) => {
     try {
       const { get } = await import('@/lib/axios')
-      const data = await get(`/api/search/suggestions?q=${encodeURIComponent(searchQuery)}`)
+      const data: any = await get(`/api/search/suggestions?q=${encodeURIComponent(searchQuery)}`)
       
       console.log('Suggestions response:', data)
       
@@ -261,14 +268,14 @@ export function GlobalSearch() {
     )
   }
 
-  const getResultBadge = (type: string, category?: string) => {
+  const getResultBadge = (type: string, category?: string, portfolioName?: string) => {
     if (!type) return null
     
     const badges = {
       tip: category === "premium" 
         ? { text: "Premium Bundle", className: "bg-gradient-to-r from-yellow-400 to-amber-500 text-white shadow-lg" }
         : { text: "Basic Bundle", className: "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg" },
-      portfolio: { text: "Portfolio", className: "bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg" },
+      portfolio: { text: portfolioName || "Portfolio", className: "bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg" },
       stock: category === "portfolio" 
         ? { text: "Portfolio Stock", className: "bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg" }
         : { text: "Stock", className: "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg" },
@@ -289,15 +296,16 @@ export function GlobalSearch() {
   }
 
   return (
-    <div ref={searchRef} className="relative flex-1 max-w-2xl z-[100]">
+    <div ref={searchRef} className="relative flex-1 max-w-2xl z-[9999]">
       <div className="relative group">
         <input
           type="text"
-          placeholder="Search portfolios, tips, stocks & pages..."
+          placeholder={isAuthenticated ? "Search portfolios, tips, stocks & pages..." : "Please log in to search..."}
           value={query}
           onChange={(e) => handleInputChange(e.target.value)}
-          onFocus={() => setIsOpen(true)}
+          onFocus={() => isAuthenticated && setIsOpen(true)}
           onKeyDown={handleKeyDown}
+          disabled={!isAuthenticated}
           className={cn(
             "w-full bg-white border border-gray-300 shadow-sm rounded-xl",
             "pl-10 sm:pl-12 lg:pl-24 pr-10 sm:pr-12 py-3",
@@ -305,7 +313,8 @@ export function GlobalSearch() {
             "focus:shadow-lg focus:bg-white",
             "transition-all duration-300 ease-out",
             "hover:shadow-md hover:border-gray-400",
-            "placeholder:text-gray-400 outline-none text-sm sm:text-base"
+            "placeholder:text-gray-400 outline-none text-sm sm:text-base",
+            !isAuthenticated && "bg-gray-50 cursor-not-allowed opacity-60"
           )}
           aria-label="Global search"
         />
@@ -332,7 +341,7 @@ export function GlobalSearch() {
       </div>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-3 bg-white border border-gray-200 rounded-2xl shadow-xl z-[9999] max-h-[32rem] overflow-hidden" role="listbox">
+        <div className="absolute top-full left-0 right-0 mt-3 bg-white border border-gray-200 rounded-2xl shadow-2xl z-100 max-h-[32rem] overflow-hidden" role="listbox">
           {loading ? (
             <div className="p-8 text-center">
               <div className="relative mx-auto w-12 h-12 mb-4">
@@ -375,9 +384,10 @@ export function GlobalSearch() {
                             role="option"
                             aria-selected={isActive}
                           >
-                            <div className="flex items-start gap-3">
+                            <div className="flex items-start gap-3 relative">
                               {getTypeIcon(result.type, result.category)}
                               <div className="flex-1 min-w-0">
+
                                 <div className="flex items-center gap-3 mb-2">
                                   <div className="font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors duration-300 text-base">
                                     {highlightMatch(String(result.title || ''), query)}
@@ -385,7 +395,7 @@ export function GlobalSearch() {
                                       <span className="text-sm text-blue-600 ml-2 font-medium">in {result.portfolioName}</span>
                                     )}
                                   </div>
-                                  {getResultBadge(result.type, result.category) && getResultBadge(result.type, result.category)}
+                                  {getResultBadge(result.type, result.category, result.portfolioName) && getResultBadge(result.type, result.category, result.portfolioName)}
                                 </div>
                                 {result.description && (
                                   <div className="text-sm text-gray-600 truncate group-hover:text-gray-700 transition-colors duration-300">
@@ -398,6 +408,13 @@ export function GlobalSearch() {
                                   </div>
                                 )}
                               </div>
+                              {result.hasAccess === false && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-5 rounded">
+                                  <div className="bg-white rounded px-2 py-1 text-xs font-medium text-gray-600 shadow-sm">
+                                    {result.category === 'premium' ? 'Premium Required' : 'Subscription Required'}
+                                  </div>
+                                </div>
+                              )}
                               <ArrowRight className={cn(
                                 "h-5 w-5 text-gray-400 transition-all duration-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-2 group-hover:text-blue-600",
                                 isActive && "opacity-100 text-blue-500 translate-x-1"
@@ -436,19 +453,38 @@ export function GlobalSearch() {
               </div>
               <div className="py-1">
                 {suggestions.map((suggestion, index) => (
-                  <button
+                  <div
                     key={index}
-                    onClick={() => handleInputChange(suggestion.text)}
-                    className="w-full px-4 py-3 text-left hover:bg-gradient-to-r hover:from-blue-50/80 hover:to-indigo-50/80 transition-all duration-200 text-sm text-gray-700 group border-b border-gray-50/80 last:border-b-0"
+                    className="w-full px-4 py-3 text-left hover:bg-gradient-to-r hover:from-blue-50/80 hover:to-indigo-50/80 transition-all duration-200 text-sm text-gray-700 group border-b border-gray-50/80 last:border-b-0 relative"
                   >
                     <div className="flex items-center gap-3">
-                      {getTypeIcon(suggestion.type)}
+                      {getTypeIcon(suggestion.type, suggestion.category)}
                       <span className="group-hover:text-blue-700 transition-colors duration-200">{suggestion.text}</span>
-                      <ArrowRight className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200 ml-auto" />
+                      {suggestion.hasAccess === false ? (
+                        <button
+                          onClick={() => window.location.href = suggestion.category === 'premium' ? '/premium-subscription' : '/basic-subscription'}
+                          className="ml-auto px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                        >
+                          Subscribe
+                        </button>
+                      ) : (
+                        <ArrowRight 
+                          className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200 ml-auto cursor-pointer" 
+                          onClick={() => handleInputChange(suggestion.text)}
+                        />
+                      )}
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
+            </div>
+          ) : !isAuthenticated ? (
+            <div className="p-8 text-center">
+              <div className="bg-gradient-to-br from-red-100 to-red-200 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                <Search className="h-8 w-8 text-red-500" />
+              </div>
+              <p className="text-sm font-medium text-gray-600 mb-1">Please log in to search</p>
+              <p className="text-xs text-gray-400">Authentication required to access search functionality</p>
             </div>
           ) : query && suggestions.length === 0 ? (
             <div className="p-8 text-center">
@@ -458,7 +494,7 @@ export function GlobalSearch() {
               <p className="text-sm font-medium text-gray-600 mb-1">No results found for "{query}"</p>
               <p className="text-xs text-gray-400">Try different keywords or check your spelling</p>
             </div>
-          ) : recentSearches.length > 0 ? (
+          ) : recentSearches.length > 0 && isAuthenticated ? (
             <div>
               <div className="bg-gradient-to-r from-gray-50/90 to-blue-50/90 px-4 py-3 border-b border-gray-100/50">
                 <div className="flex items-center gap-2">
@@ -482,13 +518,21 @@ export function GlobalSearch() {
                 ))}
               </div>
             </div>
-          ) : (
+          ) : isAuthenticated ? (
             <div className="p-8 text-center">
               <div className="bg-gradient-to-br from-blue-100 to-indigo-200 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <Search className="h-8 w-8 text-blue-600" />
               </div>
               <p className="text-sm font-medium text-gray-700 mb-1">Start typing to search...</p>
               <p className="text-xs text-gray-500">Find portfolios, tips, stocks, and pages</p>
+            </div>
+          ) : (
+            <div className="p-8 text-center">
+              <div className="bg-gradient-to-br from-red-100 to-red-200 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                <Search className="h-8 w-8 text-red-500" />
+              </div>
+              <p className="text-sm font-medium text-gray-600 mb-1">Please log in to search</p>
+              <p className="text-xs text-gray-400">Authentication required to access search functionality</p>
             </div>
           )}
         </div>

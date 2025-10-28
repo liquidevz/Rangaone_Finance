@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { subscriptionService } from '@/services/subscription.service'
 import { portfolioService } from '@/services/portfolio.service'
 import { tipsService } from '@/services/tip.service'
+import { authService } from '@/services/auth.service'
 
 interface Suggestion {
   text: string
   type: 'portfolio' | 'subscription' | 'page' | 'tip' | 'stock'
   id: string
+  hasAccess?: boolean
+  category?: string
 }
 
 const PAGE_SUGGESTIONS: Suggestion[] = [
@@ -27,27 +30,48 @@ async function getSuggestions(query: string): Promise<Suggestion[]> {
     const queryLower = query.toLowerCase()
     const suggestions: Suggestion[] = []
     
+    // Get user subscriptions for access control
+    const subscriptionsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.rangaone.finance'}/api/user/subscriptions`, {
+      headers: {
+        'Authorization': `Bearer ${authService.getAccessToken()}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    const subscriptionsData = subscriptionsResponse.ok ? await subscriptionsResponse.json() : { subscriptions: [], has_basic: false, has_premium: false, access: { portfolioIds: [] } }
+    
+    const accessData = {
+      hasBasic: subscriptionsData.has_basic || false,
+      hasPremium: subscriptionsData.has_premium || false,
+      portfolioAccess: subscriptionsData.access?.portfolioIds || [],
+      subscriptionType: subscriptionsData.overview?.subscriptionType || 'none'
+    }
+    
     // Add page suggestions
     PAGE_SUGGESTIONS.forEach(page => {
       if (page.text.toLowerCase().includes(queryLower)) {
-        suggestions.push(page)
+        suggestions.push({
+          ...page,
+          hasAccess: true
+        })
       }
     })
     
     // Get dynamic data
-    const [subscriptionsData, portfolios, tips] = await Promise.all([
-      subscriptionService.getUserSubscriptions().catch(() => ({ subscriptions: [] })),
+    const [portfolios, tips] = await Promise.all([
       portfolioService.getAll().catch(() => []),
       tipsService.getAll().catch(() => [])
     ])
     
-    // Add portfolio suggestions
+    // Show all portfolios with access status
     portfolios.forEach(portfolio => {
       if (portfolio.name && portfolio.name.toLowerCase().includes(queryLower)) {
+        const hasAccess = accessData.portfolioAccess.includes(portfolio._id)
         suggestions.push({
           text: portfolio.name,
           type: 'portfolio',
-          id: portfolio._id
+          id: portfolio._id,
+          hasAccess
         })
       }
     })
@@ -60,33 +84,41 @@ async function getSuggestions(query: string): Promise<Suggestion[]> {
         suggestions.push({
           text: productName,
           type: sub.productType === 'Portfolio' ? 'portfolio' : 'subscription',
-          id: productId
+          id: productId,
+          hasAccess: true
         })
       }
     })
     
-    // Add tip suggestions
+    // Show all tips with access status
     tips.forEach(tip => {
       const title = tip.title || tip.stockId
       if (title && title.toLowerCase().includes(queryLower)) {
+        const hasAccess = tip.category === 'premium' ? accessData.hasPremium : accessData.hasBasic
         suggestions.push({
           text: title,
           type: 'tip',
-          id: tip._id
+          id: tip._id,
+          hasAccess,
+          category: tip.category
         })
       }
     })
     
-    // Add stock suggestions
+    // Add stock suggestions from accessible tips only
     const uniqueStocks = new Set()
     tips.forEach(tip => {
       if (tip.stockId && tip.stockId.toLowerCase().includes(queryLower) && !uniqueStocks.has(tip.stockId)) {
-        uniqueStocks.add(tip.stockId)
-        suggestions.push({
-          text: tip.stockId,
-          type: 'stock',
-          id: `stock-${tip.stockId}`
-        })
+        const hasAccess = tip.category === 'premium' ? accessData.hasPremium : accessData.hasBasic
+        if (hasAccess) {
+          uniqueStocks.add(tip.stockId)
+          suggestions.push({
+            text: tip.stockId,
+            type: 'stock',
+            id: `stock-${tip.stockId}`,
+            hasAccess: true
+          })
+        }
       }
     })
     

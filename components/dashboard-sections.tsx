@@ -733,7 +733,7 @@ function GeneralTipCard({ tip, subscriptionAccess }: { tip: Tip; subscriptionAcc
           </div>
           
           {shouldBlurContent && (
-            <div className="absolute inset-0 bg-black bg-opacity-10 rounded-lg flex items-center justify-center z-20">
+            <div className="absolute inset-0 bg-black bg-opacity-10 rounded-lg flex items-center justify-center z-10">
               <div className="bg-white rounded-lg p-2 sm:p-3 text-center shadow-lg max-w-[140px] sm:max-w-[160px]">
                 <p className="text-xs text-gray-600 mb-1.5 sm:mb-2">
                   {category === "premium"
