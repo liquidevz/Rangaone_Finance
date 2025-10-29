@@ -21,7 +21,16 @@ const getExitRange = (content: string | { key: string; value: string; _id?: stri
   if (!content) return null;
   
   if (Array.isArray(content)) {
-    const exitRangeItem = content.find(item => item.key === 'exit-range');
+    // Look for exit-range, exit-price, or target-price
+    const exitRangeItem = content.find(item => 
+      item.key && (
+        item.key.toLowerCase() === 'exit-range' ||
+        item.key.toLowerCase() === 'exit-price' ||
+        item.key.toLowerCase() === 'target-price' ||
+        item.key.toLowerCase().includes('exit') ||
+        item.key.toLowerCase().includes('target')
+      )
+    );
     return exitRangeItem?.value || null;
   }
   
@@ -485,7 +494,7 @@ const TipCard = ({
             </div>
             <div className={`relative p-[4px] rounded-xl flex-shrink-0 ${
               isModelPortfolio 
-                ? "bg-gradient-to-r from-[#00B7FF] to-[#85D437]" 
+                ? (tip.action === "SELL" ? "bg-gradient-to-r from-[#DC2626] to-[#B91C1C]" : "bg-gradient-to-r from-[#00B7FF] to-[#85D437]") 
                 : tip.status === "closed"
                   ? (tip.exitStatus?.toLowerCase().includes("loss") || (tip.exitStatusPercentage && tip.exitStatusPercentage < 0))
                     ? "bg-gradient-to-r from-[#627281] to-[#A6AFB6]" 
@@ -494,7 +503,7 @@ const TipCard = ({
             }`}>
               <div className={`rounded-lg px-1.5 sm:px-2 md:px-2.5 py-1 sm:py-1.5 text-center min-w-[40px] sm:min-w-[44px] md:min-w-[50px] ${
                 isModelPortfolio 
-                  ? "bg-cyan-50" 
+                  ? (tip.action === "SELL" ? "bg-red-50" : "bg-cyan-50") 
                   : tip.status === "closed"
                     ? (tip.exitStatus?.toLowerCase().includes("loss") || (tip.exitStatusPercentage && tip.exitStatusPercentage < 0))
                       ? "bg-gradient-to-tr from-[#A6AFB6] to-[#627281]" 
@@ -503,7 +512,7 @@ const TipCard = ({
               }`}>
                 <p className={`text-[15px] sm:text-[15px] md:text-[15px] mb-0 leading-tight font-bold ${
                   isModelPortfolio 
-                    ? "text-gray-700" 
+                    ? (tip.action === "SELL" ? "text-red-700" : "text-gray-700") 
                     : tip.status === "closed"
                       ? (tip.exitStatus?.toLowerCase().includes("loss") || (tip.exitStatusPercentage && tip.exitStatusPercentage < 0))
                         ? "text-white" 
@@ -514,7 +523,7 @@ const TipCard = ({
                 </p>
                 <p className={`text-right text-[25px] sm:text-[30px] md:text-[30px] font-bold leading-tight ${
                   isModelPortfolio 
-                    ? "text-black" 
+                    ? (tip.action === "SELL" ? "text-red-800" : "text-black") 
                     : tip.status === "closed"
                       ? (tip.exitStatus?.toLowerCase().includes("loss") || (tip.exitStatusPercentage && tip.exitStatusPercentage < 0))
                         ? "text-white" 
@@ -529,10 +538,10 @@ const TipCard = ({
           <div className="flex justify-between items-end mt-2 sm:mt-2.5 md:mt-3 gap-2 sm:gap-2.5">
             <div className="min-w-0 flex-1">
               <p className="text-sm text-black-500 mb-0.5 sm:mb-1 leading-tight font-medium">
-                {tip.status === "closed" ? "Exit Range" : "Buy Range"}
+                {tip.action === "SELL" || tip.status === "closed" ? "Exit Range" : "Buy Range"}
               </p>
               <div className="text-base sm:text-sm md:text-xl font-bold text-black truncate">
-                {tip.status === "closed" ? (tip.exitRange || tip.buyRange) : tip.buyRange}
+                {tip.action === "SELL" || tip.status === "closed" ? (tip.exitRange || tip.buyRange) : tip.buyRange}
               </div>
             </div>
             <div className="flex-shrink-0">

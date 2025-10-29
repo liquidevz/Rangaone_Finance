@@ -254,13 +254,6 @@ export default function PortfolioTipDetailsPage() {
                     </div>
                   )}
 
-                  {tipData.addMoreAt && (
-                    <div className="md:text-center sm:text-center text-left mt-2">
-                      <p className="text-[0.9rem] md:text-2xl lg:text-2xl">Add More At</p>
-                      <p className="md:text-xl text-[0.9rem] font-bold text-green-600">{tipData.addMoreAt}</p>
-                    </div>
-                  )}
-
                   {tipData.action && (
                     <div className="md:text-center sm:text-center text-left">
                       <p className="text-[0.9rem] md:text-2xl lg:text-2xl">Action</p>
@@ -268,10 +261,15 @@ export default function PortfolioTipDetailsPage() {
                     </div>
                   )}
 
-                  {tipData.createdAt && (
-                    <div className="md:text-center sm:text-center text-left">
-                      <p className="text-[0.9rem] md:text-2xl lg:text-2xl">Created On</p>
-                      <p className="md:text-xl text-[0.9rem] font-bold text-green-600">{recommendedDate}</p>
+                  {(tipData.addMoreAt || tipData.action === "SELL" || (Array.isArray(tipData.content) && tipData.content.find(item => item.key && item.key.toLowerCase().includes('add')))) && (
+                    <div className="md:text-center sm:text-center text-left mt-2">
+                      <p className="text-[0.9rem] md:text-2xl lg:text-2xl">Add More At</p>
+                      <p className="md:text-xl text-[0.9rem] font-bold text-green-600">
+                        {tipData.addMoreAt || 
+                         (Array.isArray(tipData.content) && 
+                          tipData.content.find(item => item.key && item.key.toLowerCase().includes('add'))?.value) || 
+                         (tipData.action === "SELL" ? "0" : "N/A")}
+                      </p>
                     </div>
                   )}
 
@@ -279,6 +277,13 @@ export default function PortfolioTipDetailsPage() {
                     <div className="text-center">
                       <p className="text-[0.9rem] md:text-2xl lg:text-2xl">Exit Range</p>
                       <p className="md:text-xl text-[0.9rem] font-bold text-green-600">{tipData.exitPrice}</p>
+                    </div>
+                  )}
+
+                  {tipData.createdAt && (
+                    <div className="md:text-center sm:text-center text-left">
+                      <p className="text-[0.9rem] md:text-2xl lg:text-2xl">Created On</p>
+                      <p className="md:text-xl text-[0.9rem] font-bold text-green-600">{recommendedDate}</p>
                     </div>
                   )}
 
