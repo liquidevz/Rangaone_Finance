@@ -219,25 +219,15 @@ export default function ModelPortfolioAllRecommendationsPage() {
   // Fetch user's available portfolios
   const fetchUserPortfolios = async (): Promise<string[]> => {
     try {
-      console.log('🔍 Fetching user subscribed portfolios...');
-      const portfolios = await userPortfolioService.getSubscribedPortfolios();
-      console.log('📋 Subscribed portfolios response:', portfolios);
-      const portfolioIds = portfolios.map(p => p._id).filter(Boolean);
-      console.log('✅ Portfolio IDs extracted:', portfolioIds);
+      console.log('🔍 Fetching user portfolio access...');
+      const access = await subscriptionService.getSubscriptionAccess(true);
+      console.log('📊 Subscription access:', access);
+      const portfolioIds = access.portfolioAccess || [];
+      console.log('✅ Portfolio IDs from subscription:', portfolioIds);
       return portfolioIds;
     } catch (error) {
-      console.error('❌ Error fetching user portfolios:', error);
-      
-      // Fallback: try to get from subscription service
-      try {
-        console.log('🔄 Trying fallback: subscription service...');
-        const access = await subscriptionService.getSubscriptionAccess(true);
-        console.log('📊 Subscription access:', access);
-        return access.portfolioAccess || [];
-      } catch (fallbackError) {
-        console.error('❌ Fallback also failed:', fallbackError);
-        return [];
-      }
+      console.error('❌ Error fetching portfolio access:', error);
+      return [];
     }
   };
 
