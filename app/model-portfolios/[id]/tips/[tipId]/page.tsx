@@ -194,10 +194,20 @@ export default function PortfolioTipDetailsPage() {
                 </div>
 
                 <div className="flex-shrink-0">
-                  <div className="relative bg-gradient-to-r from-[#00B7FF] to-[#85D437] p-[4px] rounded-xl">
-                    <div className="bg-cyan-50 rounded-md px-2 py-1.5 text-center min-w-[60px]">
-                      <p className="text-xs text-gray-700 mb-0 leading-tight font-medium">Weightage</p>
-                      <p className="text-right text-2xl font-bold text-black leading-tight">
+                  <div className={`relative p-[4px] rounded-xl ${
+                    tipData.action === "SELL" 
+                      ? "bg-gradient-to-r from-[#DC2626] to-[#B91C1C]" 
+                      : "bg-gradient-to-r from-[#00B7FF] to-[#85D437]"
+                  }`}>
+                    <div className={`rounded-md px-2 py-1.5 text-center min-w-[60px] ${
+                      tipData.action === "SELL" ? "bg-red-50" : "bg-cyan-50"
+                    }`}>
+                      <p className={`text-xs mb-0 leading-tight font-medium ${
+                        tipData.action === "SELL" ? "text-red-700" : "text-gray-700"
+                      }`}>Weightage</p>
+                      <p className={`text-right text-2xl font-bold leading-tight ${
+                        tipData.action === "SELL" ? "text-red-800" : "text-black"
+                      }`}>
                         {(() => {
                           const w = (tipData as any)?.mpWeightage;
                           if (w === undefined || w === null || Number.isNaN(Number(w))) return "—";

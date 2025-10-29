@@ -2,6 +2,8 @@
  * Tests for action display utility functions
  */
 
+/// <reference types="jest" />
+
 import { formatActionForDisplay, getActionColorScheme } from '../action-display-utils';
 
 describe('formatActionForDisplay', () => {
