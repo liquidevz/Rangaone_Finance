@@ -219,12 +219,25 @@ export default function ModelPortfolioAllRecommendationsPage() {
   // Fetch user's available portfolios
   const fetchUserPortfolios = async (): Promise<string[]> => {
     try {
+      console.log('🔍 Fetching user subscribed portfolios...');
       const portfolios = await userPortfolioService.getSubscribedPortfolios();
-      const portfolioIds = portfolios.map(p => p._id);
+      console.log('📋 Subscribed portfolios response:', portfolios);
+      const portfolioIds = portfolios.map(p => p._id).filter(Boolean);
+      console.log('✅ Portfolio IDs extracted:', portfolioIds);
       return portfolioIds;
     } catch (error) {
-      console.error('Error fetching user portfolios:', error);
-      return [];
+      console.error('❌ Error fetching user portfolios:', error);
+      
+      // Fallback: try to get from subscription service
+      try {
+        console.log('🔄 Trying fallback: subscription service...');
+        const access = await subscriptionService.getSubscriptionAccess(true);
+        console.log('📊 Subscription access:', access);
+        return access.portfolioAccess || [];
+      } catch (fallbackError) {
+        console.error('❌ Fallback also failed:', fallbackError);
+        return [];
+      }
     }
   };
 
@@ -232,46 +245,89 @@ export default function ModelPortfolioAllRecommendationsPage() {
   const fetchTips = async () => {
     try {
       setLoading(true);
+      console.log('🔄 Fetching model portfolio tips...');
        
        // First, get user's available portfolios
        const availablePortfolioIds = await fetchUserPortfolios();
+       console.log('📋 User has access to portfolios:', availablePortfolioIds);
        setUserPortfolios(availablePortfolioIds);
        
-       // Use the portfolio-specific tips endpoint which returns all portfolio-associated tips
-       const portfolioTips = await tipsService.getPortfolioTips({});
-       const tipsArray = Array.isArray(portfolioTips) ? portfolioTips : [];
+       if (availablePortfolioIds.length === 0) {
+         console.warn('⚠️ User has no portfolio access');
+         setTips([]);
+         return;
+       }
+       
+       // Try multiple endpoints to get tips
+       let allTips: Tip[] = [];
+       
+       try {
+         // First try the portfolio-specific endpoint
+         const portfolioTips = await tipsService.getPortfolioTips({});
+         console.log('📊 Portfolio tips response:', portfolioTips);
+         allTips = Array.isArray(portfolioTips) ? portfolioTips : [];
+       } catch (portfolioError) {
+         console.warn('⚠️ Portfolio tips endpoint failed, trying general tips:', portfolioError);
+         
+         // Fallback to general tips endpoint
+         try {
+           const generalTips = await tipsService.getAll({});
+           console.log('📊 General tips response:', generalTips);
+           allTips = Array.isArray(generalTips) ? generalTips : [];
+         } catch (generalError) {
+           console.error('❌ Both endpoints failed:', generalError);
+           throw generalError;
+         }
+       }
+       
+       console.log('📈 Total tips fetched:', allTips.length);
        
        // Filter tips to only show those from portfolios the user has access to
-       const validTips = tipsArray.filter(tip => {
+       const validTips = allTips.filter(tip => {
          // Must have portfolio field
-         if (!tip.portfolio) return false;
+         if (!tip.portfolio) {
+           console.log('❌ Tip missing portfolio field:', tip._id);
+           return false;
+         }
          
          let portfolioId: string;
          
          // If string, must be non-empty
          if (typeof tip.portfolio === 'string') {
-           if (!tip.portfolio.trim().length) return false;
+           if (!tip.portfolio.trim().length) {
+             console.log('❌ Empty portfolio string for tip:', tip._id);
+             return false;
+           }
            portfolioId = tip.portfolio;
          }
          // If object, must have valid _id
          else if (typeof tip.portfolio === 'object') {
-           if (!tip.portfolio._id || !tip.portfolio._id.trim().length) return false;
+           if (!tip.portfolio._id || !tip.portfolio._id.trim().length) {
+             console.log('❌ Invalid portfolio object for tip:', tip._id);
+             return false;
+           }
            portfolioId = tip.portfolio._id;
          }
          else {
+           console.log('❌ Invalid portfolio type for tip:', tip._id, typeof tip.portfolio);
            return false;
          }
          
          // Only include tips from portfolios the user has access to
-         return availablePortfolioIds.includes(portfolioId);
+         const hasAccess = availablePortfolioIds.includes(portfolioId);
+         if (!hasAccess) {
+           console.log('❌ No access to portfolio', portfolioId, 'for tip:', tip._id);
+         }
+         return hasAccess;
        });
        
+       console.log('✅ Valid tips after filtering:', validTips.length);
        setTips(validTips);
        
        // Fetch stock symbols in the background (non-blocking)
        fetchStockSymbols(validTips);
     } catch (error) {
-      console.error('Error fetching model portfolio tips:', error);
+      console.error('❌ Error fetching model portfolio tips:', error);
       toast({
         title: 'Error',
         description: 'Failed to fetch model portfolio tips. Please try again later.',
@@ -647,13 +703,31 @@ export default function ModelPortfolioAllRecommendationsPage() {
           </Button>
         </div>
 
+        {/* Debug Info */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mb-4 p-4 bg-gray-100 rounded text-sm">
+            <p>Debug: User Portfolios: {userPortfolios.length}</p>
+            <p>Debug: Total Tips: {tips.length}</p>
+            <p>Debug: Filtered Tips: {filteredTips.length}</p>
+            <p>Debug: Loading: {loading.toString()}</p>
+          </div>
+        )}
+
         {/* Tips Grid */}
-        {userPortfolios.length === 0 ? (
+        {!loading && userPortfolios.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
               <p className="text-gray-500 text-lg mb-4">No model portfolios available.</p>
               <p className="text-gray-400 text-sm mb-6">Subscribe to model portfolios to view recommendations.</p>
               <Button onClick={() => router.push('/model-portfolios')}>View Portfolios</Button>
+            </CardContent>
+          </Card>
+        ) : !loading && tips.length === 0 ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <p className="text-gray-500 text-lg mb-4">No tips found.</p>
+              <p className="text-gray-400 text-sm mb-6">There are currently no recommendations available for your subscribed portfolios.</p>
+              <Button onClick={() => fetchTips()}>Retry</Button>
             </CardContent>
           </Card>
         ) : filteredTips.length > 0 ? (
