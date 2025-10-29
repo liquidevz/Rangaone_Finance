@@ -35,5 +35,6 @@ describe('getActionColorScheme', () => {
     expect(getActionColorScheme('FRESH-BUY')).toBe('bg-green-500 text-white');
     expect(getActionColorScheme('HOLD')).toBe('bg-blue-500 text-white');
     expect(getActionColorScheme('SELL')).toBe('bg-red-500 text-white');
+    expect(getActionColorScheme('PARTIAL-SELL')).toBe('bg-orange-500 text-white');
   });
 });
