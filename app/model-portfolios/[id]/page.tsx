@@ -1913,7 +1913,7 @@ export default function PortfolioDetailsPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => router.push('/model-portfolios/all-recommendations')}
+                    onClick={() => router.push(`/model-portfolios/all-recommendations?portfolio=${portfolioId}`)}
                     className="flex items-center gap-2"
                   >
                     <ClipboardList className="h-4 w-4" />

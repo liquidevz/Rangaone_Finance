@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/dashboard-layout';
 import { InnerPageHeader } from '@/components/inner-page-header';
 import { Card, CardContent } from '@/components/ui/card';
@@ -195,6 +195,7 @@ const TipCard = ({
 
 export default function ModelPortfolioAllRecommendationsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
   const [tips, setTips] = useState<Tip[]>([]);
@@ -208,7 +209,7 @@ export default function ModelPortfolioAllRecommendationsPage() {
     category: 'all',
     status: 'all',
     action: 'all',
-    portfolioId: 'all',
+    portfolioId: searchParams?.get('portfolio') || 'all',
     stockId: '',
     startDate: null as Date | null,
     endDate: null as Date | null,
@@ -693,7 +694,7 @@ export default function ModelPortfolioAllRecommendationsPage() {
           </Button>
         </div>
 
-        {/* Debug Info */}
+        {/* Debug Info
         {process.env.NODE_ENV === 'development' && (
           <div className="mb-4 p-4 bg-gray-100 rounded text-sm">
             <p>Debug: User Portfolios: {userPortfolios.length}</p>
@@ -701,7 +702,7 @@ export default function ModelPortfolioAllRecommendationsPage() {
             <p>Debug: Filtered Tips: {filteredTips.length}</p>
             <p>Debug: Loading: {loading.toString()}</p>
           </div>
-        )}
+        )} */}
 
         {/* Tips Grid */}
         {!loading && userPortfolios.length === 0 ? (

@@ -131,8 +131,20 @@ export default function TipDetailsPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-gray-600 mb-1">Weightage</p>
-                      <div className="bg-white border border-gray-300 rounded px-3 py-1">
-                        <span className="font-bold text-gray-900">
+                      <div className={`rounded px-3 py-1 ${
+                        tip.action === "SELL" 
+                          ? "bg-red-50 border border-red-300" 
+                          : tip.action === "Partial Profit Booked" || tip.action === "PARTIAL SELL" || tip.action === "Partial Sell"
+                            ? "bg-orange-50 border border-orange-300"
+                            : "bg-white border border-gray-300"
+                      }`}>
+                        <span className={`font-bold ${
+                          tip.action === "SELL" 
+                            ? "text-red-800" 
+                            : tip.action === "Partial Profit Booked" || tip.action === "PARTIAL SELL" || tip.action === "Partial Sell"
+                              ? "text-orange-800"
+                              : "text-gray-900"
+                        }`}>
                           {tip.targetPercentage || "4%"}
                         </span>
                       </div>

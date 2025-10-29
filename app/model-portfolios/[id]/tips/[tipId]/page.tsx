@@ -197,16 +197,30 @@ export default function PortfolioTipDetailsPage() {
                   <div className={`relative p-[4px] rounded-xl ${
                     tipData.action === "SELL" 
                       ? "bg-gradient-to-r from-[#DC2626] to-[#B91C1C]" 
-                      : "bg-gradient-to-r from-[#00B7FF] to-[#85D437]"
+                      : tipData.action === "Partial Profit Booked" || tipData.action === "PARTIAL SELL" || tipData.action === "Partial Sell"
+                        ? "bg-gradient-to-r from-[#F97316] to-[#EA580C]"
+                        : "bg-gradient-to-r from-[#00B7FF] to-[#85D437]"
                   }`}>
                     <div className={`rounded-md px-2 py-1.5 text-center min-w-[60px] ${
-                      tipData.action === "SELL" ? "bg-red-50" : "bg-cyan-50"
+                      tipData.action === "SELL" 
+                        ? "bg-red-50" 
+                        : tipData.action === "Partial Profit Booked" || tipData.action === "PARTIAL SELL" || tipData.action === "Partial Sell"
+                          ? "bg-orange-50"
+                          : "bg-cyan-50"
                     }`}>
                       <p className={`text-xs mb-0 leading-tight font-medium ${
-                        tipData.action === "SELL" ? "text-red-700" : "text-gray-700"
+                        tipData.action === "SELL" 
+                          ? "text-red-700" 
+                          : tipData.action === "Partial Profit Booked" || tipData.action === "PARTIAL SELL" || tipData.action === "Partial Sell"
+                            ? "text-orange-700"
+                            : "text-gray-700"
                       }`}>Weightage</p>
                       <p className={`text-right text-2xl font-bold leading-tight ${
-                        tipData.action === "SELL" ? "text-red-800" : "text-black"
+                        tipData.action === "SELL" 
+                          ? "text-red-800" 
+                          : tipData.action === "Partial Profit Booked" || tipData.action === "PARTIAL SELL" || tipData.action === "Partial Sell"
+                            ? "text-orange-800"
+                            : "text-black"
                       }`}>
                         {(() => {
                           const w = (tipData as any)?.mpWeightage;

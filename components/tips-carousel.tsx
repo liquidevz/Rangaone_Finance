@@ -494,7 +494,11 @@ const TipCard = ({
             </div>
             <div className={`relative p-[4px] rounded-xl flex-shrink-0 ${
               isModelPortfolio 
-                ? (tip.action === "SELL" ? "bg-gradient-to-r from-[#DC2626] to-[#B91C1C]" : "bg-gradient-to-r from-[#00B7FF] to-[#85D437]") 
+                ? (tip.action === "SELL" 
+                    ? "bg-gradient-to-r from-[#DC2626] to-[#B91C1C]" 
+                    : tip.action === "Partial Profit Booked" || tip.action === "PARTIAL SELL" || tip.action === "Partial Sell"
+                      ? "bg-gradient-to-r from-[#F97316] to-[#EA580C]"
+                      : "bg-gradient-to-r from-[#00B7FF] to-[#85D437]") 
                 : tip.status === "closed"
                   ? (tip.exitStatus?.toLowerCase().includes("loss") || (tip.exitStatusPercentage && tip.exitStatusPercentage < 0))
                     ? "bg-gradient-to-r from-[#627281] to-[#A6AFB6]" 
@@ -503,7 +507,11 @@ const TipCard = ({
             }`}>
               <div className={`rounded-lg px-1.5 sm:px-2 md:px-2.5 py-1 sm:py-1.5 text-center min-w-[40px] sm:min-w-[44px] md:min-w-[50px] ${
                 isModelPortfolio 
-                  ? (tip.action === "SELL" ? "bg-red-50" : "bg-cyan-50") 
+                  ? (tip.action === "SELL" 
+                      ? "bg-red-50" 
+                      : tip.action === "Partial Profit Booked" || tip.action === "PARTIAL SELL" || tip.action === "Partial Sell"
+                        ? "bg-orange-50"
+                        : "bg-cyan-50") 
                   : tip.status === "closed"
                     ? (tip.exitStatus?.toLowerCase().includes("loss") || (tip.exitStatusPercentage && tip.exitStatusPercentage < 0))
                       ? "bg-gradient-to-tr from-[#A6AFB6] to-[#627281]" 
@@ -512,7 +520,11 @@ const TipCard = ({
               }`}>
                 <p className={`text-[15px] sm:text-[15px] md:text-[15px] mb-0 leading-tight font-bold ${
                   isModelPortfolio 
-                    ? (tip.action === "SELL" ? "text-red-700" : "text-gray-700") 
+                    ? (tip.action === "SELL" 
+                        ? "text-red-700" 
+                        : tip.action === "Partial Profit Booked" || tip.action === "PARTIAL SELL" || tip.action === "Partial Sell"
+                          ? "text-orange-700"
+                          : "text-gray-700") 
                     : tip.status === "closed"
                       ? (tip.exitStatus?.toLowerCase().includes("loss") || (tip.exitStatusPercentage && tip.exitStatusPercentage < 0))
                         ? "text-white" 
@@ -523,7 +535,11 @@ const TipCard = ({
                 </p>
                 <p className={`text-right text-[25px] sm:text-[30px] md:text-[30px] font-bold leading-tight ${
                   isModelPortfolio 
-                    ? (tip.action === "SELL" ? "text-red-800" : "text-black") 
+                    ? (tip.action === "SELL" 
+                        ? "text-red-800" 
+                        : tip.action === "Partial Profit Booked" || tip.action === "PARTIAL SELL" || tip.action === "Partial Sell"
+                          ? "text-orange-800"
+                          : "text-black") 
                     : tip.status === "closed"
                       ? (tip.exitStatus?.toLowerCase().includes("loss") || (tip.exitStatusPercentage && tip.exitStatusPercentage < 0))
                         ? "text-white" 
