@@ -1,3 +1,5 @@
+```
+
 name: Zero Downtime Deploy
 
 on:
@@ -49,6 +51,9 @@ jobs:
             ########################################
             echo "📥 Git: stash local changes and pull main..."
 
+            # Initialize variable so 'set -u' won't complain later
+            BACKUP_ENV=""
+
             # Backup .env before pulling
             if [ -f "${ENV_FILE}" ]; then
               BACKUP_ENV="${ENV_FILE}.bak_$(date +%Y%m%d-%H%M%S)"
@@ -63,7 +68,7 @@ jobs:
             git reset --hard origin/main
 
             # Restore .env if missing after reset
-            if [ -f "${BACKUP_ENV}" ] && [ ! -f "${ENV_FILE}" ]; then
+            if [ -n "${BACKUP_ENV}" ] && [ -f "${BACKUP_ENV}" ] && [ ! -f "${ENV_FILE}" ]; then
               echo "♻️ Restoring ${ENV_FILE} from backup..."
               cp "${BACKUP_ENV}" "${ENV_FILE}"
             fi
@@ -179,3 +184,5 @@ jobs:
             docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
             echo "🎉 Deployment complete: ${NEW_IMAGE} promoted to ${CONTAINER_PROD}."
+
+```
