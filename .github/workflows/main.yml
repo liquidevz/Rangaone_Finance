@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Deploy to server via SSH
+      - name: 🚀 Deploy to server via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -24,7 +24,7 @@ jobs:
             IFS=$'\n\t'
 
             ########################################
-            # Config (adjust to your environment)
+            # Config (adjust for your environment)
             ########################################
             APP_PATH="/home/rangaone/htdocs/www.rangaone.finance/Rangaone_Finance"
             IMAGE_PREFIX="rangaone-fe"
@@ -41,18 +41,15 @@ jobs:
             ########################################
 
             echo "🚀 Starting zero-downtime deployment..."
-
             cd "$APP_PATH"
 
             ########################################
-            # Git pull with .env backup & restore
+            # Git pull with .env preservation
             ########################################
             echo "📥 Git: stash local changes and pull main..."
-
-            # Initialize variable so 'set -u' won't complain later
             BACKUP_ENV=""
 
-            # Backup .env before pulling
+            # Backup existing .env before updating
             if [ -f "${ENV_FILE}" ]; then
               BACKUP_ENV="${ENV_FILE}.bak_$(date +%Y%m%d-%H%M%S)"
               echo "🧾 Backing up existing ${ENV_FILE} to ${BACKUP_ENV}"
@@ -61,14 +58,18 @@ jobs:
               echo "⚠️ No ${ENV_FILE} found to back up."
             fi
 
+            # Ensure Git ignores local .env modifications if tracked
+            git update-index --assume-unchanged "${ENV_FILE}" 2>/dev/null || true
+
+            # Pull latest changes
             git stash --all || true
             git fetch origin main --quiet
             git reset --hard origin/main
 
-            # Restore .env if missing after reset
-            if [ -n "${BACKUP_ENV}" ] && [ -f "${BACKUP_ENV}" ] && [ ! -f "${ENV_FILE}" ]; then
+            # Always restore .env after git reset (preserve local environment)
+            if [ -n "${BACKUP_ENV}" ] && [ -f "${BACKUP_ENV}" ]; then
               echo "♻️ Restoring ${ENV_FILE} from backup..."
-              cp "${BACKUP_ENV}" "${ENV_FILE}"
+              cp -f "${BACKUP_ENV}" "${ENV_FILE}"
             fi
 
             # Cleanup old .env backups (keep last N)
@@ -95,7 +96,12 @@ jobs:
             docker build --pull --progress=plain -t "${NEW_IMAGE}" .
 
             echo "🧪 Starting temporary container ${CONTAINER_TMP} on port ${NEW_PORT}..."
-            RUN_CMD=(docker run -d --name "${CONTAINER_TMP}" --restart unless-stopped -p "${NEW_PORT}:3000" -e NODE_ENV=production -e NEXT_TELEMETRY_DISABLED=1 -e VERCEL=1 -e CI=true)
+            RUN_CMD=(docker run -d --name "${CONTAINER_TMP}" --restart unless-stopped \
+              -p "${NEW_PORT}:3000" \
+              -e NODE_ENV=production \
+              -e NEXT_TELEMETRY_DISABLED=1 \
+              -e VERCEL=1 \
+              -e CI=true)
             if [ -f "${ENV_FILE}" ]; then
               echo "🔐 Using env file: ${ENV_FILE}"
               RUN_CMD+=(--env-file "${ENV_FILE}")
@@ -121,6 +127,9 @@ jobs:
             echo ""
             echo "✅ Temporary container is healthy!"
 
+            ########################################
+            # Swap containers
+            ########################################
             if docker ps -a --format '{{.Names}}' | grep -xq "${CONTAINER_PROD}"; then
               echo "🛑 Stopping current production container ${CONTAINER_PROD}..."
               docker stop "${CONTAINER_PROD}" || true
@@ -139,7 +148,12 @@ jobs:
             fi
 
             echo "🚀 Starting production container ${CONTAINER_PROD} on port ${PROD_PORT}..."
-            PROD_RUN_CMD=(docker run -d --name "${CONTAINER_PROD}" --restart unless-stopped -p "${PROD_PORT}:3000" -e NODE_ENV=production -e NEXT_TELEMETRY_DISABLED=1 -e VERCEL=1 -e CI=true)
+            PROD_RUN_CMD=(docker run -d --name "${CONTAINER_PROD}" --restart unless-stopped \
+              -p "${PROD_PORT}:3000" \
+              -e NODE_ENV=production \
+              -e NEXT_TELEMETRY_DISABLED=1 \
+              -e VERCEL=1 \
+              -e CI=true)
             if [ -f "${ENV_FILE}" ]; then
               PROD_RUN_CMD+=(--env-file "${ENV_FILE}")
             fi
@@ -153,12 +167,20 @@ jobs:
               echo "===== Logs from prod container (${CONTAINER_PROD}) ====="
               docker logs "${CONTAINER_PROD}" || true
               docker rm -f "${CONTAINER_PROD}" 2>/dev/null || true
-              PREV_IMAGE=$(docker images "${IMAGE_PREFIX}" --format '{{.Repository}}:{{.Tag}}' | grep -E "${IMAGE_PREFIX}:[0-9]{8}-[0-9]{6}" | grep -v "${TIMESTAMP}" | head -n1 || true)
+
+              PREV_IMAGE=$(docker images "${IMAGE_PREFIX}" --format '{{.Repository}}:{{.Tag}}' \
+                | grep -E "${IMAGE_PREFIX}:[0-9]{8}-[0-9]{6}" \
+                | grep -v "${TIMESTAMP}" | head -n1 || true)
+
               if [ -n "${PREV_IMAGE}" ]; then
                 echo "🔁 Attempting to bring back previous image: ${PREV_IMAGE}"
-                docker run -d --name "${CONTAINER_PROD}" --restart unless-stopped -p "${PROD_PORT}:3000" -e NODE_ENV=production -e NEXT_TELEMETRY_DISABLED=1 "${PREV_IMAGE}" || true
+                docker run -d --name "${CONTAINER_PROD}" --restart unless-stopped \
+                  -p "${PROD_PORT}:3000" \
+                  -e NODE_ENV=production \
+                  -e NEXT_TELEMETRY_DISABLED=1 "${PREV_IMAGE}" || true
                 sleep 3
               fi
+
               docker rm -f "${CONTAINER_TMP}" 2>/dev/null || true
               docker rmi "${NEW_IMAGE}" 2>/dev/null || true
               exit 1
@@ -168,6 +190,9 @@ jobs:
             echo "🧹 Removing temporary container ${CONTAINER_TMP}..."
             docker rm -f "${CONTAINER_TMP}" 2>/dev/null || true
 
+            ########################################
+            # Cleanup
+            ########################################
             echo "🗑️ Cleaning up old images (keeping last ${KEEP_BUILDS})..."
             mapfile -t TAGS < <(docker images "${IMAGE_PREFIX}" --format '{{.Tag}}' | grep -E "^[0-9]{8}-[0-9]{6}$" | sort -r)
             if [ "${#TAGS[@]}" -gt "${KEEP_BUILDS}" ]; then
@@ -176,6 +201,7 @@ jobs:
                 docker rmi "${IMAGE_PREFIX}:${t}" 2>/dev/null || true
               done
             fi
+
             docker image prune -f || true
 
             echo "📦 Current running containers:"
