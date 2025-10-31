@@ -4,11 +4,13 @@ import { useState, useEffect } from "react"
 import DashboardLayout from "@/components/dashboard-layout"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Play, Calendar, Clock, User, Loader2, Folder } from "lucide-react"
+import { Play, Calendar, Clock, User, Loader2, Folder, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { portfolioService } from "@/services/portfolio.service"
 import { Portfolio } from "@/lib/types"
 import { PageHeader } from "@/components/page-header"
+import { useIsMobile } from "@/components/ui/use-mobile"
+import { MobileVideoPlayer } from "@/components/mobile-video-player"
 
 interface VideoData {
   id: string
@@ -36,6 +38,9 @@ export default function VideosForYou() {
   const [selectedVideo, setSelectedVideo] = useState<VideoData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [videoError, setVideoError] = useState<string | null>(null)
+  const [videoLoading, setVideoLoading] = useState(false)
+  const isMobile = useIsMobile()
 
   // Extract YouTube video ID from URL
   const extractYouTubeId = (url: string): string => {
@@ -117,6 +122,18 @@ export default function VideosForYou() {
     fetchVideos()
   }, [])
 
+  // Handle video selection with error handling
+  const handleVideoSelect = (video: VideoData) => {
+    setVideoError(null)
+    setVideoLoading(true)
+    setSelectedVideo(video)
+    
+    // Reset loading state after a short delay
+    setTimeout(() => {
+      setVideoLoading(false)
+    }, 1000)
+  }
+
   const filteredGroups = portfolioGroups.filter((group) => {
     if (activeTab === "all") return true
     return group.portfolioCategory.toLowerCase() === activeTab.toLowerCase()
@@ -160,17 +177,50 @@ export default function VideosForYou() {
         {selectedVideo && (
           <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-lg border border-gray-200 overflow-hidden mb-8">
             <div className="aspect-video w-full bg-black relative group">
-              <iframe
-                width="100%"
-                height="100%"
-                src={`https://www.youtube.com/embed/${selectedVideo.youtubeId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1`}
-                title={selectedVideo.title}
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-                className="w-full h-full rounded-t-xl"
-              ></iframe>
-              <div className="absolute top-4 right-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm font-medium">
+              {videoLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-20">
+                  <Loader2 className="h-8 w-8 animate-spin text-white" />
+                </div>
+              )}
+              {videoError ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-white p-6 z-20">
+                  <AlertCircle className="h-12 w-12 text-red-400 mb-4" />
+                  <p className="text-center mb-2 font-medium">Video player not available</p>
+                  <p className="text-center text-sm text-gray-300 mb-4">
+                    {isMobile ? "Try opening in the YouTube app for better experience" : "Please try refreshing or check your connection"}
+                  </p>
+                  <div className="flex gap-3 flex-wrap justify-center">
+                    <button 
+                      onClick={() => {
+                        setVideoError(null)
+                        handleVideoSelect(selectedVideo)
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                    >
+                      Try Again
+                    </button>
+                    <a
+                      href={`https://www.youtube.com/watch?v=${selectedVideo.youtubeId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm flex items-center gap-2"
+                    >
+                      <Play className="h-4 w-4" />
+                      Open in YouTube
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <div className="relative w-full h-full overflow-hidden rounded-t-xl">
+                  <MobileVideoPlayer
+                    youtubeId={selectedVideo.youtubeId}
+                    title={selectedVideo.title}
+                    onError={(error) => setVideoError(error)}
+                    debug={true}
+                  />
+                </div>
+              )}
+              <div className="absolute top-4 right-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm font-medium z-10">
                 Now Playing
               </div>
             </div>
@@ -266,7 +316,7 @@ export default function VideosForYou() {
                         <VideoCard
                           key={video.id}
                           video={video}
-                          onClick={() => setSelectedVideo(video)}
+                          onClick={() => handleVideoSelect(video)}
                           isSelected={selectedVideo?.id === video.id}
                           index={index}
                         />

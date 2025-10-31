@@ -20,6 +20,18 @@ export const metadata = {
     icon: '/favicon.ico',
     maskIcon: '/favicon.ico',
   },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
+  other: {
+    'format-detection': 'telephone=no',
+    'mobile-web-app-capable': 'yes',
+    'apple-mobile-web-app-capable': 'yes',
+    'apple-mobile-web-app-status-bar-style': 'default',
+  },
 };
 
 export default function RootLayout({
