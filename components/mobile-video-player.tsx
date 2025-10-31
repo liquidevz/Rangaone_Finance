@@ -69,36 +69,50 @@ export function MobileVideoPlayer({ youtubeId, title, onError, debug = false }: 
     setRetryCount(0)
   }, [youtubeId])
 
-  if (error) {
+  // On mobile, show thumbnail with play button that opens YouTube
+  if (isMobile) {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-white p-6">
-        <AlertCircle className="h-12 w-12 text-red-400 mb-4" />
-        <p className="text-center mb-2 font-medium">Unable to load video</p>
-        <p className="text-center text-sm text-gray-300 mb-2">
-          {isMobile ? "Try opening in YouTube app" : "Please check your connection"}
-        </p>
-        {debug && (
-          <p className="text-center text-xs text-gray-400 mb-4 font-mono">
-            ID: {youtubeId} | Retries: {retryCount} | Mobile: {isMobile ? 'Yes' : 'No'}
-          </p>
-        )}
-        <div className="flex gap-3">
-          <button 
-            onClick={handleRetry}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-          >
-            Try Again
-          </button>
+      <div className="absolute inset-0 bg-black">
+        <img 
+          src={`https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`}
+          alt={title}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            target.src = `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
+          }}
+        />
+        <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
           <a
             href={`https://www.youtube.com/watch?v=${youtubeId}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm flex items-center gap-2"
+            className="bg-red-600 hover:bg-red-700 text-white rounded-full p-4 transition-all duration-200 hover:scale-110 shadow-lg"
           >
-            <Play className="h-4 w-4" />
-            Open in YouTube
+            <Play className="h-8 w-8 fill-current" />
           </a>
         </div>
+        <div className="absolute bottom-4 left-4 right-4">
+          <p className="text-white text-sm bg-black/70 px-3 py-2 rounded-lg">
+            Tap to watch on YouTube
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // Desktop iframe
+  if (error) {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-white p-6">
+        <AlertCircle className="h-12 w-12 text-red-400 mb-4" />
+        <p className="text-center mb-4">Unable to load video</p>
+        <button 
+          onClick={handleRetry}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Try Again
+        </button>
       </div>
     )
   }
@@ -107,10 +121,7 @@ export function MobileVideoPlayer({ youtubeId, title, onError, debug = false }: 
     <>
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
-          <div className="flex flex-col items-center">
-            <Loader2 className="h-8 w-8 animate-spin text-white mb-2" />
-            <p className="text-white text-sm">Loading video...</p>
-          </div>
+          <Loader2 className="h-8 w-8 animate-spin text-white" />
         </div>
       )}
       <iframe
