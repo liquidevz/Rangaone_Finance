@@ -1147,37 +1147,47 @@ export default function PortfolioDetailsPage() {
 
   // Create portfolio allocation data using weightage percentage and investment value
   const portfolioAllocationData: PortfolioAllocationItem[] = portfolioMetrics.holdingsWithQuantities.length > 0 
-    ? portfolioMetrics.holdingsWithQuantities
-        .map((holding, index) => {
-          // Use weightage for percentage and investment value (buyPrice * quantity)
-          const investmentValue = (holding.buyPrice || 0) * (holding.quantity || 0);
-          const weightagePercentage = holding.weight || 0;
-          
-          const getColorForStock = (symbol: string, index: number) => {
-            const stockColorMap: { [key: string]: string } = {
-              'HDFCBANK': '#3B82F6',
-              'IDFCFIRSTB': '#10B981',
-              'INFY': '#F59E0B',
-              'TCS': '#EF4444',
-              'RELIANCE': '#8B5CF6',
+    ? [
+        ...portfolioMetrics.holdingsWithQuantities
+          .map((holding, index) => {
+            // Use weightage for percentage and investment value (buyPrice * quantity)
+            const investmentValue = (holding.buyPrice || 0) * (holding.quantity || 0);
+            const weightagePercentage = holding.weight || 0;
+            
+            const getColorForStock = (symbol: string, index: number) => {
+              const stockColorMap: { [key: string]: string } = {
+                'HDFCBANK': '#3B82F6',
+                'IDFCFIRSTB': '#10B981',
+                'INFY': '#F59E0B',
+                'TCS': '#EF4444',
+                'RELIANCE': '#8B5CF6',
+              };
+              
+              return stockColorMap[symbol] || [
+                '#4B4B4C', '#005F73', '#0A9396', '#92D2BD', '#E9D8A6',
+                '#EE9B00', '#CA6702', '#BB3E03', '#AE2012', '#9B2226'
+              ][index % 10];
             };
             
-            return stockColorMap[symbol] || [
-              '#4B4B4C', '#005F73', '#0A9396', '#92D2BD', '#E9D8A6',
-              '#EE9B00', '#CA6702', '#BB3E03', '#AE2012', '#9B2226'
-            ][index % 10];
-          };
-          
-          return {
-            name: holding.symbol,
-            value: parseFloat(weightagePercentage.toFixed(2)),
-            color: getColorForStock(holding.symbol, index),
-            sector: holding.sector || holding.marketCap || 'Banking',
-            tableCurrentValue: investmentValue // Store investment value for Holdings Detail
-          };
-        })
-        .filter(item => item.value > 0)
-        .sort((a, b) => b.value - a.value)
+            return {
+              name: holding.symbol,
+              value: parseFloat(weightagePercentage.toFixed(2)),
+              color: getColorForStock(holding.symbol, index),
+              sector: holding.sector || holding.marketCap || 'Banking',
+              tableCurrentValue: investmentValue // Store investment value for Holdings Detail
+            };
+          })
+          .filter(item => item.value > 0)
+          .sort((a, b) => b.value - a.value),
+        // Add cash component if there's a cash balance
+        ...(portfolioMetrics.cashPercentage > 0 ? [{
+          name: "Cash",
+          value: parseFloat(portfolioMetrics.cashPercentage.toFixed(2)),
+          color: "#6B7280", // Gray color for cash
+          sector: "Cash",
+          tableCurrentValue: portfolioMetrics.cashBalance
+        }] : [])
+      ]
     : [
         { name: "HDFCBANK", value: 79.57, color: "#3B82F6", sector: "Banking" },
         { name: "IDFCFIRSTB", value: 20.43, color: "#10B981", sector: "Banking" }
@@ -1943,18 +1953,24 @@ export default function PortfolioDetailsPage() {
                       paddingAngle={2}
                       dataKey="value"
                       stroke="none"
-                      onMouseEnter={(data) => {
-                          setHoveredSegment(data);
-                          if (selectedSegment && selectedSegment.name !== data.name) {
-                            setSelectedSegment(data);
-                        }
+                      onMouseEnter={(data, index) => {
+                          const matchingItem = portfolioAllocationData.find(item => item.name === data.name);
+                          if (matchingItem) {
+                            setHoveredSegment(matchingItem);
+                            if (selectedSegment && selectedSegment.name !== matchingItem.name) {
+                              setSelectedSegment(matchingItem);
+                            }
+                          }
                       }}
                       onMouseLeave={() => setHoveredSegment(null)}
                       onClick={(data) => {
-                          if (selectedSegment?.name === data.name) {
-                            setSelectedSegment(null);
-                          } else {
-                            setSelectedSegment(data);
+                          const matchingItem = portfolioAllocationData.find(item => item.name === data.name);
+                          if (matchingItem) {
+                            if (selectedSegment?.name === matchingItem.name) {
+                              setSelectedSegment(null);
+                            } else {
+                              setSelectedSegment(matchingItem);
+                            }
                           }
                       }}
                     >
@@ -2030,6 +2046,7 @@ export default function PortfolioDetailsPage() {
                 .map((stock, index) => {
                   const isSelected = selectedSegment?.name === stock.name;
                   const isHovered = hoveredSegment?.name === stock.name;
+                  const isCash = stock.name === "Cash";
                   
                   return (
                     <div
@@ -2040,7 +2057,7 @@ export default function PortfolioDetailsPage() {
                           : isHovered 
                             ? 'bg-gray-50 border border-gray-200 shadow-sm scale-[1.01] translate-x-0.5'
                             : 'hover:bg-gray-50 border border-transparent hover:shadow-sm hover:scale-[1.005] hover:-translate-y-0.5'
-                        }`}
+                        } ${isCash ? 'bg-gray-50/50' : ''}`}
                       onClick={() => setSelectedSegment(isSelected ? null : stock)}
                       onMouseEnter={() => {
                           setHoveredSegment(stock);
@@ -2058,7 +2075,7 @@ export default function PortfolioDetailsPage() {
                         <div 
                           className={`w-3 h-3 lg:w-4 lg:h-4 rounded-full flex-shrink-0 transition-all duration-300 ${
                             isSelected || isHovered ? 'scale-110 shadow-md' : 'scale-100'
-                          }`}
+                          } ${isCash ? 'border-2 border-gray-400' : ''}`}
                           style={{ 
                             backgroundColor: stock.color,
                             boxShadow: isSelected || isHovered ? `0 0 10px ${stock.color}40` : 'none'
@@ -2067,8 +2084,9 @@ export default function PortfolioDetailsPage() {
                         <div className="min-w-0 flex-1">
                           <div className={`text-sm lg:text-base font-medium text-gray-800 truncate transition-all duration-300 ${
                             isSelected ? 'text-blue-800 font-semibold' : isHovered ? 'text-gray-900 font-medium' : ''
-                          }`}>
+                          } ${isCash ? 'flex items-center gap-1' : ''}`}>
                             {stock.name}
+                            {isCash && <span className="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-full">Available</span>}
                           </div>
                           <div className={`text-xs lg:text-sm text-gray-500 transition-colors duration-300 ${
                             isSelected ? 'text-blue-600' : isHovered ? 'text-gray-600' : ''
