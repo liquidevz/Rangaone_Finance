@@ -98,9 +98,8 @@ export function GlobalSearch() {
           title: portfolio.title,
           type: 'portfolio' as const,
           url: portfolio.onclick || portfolio.url,
-          description: `Buy Range: ${portfolio.buyRange || 'N/A'} | Target: ${portfolio.targetPrice || 'N/A'} | Status: ${portfolio.status || 'N/A'}`,
+          description: 'Buy Range: Click here | Target: Click here | Status: Click here',
           category: portfolio.category,
-          createdAt: portfolio.createdAt,
           onClick: portfolio.onClick,
           portfolioName: portfolio.portfolioName,
           hasAccess: portfolio.hasAccess
@@ -111,9 +110,8 @@ export function GlobalSearch() {
           title: tip.title,
           type: 'tip' as const,
           url: tip.onclick || tip.url,
-          description: `Buy Range: ${tip.buyRange || 'N/A'} | Target: ${tip.targetPrice || 'N/A'} | Status: ${tip.status || 'N/A'}`,
+          description: 'Buy Range: Click here | Target: Click here | Status: Click here',
           category: tip.category,
-          createdAt: tip.createdAt,
           onClick: tip.onClick,
           hasAccess: tip.hasAccess
         }))
@@ -300,7 +298,7 @@ export function GlobalSearch() {
       <div className="relative group">
         <input
           type="text"
-          placeholder={isAuthenticated ? "Search portfolios, tips, stocks & pages..." : "Please log in to search..."}
+          placeholder={isAuthenticated ? "Search portfolios, tips, stocks & pages - Click here" : "Please log in to search..."}
           value={query}
           onChange={(e) => handleInputChange(e.target.value)}
           onFocus={() => isAuthenticated && setIsOpen(true)}
@@ -398,15 +396,16 @@ export function GlobalSearch() {
                                   {getResultBadge(result.type, result.category, result.portfolioName) && getResultBadge(result.type, result.category, result.portfolioName)}
                                 </div>
                                 {result.description && (
-                                  <div className="text-sm text-gray-600 truncate group-hover:text-gray-700 transition-colors duration-300">
-                                    {highlightMatch(String(result.description), query)}
+                                  <div className="text-sm text-gray-600 group-hover:text-gray-700 transition-colors duration-300 flex gap-2 flex-wrap">
+                                    <span>Buy Range:</span>
+                                    <button className="text-blue-600 hover:text-blue-800 underline" onClick={(e) => { e.stopPropagation(); handleResultClick(result); }}>Click here</button>
+                                    <span>| Target:</span>
+                                    <button className="text-blue-600 hover:text-blue-800 underline" onClick={(e) => { e.stopPropagation(); handleResultClick(result); }}>Click here</button>
+                                    <span>| Status:</span>
+                                    <button className="text-blue-600 hover:text-blue-800 underline" onClick={(e) => { e.stopPropagation(); handleResultClick(result); }}>Click here</button>
                                   </div>
                                 )}
-                                {result.createdAt && (
-                                  <div className="text-xs text-gray-500 mt-2 font-medium">
-                                    {new Date(result.createdAt).toLocaleDateString()}
-                                  </div>
-                                )}
+
                               </div>
                               {result.hasAccess === false && (
                                 <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-5 rounded">

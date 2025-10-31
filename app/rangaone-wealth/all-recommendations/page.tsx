@@ -553,7 +553,7 @@ export default function AllRecommendationsPage() {
       id: tip._id,
       portfolioId: typeof tip.portfolio === 'string' ? tip.portfolio : tip.portfolio?._id,
       portfolioName: typeof tip.portfolio === 'object' ? tip.portfolio?.name : undefined,
-      date: tip.createdAt,
+      date: tip.status === 'Closed' ? (tip.updatedAt || tip.createdAt) : tip.createdAt,
       stockName,
       exchange: 'NSE',
       buyRange: tip.buyRange || '₹ 1000 - 1050',
