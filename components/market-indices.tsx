@@ -16,7 +16,7 @@ export default function MarketIndices({ indices, marketData }: MarketIndicesProp
   const data = marketData || indices || []
   
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 max-h-96 md:max-h-none overflow-y-auto md:overflow-y-visible">
       {data.map((index) => {
         // Handle both data types
         const isMarketData = 'priceChange' in index

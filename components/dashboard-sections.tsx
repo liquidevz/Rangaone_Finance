@@ -120,6 +120,7 @@ export function MarketIndicesSection() {
         </div>
         
         <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+          <div className="max-h-80 md:max-h-none overflow-y-auto md:overflow-y-visible">
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[...Array(3)].map((_, i) => (
@@ -172,6 +173,7 @@ export function MarketIndicesSection() {
               Unable to load market data. Please try again later.
             </div>
           )}
+          </div>
         </div>
         
         

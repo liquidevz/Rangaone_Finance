@@ -1150,7 +1150,6 @@ export default function PortfolioDetailsPage() {
     ? [
         ...portfolioMetrics.holdingsWithQuantities
           .map((holding, index) => {
-            // Use weightage for percentage and investment value (buyPrice * quantity)
             const investmentValue = (holding.buyPrice || 0) * (holding.quantity || 0);
             const weightagePercentage = holding.weight || 0;
             
@@ -1174,16 +1173,15 @@ export default function PortfolioDetailsPage() {
               value: parseFloat(weightagePercentage.toFixed(2)),
               color: getColorForStock(holding.symbol, index),
               sector: holding.sector || holding.marketCap || 'Banking',
-              tableCurrentValue: investmentValue // Store investment value for Holdings Detail
+              tableCurrentValue: investmentValue
             };
           })
           .filter(item => item.value > 0)
           .sort((a, b) => b.value - a.value),
-        // Add cash component if there's a cash balance
         ...(portfolioMetrics.cashPercentage > 0 ? [{
           name: "Cash",
           value: parseFloat(portfolioMetrics.cashPercentage.toFixed(2)),
-          color: "#6B7280", // Gray color for cash
+          color: "#6B7280",
           sector: "Cash",
           tableCurrentValue: portfolioMetrics.cashBalance
         }] : [])
@@ -1935,8 +1933,8 @@ export default function PortfolioDetailsPage() {
           </CardContent>
         </Card>
 
-      {/* Portfolio Allocation Chart */}
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 mb-6">
+{/* Portfolio Allocation Chart */}
+<div className="grid grid-cols-1 xl:grid-cols-5 gap-4 mb-6">
         <Card className="shadow-sm border border-gray-200 xl:col-span-2 transition-all duration-300 hover:shadow-md">
           <CardContent className="p-4 lg:p-6">
             <h3 className="text-lg lg:text-xl font-bold mb-4 text-gray-800">Portfolio Allocation</h3>
@@ -1953,26 +1951,9 @@ export default function PortfolioDetailsPage() {
                       paddingAngle={2}
                       dataKey="value"
                       stroke="none"
-                      onMouseEnter={(data, index) => {
-                          const matchingItem = portfolioAllocationData.find(item => item.name === data.name);
-                          if (matchingItem) {
-                            setHoveredSegment(matchingItem);
-                            if (selectedSegment && selectedSegment.name !== matchingItem.name) {
-                              setSelectedSegment(matchingItem);
-                            }
-                          }
-                      }}
-                      onMouseLeave={() => setHoveredSegment(null)}
-                      onClick={(data) => {
-                          const matchingItem = portfolioAllocationData.find(item => item.name === data.name);
-                          if (matchingItem) {
-                            if (selectedSegment?.name === matchingItem.name) {
-                              setSelectedSegment(null);
-                            } else {
-                              setSelectedSegment(matchingItem);
-                            }
-                          }
-                      }}
+                      
+                      
+                      
                     >
                       {portfolioAllocationData.map((entry, index) => {
                         const isActive = hoveredSegment?.name === entry.name;
@@ -1983,6 +1964,15 @@ export default function PortfolioDetailsPage() {
                           <Cell
                             key={`cell-${index}`}
                             fill={entry.color}
+                            onMouseEnter={() => setHoveredSegment(entry)}
+                            
+                            onClick={() => {
+                              if (selectedSegment?.name === entry.name) {
+                                setSelectedSegment(null);
+                              } else {
+                                setSelectedSegment(entry);
+                              }
+                            }}
                             style={{
                               cursor: 'pointer',
                               transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -2057,14 +2047,9 @@ export default function PortfolioDetailsPage() {
                           : isHovered 
                             ? 'bg-gray-50 border border-gray-200 shadow-sm scale-[1.01] translate-x-0.5'
                             : 'hover:bg-gray-50 border border-transparent hover:shadow-sm hover:scale-[1.005] hover:-translate-y-0.5'
-                        } ${isCash ? 'bg-gray-50/50' : ''}`}
+                        }`}
                       onClick={() => setSelectedSegment(isSelected ? null : stock)}
-                      onMouseEnter={() => {
-                          setHoveredSegment(stock);
-                          if (selectedSegment && selectedSegment.name !== stock.name) {
-                            setSelectedSegment(stock);
-                        }
-                      }}
+                      onMouseEnter={() => setHoveredSegment(stock)}
                       onMouseLeave={() => setHoveredSegment(null)}
                       style={{
                         animationDelay: `${index * 50}ms`,
@@ -2075,7 +2060,7 @@ export default function PortfolioDetailsPage() {
                         <div 
                           className={`w-3 h-3 lg:w-4 lg:h-4 rounded-full flex-shrink-0 transition-all duration-300 ${
                             isSelected || isHovered ? 'scale-110 shadow-md' : 'scale-100'
-                          } ${isCash ? 'border-2 border-gray-400' : ''}`}
+                          }`}
                           style={{ 
                             backgroundColor: stock.color,
                             boxShadow: isSelected || isHovered ? `0 0 10px ${stock.color}40` : 'none'
