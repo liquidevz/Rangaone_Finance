@@ -176,50 +176,11 @@ export default function VideosForYou() {
         {/* Featured Video Player */}
         {selectedVideo && (
           <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-lg border border-gray-200 overflow-hidden mb-8">
-            <div className="aspect-video w-full bg-black relative group">
-              {videoLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-20">
-                  <Loader2 className="h-8 w-8 animate-spin text-white" />
-                </div>
-              )}
-              {videoError ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-white p-6 z-20">
-                  <AlertCircle className="h-12 w-12 text-red-400 mb-4" />
-                  <p className="text-center mb-2 font-medium">Video player not available</p>
-                  <p className="text-center text-sm text-gray-300 mb-4">
-                    {isMobile ? "Try opening in the YouTube app for better experience" : "Please try refreshing or check your connection"}
-                  </p>
-                  <div className="flex gap-3 flex-wrap justify-center">
-                    <button 
-                      onClick={() => {
-                        setVideoError(null)
-                        handleVideoSelect(selectedVideo)
-                      }}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                    >
-                      Try Again
-                    </button>
-                    <a
-                      href={`https://www.youtube.com/watch?v=${selectedVideo.youtubeId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm flex items-center gap-2"
-                    >
-                      <Play className="h-4 w-4" />
-                      Open in YouTube
-                    </a>
-                  </div>
-                </div>
-              ) : (
-                <div className="relative w-full h-full overflow-hidden rounded-t-xl">
-                  <MobileVideoPlayer
-                    youtubeId={selectedVideo.youtubeId}
-                    title={selectedVideo.title}
-                    onError={(error) => setVideoError(error)}
-                    debug={true}
-                  />
-                </div>
-              )}
+            <div className="w-full bg-black relative rounded-t-xl overflow-hidden">
+              <MobileVideoPlayer
+                youtubeId={selectedVideo.youtubeId}
+                title={selectedVideo.title}
+              />
               <div className="absolute top-4 right-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm font-medium z-10">
                 Now Playing
               </div>
