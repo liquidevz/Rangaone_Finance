@@ -35,24 +35,7 @@ export function MobileVideoPlayer({ youtubeId, title, onError, debug = false }: 
     setRetryCount(prev => prev + 1)
   }
 
-  // Build YouTube URL with mobile-optimized parameters
-  const buildYouTubeUrl = () => {
-    const params = {
-      rel: '0',
-      modestbranding: '1',
-      playsinline: '1',
-      controls: '1',
-      enablejsapi: '1',
-      fs: '1',
-      autoplay: '0'
-    }
-    
-    const queryString = Object.entries(params)
-      .map(([key, value]) => `${key}=${value}`)
-      .join('&')
-    
-    return `https://www.youtube.com/embed/${youtubeId}?${queryString}`
-  }
+
 
   useEffect(() => {
     // Reset states when youtubeId changes
@@ -87,10 +70,9 @@ export function MobileVideoPlayer({ youtubeId, title, onError, debug = false }: 
         </div>
       )}
       <iframe
-        src={buildYouTubeUrl()}
+        src={`https://www.youtube.com/embed/${youtubeId}`}
         title={title}
         frameBorder="0"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowFullScreen
         className="w-full h-full"
         onLoad={handleIframeLoad}
