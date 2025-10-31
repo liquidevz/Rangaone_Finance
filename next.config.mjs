@@ -29,7 +29,7 @@ const nextConfig = {
 
   // Image configuration for Docker
   images: {
-    domains: ['v0.blob.com'],
+    domains: ['v0.blob.com', 'img.youtube.com', 'i.ytimg.com'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -65,6 +65,13 @@ const nextConfig = {
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-XSS-Protection', value: '1; mode=block' },
+        ],
+      },
+      {
+        source: '/videos-for-you',
+        headers: [
+          { key: 'Content-Security-Policy', value: "frame-src 'self' https://www.youtube.com https://youtube.com; frame-ancestors 'self';" },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
         ],
       },
       {
