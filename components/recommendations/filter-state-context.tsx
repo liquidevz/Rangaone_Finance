@@ -22,7 +22,7 @@ interface FilterContextType {
 
 const defaultFilters: FilterState = {
   category: 'all',
-  status: 'Active',
+  status: 'all',
   action: 'all',
   stockId: '',
   startDate: null,
@@ -76,7 +76,7 @@ export function FilterProvider({ children }: { children: ReactNode }) {
 
   const hasActiveFilters = 
     filters.category !== 'all' ||
-    filters.status !== 'Active' ||
+    filters.status !== 'all' ||
     filters.action !== 'all' ||
     filters.stockId !== '' ||
     filters.startDate !== null ||

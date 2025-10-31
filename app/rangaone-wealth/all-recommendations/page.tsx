@@ -369,8 +369,13 @@ export default function AllRecommendationsPage() {
       }
       
       // Status filter
-      if (filters.status !== 'all' && tip.status?.toLowerCase() !== filters.status.toLowerCase()) {
-        return false;
+      if (filters.status !== 'all') {
+        if (filters.status === 'Active' && tip.status !== 'Active') {
+          return false;
+        }
+        if (filters.status === 'Closed' && tip.status !== 'Closed') {
+          return false;
+        }
       }
       
       // Category filter
