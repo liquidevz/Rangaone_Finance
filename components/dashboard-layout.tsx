@@ -8,6 +8,7 @@ import { ChevronDown, Menu, X, PanelLeft, ShoppingCart } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth/auth-context";
+import { useCart } from "@/components/cart/cart-context";
 import Sidebar from "@/components/sidebar";
 import { GlobalSearch } from "@/components/global-search";
 
@@ -23,6 +24,7 @@ export default function DashboardLayout({
   const [isMounted, setIsMounted] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
+  const { cartItemCount } = useCart();
   
   const router = useRouter();
 
@@ -180,10 +182,15 @@ export default function DashboardLayout({
               <div className="flex items-center gap-2">
                 <Link
                   href="/cart"
-                  className="rounded-xl p-2 text-gray-700 hover:bg-gray-100/80 transition-all duration-200 ring-1 ring-gray-200/50 hover:ring-gray-300/50"
+                  className="relative rounded-xl p-2 text-gray-700 hover:bg-gray-100/80 transition-all duration-200 ring-1 ring-gray-200/50 hover:ring-gray-300/50 hover:scale-105"
                   title="Cart"
                 >
                   <ShoppingCart className="h-5 w-5" />
+                  {cartItemCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center font-medium">
+                      {cartItemCount}
+                    </span>
+                  )}
                 </Link>
 
                 <div className="relative">

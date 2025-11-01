@@ -42,7 +42,6 @@ interface Suggestion {
   hasAccess?: boolean
   category?: string
   createdAt?: string
-  portfolioId?: string
 }
 
 
@@ -109,7 +108,6 @@ export function GlobalSearch() {
           category: portfolio.category,
           onClick: portfolio.onClick,
           portfolioName: portfolio.portfolioName,
-          portfolioId: portfolio.portfolioId,
           hasAccess: portfolio.hasAccess,
           createdAt: portfolio.createdAt,
           updatedAt: portfolio.updatedAt
@@ -123,7 +121,6 @@ export function GlobalSearch() {
           description: 'Buy Range: Click here | Target: Click here | Status: Click here',
           category: tip.category,
           onClick: tip.onClick,
-          portfolioId: tip.portfolioId,
           hasAccess: tip.hasAccess,
           createdAt: tip.createdAt,
           updatedAt: tip.updatedAt
@@ -220,23 +217,14 @@ export function GlobalSearch() {
     }
   }
 
-  const handleResultClick = async (result: SearchResult) => {
-    if (result.portfolioId && result.hasAccess !== true) {
-      setIsOpen(false)
-      setQuery("")
-      try {
-        await addToCart(result.portfolioId)
-        router.push('/cart')
-      } catch (error: any) {
-        console.error('Failed to add to cart:', error)
-      }
-      return
-    }
-    
+  const handleResultClick = (result: SearchResult) => {
     saveRecentSearch(result.title)
+    
+    // Use url directly for navigation
+    router.push(result.url)
+    
     setIsOpen(false)
     setQuery("")
-    router.push(result.url)
   }
 
   const getTypeIcon = (type: string, category?: string) => {
@@ -297,23 +285,20 @@ export function GlobalSearch() {
   const getResultBadge = (type: string, category?: string, portfolioName?: string) => {
     if (!type) return null
     
-    const portfolioColors = [
-      "bg-gradient-to-br from-[#26426e] to-[#0f2e5f] shadow-lg shadow-blue-900/50",
-      "bg-gradient-to-br from-[#00cdf9] to-[#009DDC] shadow-lg shadow-cyan-400/50",
-      "bg-gradient-to-br from-[#ff9d66] to-[#F26430] shadow-lg shadow-orange-400/50",
-      "bg-gradient-to-br from-[#a09bd5] to-[#6761A8] shadow-lg shadow-purple-400/50",
-      "bg-gradient-to-br from-[#0f2e5f] to-[#26426e] shadow-lg shadow-blue-800/50",
-      "bg-gradient-to-br from-[#009DDC] to-[#00cdf9] shadow-lg shadow-cyan-500/50",
-      "bg-gradient-to-br from-[#F26430] to-[#ff9d66] shadow-lg shadow-orange-500/50",
-      "bg-gradient-to-br from-[#6761A8] to-[#a09bd5] shadow-lg shadow-purple-500/50"
-    ]
-    const portfolioColorIndex = portfolioName ? (portfolioName || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % portfolioColors.length : 0
+    const getPortfolioColorClass = (name: string) => {
+      console.log('Portfolio name for color:', name)
+      if (name.toLowerCase().includes('momentum')) return "bg-gradient-to-br from-[#26426e] via-[#0f2e5f] to-[#26426e] shadow-[0_4px_20px_rgba(38,66,110,0.4)]"
+      if (name.toLowerCase().includes('dividend')) return "bg-gradient-to-br from-[#00cdf9] via-[#009ddc] to-[#00cdf9] shadow-[0_4px_20px_rgba(0,205,249,0.4)]"
+      if (name.toLowerCase().includes('value')) return "bg-gradient-to-br from-[#ff9d66] via-[#f26430] to-[#ff9d66] shadow-[0_4px_20px_rgba(255,157,102,0.4)]"
+      if (name.toLowerCase().includes('growth')) return "bg-gradient-to-br from-[#a09bd5] via-[#6761a8] to-[#a09bd5] shadow-[0_4px_20px_rgba(160,155,213,0.4)]"
+      return "bg-gradient-to-br from-[#26426e] via-[#0f2e5f] to-[#26426e] shadow-[0_4px_20px_rgba(38,66,110,0.4)]"
+    }
     
     const badges = {
       tip: category === "premium" 
         ? { text: "Premium Bundle", className: "bg-gradient-to-r from-yellow-400 to-amber-500 text-white shadow-lg" }
         : { text: "Basic Bundle", className: "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg" },
-      portfolio: { text: portfolioName || "Portfolio", className: `${portfolioColors[portfolioColorIndex]} text-white shadow-lg` },
+      portfolio: { text: portfolioName || "Portfolio", className: `${getPortfolioColorClass(portfolioName || '')} text-white` },
       stock: category === "portfolio" 
         ? { text: "Portfolio Stock", className: "bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg" }
         : { text: "Stock", className: "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg" },
@@ -400,7 +385,7 @@ export function GlobalSearch() {
                 })
                 .map(([section, items]) => (
                   <div key={section} className="border-b border-gray-100/80 last:border-b-0">
-                    <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-50/95 to-indigo-50/95 backdrop-blur-md px-3 sm:px-5 py-3 sm:py-4 border-b border-blue-100/60">
+                    <div className="sticky top-0 bg-gradient-to-r from-blue-50/95 to-indigo-50/95 backdrop-blur-md px-3 sm:px-5 py-3 sm:py-4 border-b border-blue-100/60">
                       <div className="flex items-center gap-2 sm:gap-3">
                         <span className="text-xs sm:text-sm font-bold text-gray-800 uppercase tracking-wide">{section}</span>
                         <span className="text-xs text-blue-600 bg-blue-100/80 px-2 sm:px-3 py-1 rounded-full font-medium">{items.length}</span>
@@ -410,11 +395,11 @@ export function GlobalSearch() {
                       {items.map((result, idx) => {
                         const isActive = activeIndex === flatResults.indexOf(result)
                         return (
-                          <div
+                          <button
                             key={result.id}
                             onClick={() => handleResultClick(result)}
                             className={cn(
-                              "w-full px-3 sm:px-5 py-3 sm:py-4 text-left transition-all duration-300 group relative cursor-pointer",
+                              "w-full px-3 sm:px-5 py-3 sm:py-4 text-left transition-all duration-300 group relative",
                               "hover:bg-gradient-to-r hover:from-blue-50/90 hover:to-indigo-50/90 hover:scale-[1.01]",
                               "border-b border-gray-100/60 last:border-b-0",
                               isActive && "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200/60 shadow-sm"
@@ -460,6 +445,32 @@ export function GlobalSearch() {
                                   </div>
                                 )}
                               </div>
+                              {result.hasAccess === false && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-10 rounded backdrop-blur-sm">
+                                  <div className="flex flex-col items-center gap-2 bg-white rounded-lg px-4 py-3 shadow-lg border border-gray-200">
+                                    <span className="text-xs font-semibold text-gray-700">
+                                      {result.type === 'portfolio' ? 'Portfolio Access Required' : result.category === 'premium' ? 'Premium Required' : 'Subscription Required'}
+                                    </span>
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation()
+                                        if (result.type === 'portfolio') {
+                                          try {
+                                            await addToCart(result.id, 1, { name: result.title })
+                                          } catch (error: any) {
+                                            console.error('Failed to add to cart:', error)
+                                          }
+                                        } else {
+                                          window.location.href = result.category === 'premium' ? '/premium-subscription' : '/basic-subscription'
+                                        }
+                                      }}
+                                      className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-sm"
+                                    >
+                                      {result.type === 'portfolio' ? 'Add to Cart' : 'Subscribe Now'}
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                               <div className="flex-shrink-0 hidden sm:block">
                                 <ArrowRight className={cn(
                                   "h-4 w-4 sm:h-5 sm:w-5 text-gray-400 transition-all duration-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-2 group-hover:text-blue-600",
@@ -467,7 +478,7 @@ export function GlobalSearch() {
                                 )} />
                               </div>
                             </div>
-                          </div>
+                          </button>
                         )
                       })}
                     </div>
@@ -500,27 +511,11 @@ export function GlobalSearch() {
                 </div>
               </div>
               <div className="py-1 max-h-48 sm:max-h-64 overflow-y-auto">
-                {suggestions.map((suggestion, index) => {
-                  const handleClick = async () => {
-                    if (suggestion.portfolioId && suggestion.hasAccess !== true) {
-                      setIsOpen(false)
-                      setQuery("")
-                      try {
-                        await addToCart(suggestion.portfolioId)
-                        router.push('/cart')
-                      } catch (error: any) {
-                        console.error('Failed to add to cart:', error)
-                      }
-                    } else {
-                      handleInputChange(suggestion.text)
-                    }
-                  }
-                  
-                  return (
-                  <div
+                {suggestions.map((suggestion, index) => (
+                  <button
                     key={index}
-                    onClick={handleClick}
-                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-left hover:bg-blue-50 transition-all duration-200 text-gray-700 group border-b border-gray-100 last:border-b-0 cursor-pointer"
+                    onClick={() => handleInputChange(suggestion.text)}
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-left hover:bg-blue-50 transition-all duration-200 text-gray-700 group border-b border-gray-100 last:border-b-0"
                   >
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 flex-shrink-0">
@@ -532,11 +527,7 @@ export function GlobalSearch() {
                           {formatDate(suggestion.createdAt)}
                         </span>
                       )}
-                      {suggestion.hasAccess === false && (suggestion.type === 'portfolio' || suggestion.portfolioId) ? (
-                        <span className="px-2 py-0.5 text-xs bg-blue-600 text-white rounded flex-shrink-0">
-                          Add to Cart
-                        </span>
-                      ) : suggestion.hasAccess === false ? (
+                      {suggestion.hasAccess === false ? (
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
@@ -550,9 +541,8 @@ export function GlobalSearch() {
                         <ArrowRight className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-all duration-200 flex-shrink-0" />
                       )}
                     </div>
-                  </div>
-                  )
-                })}
+                  </button>
+                ))}
               </div>
             </div>
           ) : !isAuthenticated ? (

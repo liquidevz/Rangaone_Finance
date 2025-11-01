@@ -4,6 +4,7 @@ import DashboardLayout from "@/components/dashboard-layout";
 import { InnerPageHeader } from "@/components/inner-page-header";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
+import { useCart } from "@/components/cart/cart-context";
 import { tipsService, type Tip } from "@/services/tip.service";
 import { subscriptionService, type SubscriptionAccess } from "@/services/subscription.service";
 import { stockPriceService, type StockPriceData } from "@/services/stock-price.service";
@@ -18,6 +19,7 @@ export default function PortfolioTipDetailsPage() {
   const portfolioId = params.id as string;
   const tipId = params.tipId as string;
   const { toast } = useToast();
+  const { addToCart } = useCart();
   const [tipData, setTipData] = useState<Tip | undefined>();
   const [subscriptionAccess, setSubscriptionAccess] = useState<SubscriptionAccess | undefined>();
   const [loading, setLoading] = useState(true);
@@ -104,6 +106,8 @@ export default function PortfolioTipDetailsPage() {
   }
 
   if (!canAccessTip) {
+    const isPortfolioAccess = portfolioId && !subscriptionAccess?.portfolioAccess?.includes(portfolioId);
+    
     return (
       <DashboardLayout>
         <div className="max-w-7xl mx-auto p-4">
@@ -122,21 +126,41 @@ export default function PortfolioTipDetailsPage() {
               <div className="mb-6">
                 <Lock className="h-16 w-16 mx-auto text-gray-400 mb-4" />
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Restricted</h2>
-                <p className="text-gray-600">This {tipData.category || "premium"} tip requires a subscription to view.</p>
+                <p className="text-gray-600">
+                  {isPortfolioAccess 
+                    ? "This portfolio requires purchase to view its recommendations." 
+                    : `This ${tipData.category || "premium"} tip requires a subscription to view.`}
+                </p>
               </div>
 
               <div className="space-y-3">
-                <Link href={tipData.category === "premium" ? "/premium-subscription" : "/basic-subscription"}>
+                {isPortfolioAccess ? (
                   <Button
-                    className={
-                      tipData.category === "premium"
-                        ? "bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-[#FFFFF0]"
-                        : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-[#FFFFF0]"
-                    }
+                    onClick={async () => {
+                      try {
+                        await addToCart(portfolioId, 1, { name: tipData.portfolio && typeof tipData.portfolio === 'object' && 'name' in tipData.portfolio ? (tipData.portfolio as any).name : 'Portfolio' });
+                        toast({ title: "Added to cart", description: "Portfolio added successfully" });
+                      } catch (error: any) {
+                        toast({ title: "Error", description: error.message || "Failed to add to cart", variant: "destructive" });
+                      }
+                    }}
+                    className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white"
                   >
-                    {tipData.category === "premium" ? "Upgrade to Premium" : "Get Basic Plan"}
+                    Add Portfolio to Cart
                   </Button>
-                </Link>
+                ) : (
+                  <Link href={tipData.category === "premium" ? "/premium-subscription" : "/basic-subscription"}>
+                    <Button
+                      className={
+                        tipData.category === "premium"
+                          ? "bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-[#FFFFF0]"
+                          : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-[#FFFFF0]"
+                      }
+                    >
+                      {tipData.category === "premium" ? "Upgrade to Premium" : "Get Basic Plan"}
+                    </Button>
+                  </Link>
+                )}
                 <div>
                   <Link href={`/model-portfolios/${portfolioId}`}>
                     <Button variant="outline">Back to Portfolio</Button>
