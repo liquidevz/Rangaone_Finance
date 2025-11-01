@@ -247,22 +247,20 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left Panel - Image/Branding */}
-      <div className="hidden lg:flex flex-1 bg-[#001633] items-center justify-center p-8">
-        <div className="text-center text-[#FFFFF0]">
+      <div className="hidden lg:flex flex-1 bg-transparent items-top justify-center p-8 fixed left-0 top-0 bottom-0 w-1/2 bg-cover bg-center" style={{ backgroundImage: "url('/signup-bg.png')" }}>
+        <div className="absolute inset-0 bg-transparent"></div>
+        <div className="text-center text-[#FFFFF0] relative z-10">
           <h1 className="text-4xl font-bold mb-4">
             Join RangaOne Finwala
           </h1>
           <p className="text-xl opacity-90 mb-8">
-            Start your journey to financial success with expert portfolio management
+            Your Growth, Our Priority
           </p>
-          <div className="w-64 h-64 bg-white/10 rounded-full mx-auto flex items-center justify-center">
-            <span className="text-6xl font-bold">R</span>
-          </div>
         </div>
       </div>
 
       {/* Right Panel - Signup Form */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-white">
+      <div className="flex-1 lg:ml-[50%] overflow-y-auto p-36 bg-white">
         <div className="w-full max-w-md space-y-8">
           {/* Header */}
           <div className="text-center">
