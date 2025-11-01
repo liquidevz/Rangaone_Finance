@@ -176,7 +176,7 @@ export default function PremiumSubscriptionPage() {
                 <div className="relative w-full h-full rounded-xl overflow-hidden shadow-xl">
                   <Image
                     src="/premium-subscription/premium_bull.jpg"
-                    alt="Golden Bull Statue"
+                    alt="RangaOne Wealth Premium"
                     fill
                     className="object-cover object-center"
                     sizes="(max-width: 640px) 160px, (max-width: 768px) 192px, (max-width: 1024px) 224px, 384px"
@@ -299,7 +299,7 @@ export default function PremiumSubscriptionPage() {
                 <div className="relative w-full h-48 sm:h-64 lg:h-80 xl:h-96 2xl:h-[28rem] rounded-2xl overflow-hidden shadow-2xl">
                   <Image
                     src="/premium-subscription/premium_bull.jpg"
-                    alt="Golden Bull Statue"
+                    alt="RangaOne Wealth Premium"
                     fill
                     className="object-cover object-center transform hover:scale-105 transition-transform duration-700"
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 40vw"

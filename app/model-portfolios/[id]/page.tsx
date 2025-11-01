@@ -1115,7 +1115,7 @@ export default function PortfolioDetailsPage() {
     
     // Calculate cash percentage based on current portfolio value
     const cashPercentage = exactTotalPortfolioValue > 0 ? 
-      parseFloat(((finalCashBalance / exactTotalPortfolioValue) * 100).toFixed(2)) : 0;
+      ((finalCashBalance / exactTotalPortfolioValue) * 100) : 0;
     
     return {
       holdingsValue: actualHoldingsValue,
@@ -1145,51 +1145,54 @@ export default function PortfolioDetailsPage() {
   const oneYearGainsValue = normalizePercent((portfolio as any)?.oneYearGains);
   const cagrSinceInceptionValue = normalizePercent((portfolio as any)?.CAGRSinceInception);
 
-  // Create portfolio allocation data using weightage percentage and investment value
-  const portfolioAllocationData: PortfolioAllocationItem[] = portfolioMetrics.holdingsWithQuantities.length > 0 
-    ? [
-        ...portfolioMetrics.holdingsWithQuantities
-          .map((holding, index) => {
-            const investmentValue = (holding.buyPrice || 0) * (holding.quantity || 0);
-            const weightagePercentage = holding.weight || 0;
-            
-            const getColorForStock = (symbol: string, index: number) => {
-              const stockColorMap: { [key: string]: string } = {
-                'HDFCBANK': '#3B82F6',
-                'IDFCFIRSTB': '#10B981',
-                'INFY': '#F59E0B',
-                'TCS': '#EF4444',
-                'RELIANCE': '#8B5CF6',
-              };
-              
-              return stockColorMap[symbol] || [
-                '#4B4B4C', '#005F73', '#0A9396', '#92D2BD', '#E9D8A6',
-                '#EE9B00', '#CA6702', '#BB3E03', '#AE2012', '#9B2226'
-              ][index % 10];
-            };
-            
-            return {
-              name: holding.symbol,
-              value: parseFloat(weightagePercentage.toFixed(2)),
-              color: getColorForStock(holding.symbol, index),
-              sector: holding.sector || holding.marketCap || 'Banking',
-              tableCurrentValue: investmentValue
-            };
-          })
-          .filter(item => item.value > 0)
-          .sort((a, b) => b.value - a.value),
-        ...(portfolioMetrics.cashPercentage > 0 ? [{
-          name: "Cash",
-          value: parseFloat(portfolioMetrics.cashPercentage.toFixed(2)),
-          color: "#6B7280",
-          sector: "Cash",
-          tableCurrentValue: portfolioMetrics.cashBalance
-        }] : [])
-      ]
-    : [
+  // Create portfolio allocation data using exact weightage from backend
+  const portfolioAllocationData: PortfolioAllocationItem[] = (() => {
+    if (portfolioMetrics.holdingsWithQuantities.length === 0) {
+      return [
         { name: "HDFCBANK", value: 79.57, color: "#3B82F6", sector: "Banking" },
         { name: "IDFCFIRSTB", value: 20.43, color: "#10B981", sector: "Banking" }
       ];
+    }
+
+    const getColorForStock = (symbol: string, index: number) => {
+      const stockColorMap: { [key: string]: string } = {
+        'HDFCBANK': '#3B82F6',
+        'IDFCFIRSTB': '#10B981',
+        'INFY': '#F59E0B',
+        'TCS': '#EF4444',
+        'RELIANCE': '#8B5CF6',
+      };
+      return stockColorMap[symbol] || [
+        '#4B4B4C', '#005F73', '#0A9396', '#92D2BD', '#E9D8A6',
+        '#EE9B00', '#CA6702', '#BB3E03', '#AE2012', '#9B2226'
+      ][index % 10];
+    };
+
+    const holdings = portfolioMetrics.holdingsWithQuantities.map((holding, index) => ({
+      name: holding.symbol,
+      value: holding.weight,
+      color: getColorForStock(holding.symbol, index),
+      sector: holding.sector || holding.marketCap || 'Banking',
+      tableCurrentValue: (holding.buyPrice || 0) * (holding.quantity || 0)
+    })).filter(item => item.value > 0);
+
+    const totalHoldingsWeight = holdings.reduce((sum, item) => sum + item.value, 0);
+    const cashWeight = 100 - totalHoldingsWeight;
+
+    const data = [...holdings];
+    if (cashWeight > 0.01) {
+      data.push({
+        name: "Cash",
+        value: cashWeight,
+        color: "#6B7280",
+        sector: "Cash",
+        tableCurrentValue: portfolioMetrics.cashBalance
+      });
+    }
+
+    data.sort((a, b) => b.value - a.value);
+    return data;
+  })();
 
   return (
     <DashboardLayout>
@@ -1856,11 +1859,11 @@ export default function PortfolioDetailsPage() {
                       <div className="flex items-center justify-between mb-1">
                           <span className="text-xs font-medium text-blue-700">Cash</span>
                       <span className="text-xs font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
-                          {portfolioMetrics.cashPercentage.toFixed(2)}%
+                          {(100 - portfolioMetrics.holdingsWithQuantities.reduce((sum, h) => sum + h.weight, 0)).toFixed(1)}%
                       </span>
                         </div>
                     <div className="text-base font-bold text-blue-900">
-                        ₹{portfolioMetrics.cashBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ₹{portfolioMetrics.cashBalance.toFixed(1)}
                       </div>
                     <div className="text-xs text-blue-600">Available</div>
                   </div>
@@ -1948,12 +1951,9 @@ export default function PortfolioDetailsPage() {
                       cy="50%"
                       innerRadius="60%"
                       outerRadius="80%"
-                      paddingAngle={2}
                       dataKey="value"
-                      stroke="none"
-                      
-                      
-                      
+                      startAngle={90}
+                      endAngle={450}
                     >
                       {portfolioAllocationData.map((entry, index) => {
                         const isActive = hoveredSegment?.name === entry.name;
@@ -2084,8 +2084,8 @@ export default function PortfolioDetailsPage() {
                         <div className={`text-sm lg:text-base font-bold text-gray-900 transition-all duration-300 ${
                           isSelected ? 'text-blue-800 scale-105' : isHovered ? 'text-gray-900 scale-102' : ''
                         }`}>
-                            {stock.value.toFixed(1)}%
-                          </div>
+                          {stock.value.toFixed(1)}%
+                        </div>
                         <div className={`text-xs lg:text-sm text-gray-500 transition-colors duration-300 ${
                           isSelected ? 'text-blue-600' : isHovered ? 'text-gray-600' : ''
                         }`}>

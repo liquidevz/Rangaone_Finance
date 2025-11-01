@@ -22,6 +22,7 @@ interface SearchResult {
   description?: string
   category?: string
   createdAt?: string
+  updatedAt?: string
   symbol?: string
   stockId?: string
   portfolioName?: string
@@ -39,6 +40,7 @@ interface Suggestion {
   id: string
   hasAccess?: boolean
   category?: string
+  createdAt?: string
 }
 
 
@@ -87,7 +89,9 @@ export function GlobalSearch() {
           description: stock.currentPrice ? `₹${stock.currentPrice} (${stock.priceChangePercent >= 0 ? '+' : ''}${stock.priceChangePercent}%)` : `Stock: ${stock.symbol}`,
           symbol: stock.symbol,
           category: 'direct',
-          hasAccess: stock.hasAccess
+          hasAccess: stock.hasAccess,
+          createdAt: stock.createdAt,
+          updatedAt: stock.updatedAt
         }))
         
         // Separate tips with portfolio from regular tips
@@ -102,7 +106,9 @@ export function GlobalSearch() {
           category: portfolio.category,
           onClick: portfolio.onClick,
           portfolioName: portfolio.portfolioName,
-          hasAccess: portfolio.hasAccess
+          hasAccess: portfolio.hasAccess,
+          createdAt: portfolio.createdAt,
+          updatedAt: portfolio.updatedAt
         }))
         
         const tips = allTips.filter((item: any) => !item.title || !item.title.includes(' - ')).map((tip: any) => ({
@@ -113,7 +119,9 @@ export function GlobalSearch() {
           description: 'Buy Range: Click here | Target: Click here | Status: Click here',
           category: tip.category,
           onClick: tip.onClick,
-          hasAccess: tip.hasAccess
+          hasAccess: tip.hasAccess,
+          createdAt: tip.createdAt,
+          updatedAt: tip.updatedAt
         }))
         
         return {
@@ -166,6 +174,12 @@ export function GlobalSearch() {
     }, 150),
     []
   )
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return null
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+  }
 
   const handleInputChange = (value: string) => {
     setQuery(value)
@@ -269,11 +283,19 @@ export function GlobalSearch() {
   const getResultBadge = (type: string, category?: string, portfolioName?: string) => {
     if (!type) return null
     
+    const portfolioColors = [
+      "bg-gradient-to-br from-[#F97C7C] via-[#FF8A8A] to-[#FF6B6B] shadow-lg",
+      "bg-gradient-to-br from-[#FFD400] via-[#FFE066] to-[#FFC107] shadow-lg", 
+      "bg-gradient-to-br from-[#92DFF3] via-[#A8E6F7] to-[#74C0FC] shadow-lg",
+      "bg-gradient-to-br from-[#96B766] via-[#A8C77A] to-[#82A55A] shadow-lg"
+    ]
+    const portfolioColorIndex = portfolioName ? portfolioName.length % portfolioColors.length : 0
+    
     const badges = {
       tip: category === "premium" 
         ? { text: "Premium Bundle", className: "bg-gradient-to-r from-yellow-400 to-amber-500 text-white shadow-lg" }
         : { text: "Basic Bundle", className: "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg" },
-      portfolio: { text: portfolioName || "Portfolio", className: "bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg" },
+      portfolio: { text: portfolioName || "Portfolio", className: `${portfolioColors[portfolioColorIndex]} text-white shadow-lg` },
       stock: category === "portfolio" 
         ? { text: "Portfolio Stock", className: "bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg" }
         : { text: "Stock", className: "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg" },
@@ -306,7 +328,7 @@ export function GlobalSearch() {
           disabled={!isAuthenticated}
           className={cn(
             "w-full bg-white border border-gray-300 shadow-sm rounded-xl",
-            "pl-10 sm:pl-12 lg:pl-24 pr-10 sm:pr-12 py-3",
+            "pl-10 sm:pl-12 lg:pl-24 pr-10 sm:pr-12 py-2.5 sm:py-3",
             "focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400",
             "focus:shadow-lg focus:bg-white",
             "transition-all duration-300 ease-out",
@@ -339,7 +361,7 @@ export function GlobalSearch() {
       </div>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-3 bg-white border border-gray-200 rounded-2xl shadow-2xl z-100 max-h-[32rem] overflow-hidden" role="listbox">
+        <div className="absolute top-full left-0 right-0 mt-2 sm:mt-3 bg-white border border-gray-200 rounded-xl sm:rounded-2xl shadow-2xl z-100 max-h-[28rem] sm:max-h-[32rem] overflow-hidden" role="listbox">
           {loading ? (
             <div className="p-8 text-center">
               <div className="relative mx-auto w-12 h-12 mb-4">
@@ -350,7 +372,7 @@ export function GlobalSearch() {
               <p className="text-sm text-gray-500 mt-2">Finding portfolios, tips, stocks & pages</p>
             </div>
           ) : query && flatResults.length > 0 ? (
-            <div className="max-h-[30rem] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+            <div className="max-h-[26rem] sm:max-h-[30rem] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
               {Object.entries(results)
                 .filter(([section, items]) => items.length > 0)
                 .sort(([a], [b]) => {
@@ -360,10 +382,10 @@ export function GlobalSearch() {
                 })
                 .map(([section, items]) => (
                   <div key={section} className="border-b border-gray-100/80 last:border-b-0">
-                    <div className="sticky top-0 bg-gradient-to-r from-blue-50/95 to-indigo-50/95 backdrop-blur-md px-5 py-4 border-b border-blue-100/60">
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-bold text-gray-800 uppercase tracking-wide">{section}</span>
-                        <span className="text-xs text-blue-600 bg-blue-100/80 px-3 py-1 rounded-full font-medium">{items.length}</span>
+                    <div className="sticky top-0 bg-gradient-to-r from-blue-50/95 to-indigo-50/95 backdrop-blur-md px-3 sm:px-5 py-3 sm:py-4 border-b border-blue-100/60">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <span className="text-xs sm:text-sm font-bold text-gray-800 uppercase tracking-wide">{section}</span>
+                        <span className="text-xs text-blue-600 bg-blue-100/80 px-2 sm:px-3 py-1 rounded-full font-medium">{items.length}</span>
                       </div>
                     </div>
                     <div className="py-1">
@@ -374,7 +396,7 @@ export function GlobalSearch() {
                             key={result.id}
                             onClick={() => handleResultClick(result)}
                             className={cn(
-                              "w-full px-5 py-4 text-left transition-all duration-300 group relative",
+                              "w-full px-3 sm:px-5 py-3 sm:py-4 text-left transition-all duration-300 group relative",
                               "hover:bg-gradient-to-r hover:from-blue-50/90 hover:to-indigo-50/90 hover:scale-[1.01]",
                               "border-b border-gray-100/60 last:border-b-0",
                               isActive && "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200/60 shadow-sm"
@@ -382,30 +404,43 @@ export function GlobalSearch() {
                             role="option"
                             aria-selected={isActive}
                           >
-                            <div className="flex items-start gap-3 relative">
-                              {getTypeIcon(result.type, result.category)}
+                            <div className="flex items-start gap-2 sm:gap-3 relative">
+                              <div className="flex-shrink-0">
+                                {getTypeIcon(result.type, result.category)}
+                              </div>
                               <div className="flex-1 min-w-0">
-
-                                <div className="flex items-center gap-3 mb-2">
-                                  <div className="font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors duration-300 text-base">
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                                  <div className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors duration-300 text-sm sm:text-base leading-tight">
                                     {highlightMatch(String(result.title || ''), query)}
                                     {result.portfolioName && result.category === 'portfolio' && (
-                                      <span className="text-sm text-blue-600 ml-2 font-medium">in {result.portfolioName}</span>
+                                      <span className="block sm:inline text-xs sm:text-sm text-blue-600 sm:ml-2 font-medium">in {result.portfolioName}</span>
                                     )}
                                   </div>
-                                  {getResultBadge(result.type, result.category, result.portfolioName) && getResultBadge(result.type, result.category, result.portfolioName)}
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {getResultBadge(result.type, result.category, result.portfolioName) && getResultBadge(result.type, result.category, result.portfolioName)}
+                                    {(result.createdAt || result.updatedAt) && (
+                                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                                        {formatDate(result.updatedAt || result.createdAt)}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                                 {result.description && (
-                                  <div className="text-sm text-gray-600 group-hover:text-gray-700 transition-colors duration-300 flex gap-2 flex-wrap">
-                                    <span>Buy Range:</span>
-                                    <button className="text-blue-600 hover:text-blue-800 underline" onClick={(e) => { e.stopPropagation(); handleResultClick(result); }}>Click here</button>
-                                    <span>| Target:</span>
-                                    <button className="text-blue-600 hover:text-blue-800 underline" onClick={(e) => { e.stopPropagation(); handleResultClick(result); }}>Click here</button>
-                                    <span>| Status:</span>
-                                    <button className="text-blue-600 hover:text-blue-800 underline" onClick={(e) => { e.stopPropagation(); handleResultClick(result); }}>Click here</button>
+                                  <div className="text-xs sm:text-sm text-gray-600 group-hover:text-gray-700 transition-colors duration-300">
+                                    <div className="hidden sm:flex items-center gap-2 flex-wrap">
+                                      <span>Buy Range:</span>
+                                      <button className="text-blue-600 hover:text-blue-800 underline" onClick={(e) => { e.stopPropagation(); handleResultClick(result); }}>Click here</button>
+                                      <span>| Target:</span>
+                                      <button className="text-blue-600 hover:text-blue-800 underline" onClick={(e) => { e.stopPropagation(); handleResultClick(result); }}>Click here</button>
+                                      <span>| Status:</span>
+                                      <button className="text-blue-600 hover:text-blue-800 underline" onClick={(e) => { e.stopPropagation(); handleResultClick(result); }}>Click here</button>
+                                    </div>
+                                    <div className="flex sm:hidden items-center gap-1">
+                                      <span>Target:</span>
+                                      <button className="text-blue-600 hover:text-blue-800 underline" onClick={(e) => { e.stopPropagation(); handleResultClick(result); }}>Click here</button>
+                                    </div>
                                   </div>
                                 )}
-
                               </div>
                               {result.hasAccess === false && (
                                 <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-5 rounded">
@@ -414,10 +449,12 @@ export function GlobalSearch() {
                                   </div>
                                 </div>
                               )}
-                              <ArrowRight className={cn(
-                                "h-5 w-5 text-gray-400 transition-all duration-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-2 group-hover:text-blue-600",
-                                isActive && "opacity-100 text-blue-500 translate-x-1"
-                              )} />
+                              <div className="flex-shrink-0 hidden sm:block">
+                                <ArrowRight className={cn(
+                                  "h-4 w-4 sm:h-5 sm:w-5 text-gray-400 transition-all duration-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-2 group-hover:text-blue-600",
+                                  isActive && "opacity-100 text-blue-500 translate-x-1"
+                                )} />
+                              </div>
                             </div>
                           </button>
                         )
@@ -425,18 +462,19 @@ export function GlobalSearch() {
                     </div>
                   </div>
                 ))}
-              <div className="p-4 bg-gradient-to-r from-blue-50/60 to-indigo-50/60 border-t border-blue-100/60">
-                <div className="flex items-center justify-center gap-4 text-sm text-gray-600">
-                  <div className="flex items-center gap-2">
-                    <kbd className="px-2 py-1 bg-white border border-gray-300 rounded-md text-xs font-mono shadow-sm">↑↓</kbd>
-                    <span className="font-medium">Navigate</span>
+              <div className="p-3 sm:p-4 bg-gradient-to-r from-blue-50/60 to-indigo-50/60 border-t border-blue-100/60">
+                <div className="flex items-center justify-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
+                  <div className="flex items-center gap-1 sm:gap-2">
+                    <kbd className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-white border border-gray-300 rounded-md text-xs font-mono shadow-sm">↑↓</kbd>
+                    <span className="font-medium hidden sm:inline">Navigate</span>
+                    <span className="font-medium sm:hidden">Nav</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <kbd className="px-2 py-1 bg-white border border-gray-300 rounded-md text-xs font-mono shadow-sm">↵</kbd>
+                  <div className="flex items-center gap-1 sm:gap-2">
+                    <kbd className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-white border border-gray-300 rounded-md text-xs font-mono shadow-sm">↵</kbd>
                     <span className="font-medium">Select</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <kbd className="px-2 py-1 bg-white border border-gray-300 rounded-md text-xs font-mono shadow-sm">Esc</kbd>
+                  <div className="flex items-center gap-1 sm:gap-2">
+                    <kbd className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-white border border-gray-300 rounded-md text-xs font-mono shadow-sm">Esc</kbd>
                     <span className="font-medium">Close</span>
                   </div>
                 </div>
@@ -444,36 +482,44 @@ export function GlobalSearch() {
             </div>
           ) : suggestions.length > 0 ? (
             <div>
-              <div className="bg-gradient-to-r from-gray-50/90 to-blue-50/90 px-4 py-3 border-b border-gray-100/50">
+              <div className="bg-gradient-to-r from-gray-50/90 to-blue-50/90 px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-100/50">
                 <div className="flex items-center gap-2">
-                  <Search className="h-4 w-4 text-blue-500" />
+                  <Search className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500" />
                   <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Suggestions</span>
                 </div>
               </div>
-              <div className="py-1">
+              <div className="py-1 max-h-48 sm:max-h-64 overflow-y-auto">
                 {suggestions.map((suggestion, index) => (
-                  <div
+                  <button
                     key={index}
-                    className="w-full px-4 py-3 text-left hover:bg-gradient-to-r hover:from-blue-50/80 hover:to-indigo-50/80 transition-all duration-200 text-sm text-gray-700 group border-b border-gray-50/80 last:border-b-0 relative"
+                    onClick={() => handleInputChange(suggestion.text)}
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-left hover:bg-blue-50 transition-all duration-200 text-gray-700 group border-b border-gray-100 last:border-b-0"
                   >
-                    <div className="flex items-center gap-3">
-                      {getTypeIcon(suggestion.type, suggestion.category)}
-                      <span className="group-hover:text-blue-700 transition-colors duration-200">{suggestion.text}</span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 flex-shrink-0">
+                        {getTypeIcon(suggestion.type, suggestion.category)}
+                      </div>
+                      <span className="group-hover:text-blue-700 transition-colors duration-200 text-xs sm:text-sm font-medium truncate flex-1">{suggestion.text}</span>
+                      {suggestion.createdAt && (
+                        <span className="text-xs text-gray-500 flex-shrink-0">
+                          {formatDate(suggestion.createdAt)}
+                        </span>
+                      )}
                       {suggestion.hasAccess === false ? (
                         <button
-                          onClick={() => window.location.href = suggestion.category === 'premium' ? '/premium-subscription' : '/basic-subscription'}
-                          className="ml-auto px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            window.location.href = suggestion.category === 'premium' ? '/premium-subscription' : '/basic-subscription'
+                          }}
+                          className="px-2 py-0.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 flex-shrink-0"
                         >
                           Subscribe
                         </button>
                       ) : (
-                        <ArrowRight 
-                          className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200 ml-auto cursor-pointer" 
-                          onClick={() => handleInputChange(suggestion.text)}
-                        />
+                        <ArrowRight className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-all duration-200 flex-shrink-0" />
                       )}
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -501,17 +547,19 @@ export function GlobalSearch() {
                   <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Recent Searches</span>
                 </div>
               </div>
-              <div className="py-1 max-h-48 overflow-y-auto">
+              <div className="py-1 max-h-40 sm:max-h-48 overflow-y-auto">
                 {recentSearches.map((search, index) => (
                   <button
                     key={index}
                     onClick={() => handleInputChange(search)}
-                    className="w-full px-4 py-3 text-left hover:bg-gradient-to-r hover:from-blue-50/80 hover:to-indigo-50/80 transition-all duration-200 text-sm text-gray-700 group border-b border-gray-50/80 last:border-b-0"
+                    className="w-full px-3 sm:px-4 py-2 sm:py-3 text-left hover:bg-gradient-to-r hover:from-blue-50/80 hover:to-indigo-50/80 transition-all duration-200 text-sm text-gray-700 group border-b border-gray-50/80 last:border-b-0"
                   >
-                    <div className="flex items-center gap-3">
-                      <Clock className="h-4 w-4 text-gray-400 group-hover:text-blue-500 transition-colors duration-200" />
-                      <span className="group-hover:text-blue-700 transition-colors duration-200">{search}</span>
-                      <ArrowRight className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200 ml-auto" />
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 group-hover:text-blue-500 transition-colors duration-200 flex-shrink-0" />
+                      <span className="group-hover:text-blue-700 transition-colors duration-200 flex-1 min-w-0 truncate text-xs sm:text-sm">{search}</span>
+                      <div className="flex-shrink-0 hidden sm:block">
+                        <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200" />
+                      </div>
                     </div>
                   </button>
                 ))}
