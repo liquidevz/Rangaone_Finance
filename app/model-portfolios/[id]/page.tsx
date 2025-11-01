@@ -107,7 +107,6 @@ export default function PortfolioDetailsPage() {
     return Number(pct.toFixed(2));
   }, [fullPriceHistory, priceHistory]);
 
-  // Trailing Returns computed live from price-history API
   type TrailingItem = { period: string; value: string };
   const [trailingReturns, setTrailingReturns] = useState<TrailingItem[]>([
     { period: "1 day", value: "-" },
@@ -121,91 +120,22 @@ export default function PortfolioDetailsPage() {
     { period: "Since Inception", value: "-" },
   ]);
 
-  const computeChangePercent = (series: Array<{ date: string; value: number }>, startIndex: number, endIndex: number): number | null => {
-    if (!series || series.length === 0) return null;
-    const start = series[startIndex]?.value;
-    const end = series[endIndex]?.value;
-    if (typeof start !== 'number' || typeof end !== 'number' || start <= 0) return null;
-    return ((end - start) / start) * 100;
-  };
-
-  const formatReturn = (val: number | null): string => {
-    if (val === null || !isFinite(val)) return "-";
-    const rounded = Number(val.toFixed(1));
-    return `${rounded}`;
-  };
-
   useEffect(() => {
-    const loadTrailingReturns = async () => {
-      try {
-        const periods: Array<'1w' | '1m' | '3m' | '6m' | '1y' | 'all'> = ['1w', '1m', '3m', '6m', '1y', 'all'];
-        const responses = await Promise.all(periods.map(p => axiosApi.get(`/api/portfolios/${portfolioId}/price-history?period=${p}`)));
-        const byPeriod = new Map<string, any[]>(
-          responses.map((res, idx) => [periods[idx], Array.isArray(res.data) ? res.data : []])
-        );
-
-        const series1w = byPeriod.get('1w') || [];
-        const series1m = byPeriod.get('1m') || [];
-        const series3m = byPeriod.get('3m') || [];
-        const series6m = byPeriod.get('6m') || [];
-        const series1y = byPeriod.get('1y') || [];
-        const seriesAll = byPeriod.get('all') || [];
-
-        const mapSeries = (arr: any[]) => arr.map(d => ({ date: d.date, value: Number(d.value) }));
-        const s1w = mapSeries(series1w);
-        const s1m = mapSeries(series1m);
-        const s3m = mapSeries(series3m);
-        const s6m = mapSeries(series6m);
-        const s1y = mapSeries(series1y);
-        const sAll = mapSeries(seriesAll);
-
-        let oneDay: number | null = null;
-        if (s1w.length >= 2) {
-          oneDay = computeChangePercent(s1w, s1w.length - 2, s1w.length - 1);
-        }
-
-        const oneWeek = s1w.length >= 2 ? computeChangePercent(s1w, 0, s1w.length - 1) : null;
-        const oneMonth = s1m.length >= 2 ? computeChangePercent(s1m, 0, s1m.length - 1) : null;
-        const threeMonths = s3m.length >= 2 ? computeChangePercent(s3m, 0, s3m.length - 1) : null;
-        const sixMonths = s6m.length >= 2 ? computeChangePercent(s6m, 0, s6m.length - 1) : null;
-        const oneYear = s1y.length >= 2 ? computeChangePercent(s1y, 0, s1y.length - 1) : null;
-
-        const lastDate = sAll.length > 0 ? new Date(sAll[sAll.length - 1].date) : null;
-        const findStartIndexFromYears = (years: number): number | null => {
-          if (!lastDate || sAll.length === 0) return null;
-          const cutoff = new Date(lastDate);
-          cutoff.setFullYear(cutoff.getFullYear() - years);
-          for (let i = 0; i < sAll.length; i++) {
-            if (new Date(sAll[i].date) >= cutoff) return i;
-          }
-          return null;
-        };
-        const idx3y = findStartIndexFromYears(3);
-        const threeYears = idx3y !== null ? computeChangePercent(sAll, idx3y, sAll.length - 1) : null;
-        const idx5y = findStartIndexFromYears(5);
-        const fiveYears = idx5y !== null ? computeChangePercent(sAll, idx5y, sAll.length - 1) : null;
-        const sinceInception = sAll.length >= 2 ? computeChangePercent(sAll, 0, sAll.length - 1) : null;
-
-        setTrailingReturns([
-          { period: '1 day', value: formatReturn(oneDay) },
-          { period: '1 Week', value: formatReturn(oneWeek) },
-          { period: '1 Month', value: formatReturn(oneMonth) },
-          { period: '3 Months', value: formatReturn(threeMonths) },
-          { period: '6 Months', value: formatReturn(sixMonths) },
-          { period: '1 year', value: formatReturn(oneYear) },
-          { period: '3 Years', value: formatReturn(threeYears) },
-          { period: '5 Years', value: formatReturn(fiveYears) },
-          { period: 'Since Inception', value: formatReturn(sinceInception) },
-        ]);
-      } catch (err) {
-        console.error('Failed to compute trailing returns:', err);
-      }
-    };
-
-    if (portfolioId && hasAccess) {
-      loadTrailingReturns();
+    if (portfolio && (portfolio as any)?.trailingReturns) {
+      const tr = (portfolio as any).trailingReturns;
+      setTrailingReturns([
+        { period: '1 day', value: tr['1day'] || '-' },
+        { period: '1 Week', value: tr['1week'] || '-' },
+        { period: '1 Month', value: tr['1month'] || '-' },
+        { period: '3 Months', value: tr['3months'] || '-' },
+        { period: '6 Months', value: tr['6months'] || '-' },
+        { period: '1 year', value: tr['1year'] || '-' },
+        { period: '3 Years', value: tr['3years'] || '-' },
+        { period: '5 Years', value: tr['5years'] || '-' },
+        { period: 'Since Inception', value: tr['sinceInception'] || '-' },
+      ]);
     }
-  }, [portfolioId, hasAccess]);
+  }, [portfolio]);
 
   const searchParams = useSearchParams();
   const router = useRouter();

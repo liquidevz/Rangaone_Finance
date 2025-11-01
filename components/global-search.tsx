@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Search, X, TrendingUp, Briefcase, FileText, Clock, ArrowRight, Lightbulb } from "lucide-react"
 import { useAuth } from "@/components/auth/auth-context"
+import { useCart } from "@/components/cart/cart-context"
 import { cn } from "@/lib/utils"
 
 const debounce = <T extends (...args: any[]) => any>(func: T, wait: number) => {
@@ -41,6 +42,7 @@ interface Suggestion {
   hasAccess?: boolean
   category?: string
   createdAt?: string
+  portfolioId?: string
 }
 
 
@@ -56,6 +58,7 @@ export function GlobalSearch() {
   const router = useRouter()
   const searchRef = useRef<HTMLDivElement>(null)
   const { isAuthenticated } = useAuth()
+  const { addToCart } = useCart()
 
   useEffect(() => {
     const saved = localStorage.getItem('recent-searches')
@@ -106,6 +109,7 @@ export function GlobalSearch() {
           category: portfolio.category,
           onClick: portfolio.onClick,
           portfolioName: portfolio.portfolioName,
+          portfolioId: portfolio.portfolioId,
           hasAccess: portfolio.hasAccess,
           createdAt: portfolio.createdAt,
           updatedAt: portfolio.updatedAt
@@ -119,6 +123,7 @@ export function GlobalSearch() {
           description: 'Buy Range: Click here | Target: Click here | Status: Click here',
           category: tip.category,
           onClick: tip.onClick,
+          portfolioId: tip.portfolioId,
           hasAccess: tip.hasAccess,
           createdAt: tip.createdAt,
           updatedAt: tip.updatedAt
@@ -215,14 +220,23 @@ export function GlobalSearch() {
     }
   }
 
-  const handleResultClick = (result: SearchResult) => {
+  const handleResultClick = async (result: SearchResult) => {
+    if (result.portfolioId && result.hasAccess !== true) {
+      setIsOpen(false)
+      setQuery("")
+      try {
+        await addToCart(result.portfolioId)
+        router.push('/cart')
+      } catch (error: any) {
+        console.error('Failed to add to cart:', error)
+      }
+      return
+    }
+    
     saveRecentSearch(result.title)
-    
-    // Use url directly for navigation
-    router.push(result.url)
-    
     setIsOpen(false)
     setQuery("")
+    router.push(result.url)
   }
 
   const getTypeIcon = (type: string, category?: string) => {
@@ -284,12 +298,16 @@ export function GlobalSearch() {
     if (!type) return null
     
     const portfolioColors = [
-      "bg-gradient-to-br from-[#F97C7C] via-[#FF8A8A] to-[#FF6B6B] shadow-lg",
-      "bg-gradient-to-br from-[#FFD400] via-[#FFE066] to-[#FFC107] shadow-lg", 
-      "bg-gradient-to-br from-[#92DFF3] via-[#A8E6F7] to-[#74C0FC] shadow-lg",
-      "bg-gradient-to-br from-[#96B766] via-[#A8C77A] to-[#82A55A] shadow-lg"
+      "bg-gradient-to-br from-[#26426e] to-[#0f2e5f] shadow-lg shadow-blue-900/50",
+      "bg-gradient-to-br from-[#00cdf9] to-[#009DDC] shadow-lg shadow-cyan-400/50",
+      "bg-gradient-to-br from-[#ff9d66] to-[#F26430] shadow-lg shadow-orange-400/50",
+      "bg-gradient-to-br from-[#a09bd5] to-[#6761A8] shadow-lg shadow-purple-400/50",
+      "bg-gradient-to-br from-[#0f2e5f] to-[#26426e] shadow-lg shadow-blue-800/50",
+      "bg-gradient-to-br from-[#009DDC] to-[#00cdf9] shadow-lg shadow-cyan-500/50",
+      "bg-gradient-to-br from-[#F26430] to-[#ff9d66] shadow-lg shadow-orange-500/50",
+      "bg-gradient-to-br from-[#6761A8] to-[#a09bd5] shadow-lg shadow-purple-500/50"
     ]
-    const portfolioColorIndex = portfolioName ? portfolioName.length % portfolioColors.length : 0
+    const portfolioColorIndex = portfolioName ? (portfolioName || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % portfolioColors.length : 0
     
     const badges = {
       tip: category === "premium" 
@@ -392,11 +410,11 @@ export function GlobalSearch() {
                       {items.map((result, idx) => {
                         const isActive = activeIndex === flatResults.indexOf(result)
                         return (
-                          <button
+                          <div
                             key={result.id}
                             onClick={() => handleResultClick(result)}
                             className={cn(
-                              "w-full px-3 sm:px-5 py-3 sm:py-4 text-left transition-all duration-300 group relative",
+                              "w-full px-3 sm:px-5 py-3 sm:py-4 text-left transition-all duration-300 group relative cursor-pointer",
                               "hover:bg-gradient-to-r hover:from-blue-50/90 hover:to-indigo-50/90 hover:scale-[1.01]",
                               "border-b border-gray-100/60 last:border-b-0",
                               isActive && "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200/60 shadow-sm"
@@ -442,13 +460,6 @@ export function GlobalSearch() {
                                   </div>
                                 )}
                               </div>
-                              {result.hasAccess === false && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-5 rounded">
-                                  <div className="bg-white rounded px-2 py-1 text-xs font-medium text-gray-600 shadow-sm">
-                                    {result.category === 'premium' ? 'Premium Required' : 'Subscription Required'}
-                                  </div>
-                                </div>
-                              )}
                               <div className="flex-shrink-0 hidden sm:block">
                                 <ArrowRight className={cn(
                                   "h-4 w-4 sm:h-5 sm:w-5 text-gray-400 transition-all duration-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-2 group-hover:text-blue-600",
@@ -456,7 +467,7 @@ export function GlobalSearch() {
                                 )} />
                               </div>
                             </div>
-                          </button>
+                          </div>
                         )
                       })}
                     </div>
@@ -489,11 +500,27 @@ export function GlobalSearch() {
                 </div>
               </div>
               <div className="py-1 max-h-48 sm:max-h-64 overflow-y-auto">
-                {suggestions.map((suggestion, index) => (
-                  <button
+                {suggestions.map((suggestion, index) => {
+                  const handleClick = async () => {
+                    if (suggestion.portfolioId && suggestion.hasAccess !== true) {
+                      setIsOpen(false)
+                      setQuery("")
+                      try {
+                        await addToCart(suggestion.portfolioId)
+                        router.push('/cart')
+                      } catch (error: any) {
+                        console.error('Failed to add to cart:', error)
+                      }
+                    } else {
+                      handleInputChange(suggestion.text)
+                    }
+                  }
+                  
+                  return (
+                  <div
                     key={index}
-                    onClick={() => handleInputChange(suggestion.text)}
-                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-left hover:bg-blue-50 transition-all duration-200 text-gray-700 group border-b border-gray-100 last:border-b-0"
+                    onClick={handleClick}
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-left hover:bg-blue-50 transition-all duration-200 text-gray-700 group border-b border-gray-100 last:border-b-0 cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 flex-shrink-0">
@@ -505,7 +532,11 @@ export function GlobalSearch() {
                           {formatDate(suggestion.createdAt)}
                         </span>
                       )}
-                      {suggestion.hasAccess === false ? (
+                      {suggestion.hasAccess === false && (suggestion.type === 'portfolio' || suggestion.portfolioId) ? (
+                        <span className="px-2 py-0.5 text-xs bg-blue-600 text-white rounded flex-shrink-0">
+                          Add to Cart
+                        </span>
+                      ) : suggestion.hasAccess === false ? (
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
@@ -519,8 +550,9 @@ export function GlobalSearch() {
                         <ArrowRight className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-all duration-200 flex-shrink-0" />
                       )}
                     </div>
-                  </button>
-                ))}
+                  </div>
+                  )
+                })}
               </div>
             </div>
           ) : !isAuthenticated ? (

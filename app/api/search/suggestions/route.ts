@@ -10,6 +10,7 @@ interface Suggestion {
   id: string
   hasAccess?: boolean
   category?: string
+  portfolioId?: string
 }
 
 const PAGE_SUGGESTIONS: Suggestion[] = [
@@ -100,7 +101,8 @@ async function getSuggestions(query: string): Promise<Suggestion[]> {
           type: 'tip',
           id: tip._id,
           hasAccess,
-          category: tip.category
+          category: tip.category,
+          portfolioId: tip.portfolioId
         })
       }
     })
