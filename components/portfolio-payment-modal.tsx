@@ -226,7 +226,7 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
       setProcessingMsg("Creating eMandate…");
       
       const emandatePayload = {
-        productType: "Portfolio",
+        productType: "Portfolio" as const,
         productId: cartItems[0]?.portfolio._id || "",
         emandateType: subscriptionType
       };
@@ -340,7 +340,7 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
           setProcessingMsg("Creating eMandate…");
           
           const emandatePayload = {
-            productType: "Portfolio",
+            productType: "Portfolio" as const,
             productId: productId,
             emandateType: subscriptionType
           };
@@ -495,7 +495,7 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
                       <iframe
                         width="100%"
                         height="315"
-                        src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                        src="https://youtube.com/embed/guetyPOoThw"
                         title="Digital Verification Process"
                         frameBorder="0"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
