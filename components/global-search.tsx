@@ -400,7 +400,7 @@ export function GlobalSearch() {
                 })
                 .map(([section, items]) => (
                   <div key={section} className="border-b border-gray-100/80 last:border-b-0">
-                    <div className="sticky top-0 bg-gradient-to-r from-blue-50/95 to-indigo-50/95 backdrop-blur-md px-3 sm:px-5 py-3 sm:py-4 border-b border-blue-100/60">
+                    <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-50/95 to-indigo-50/95 backdrop-blur-md px-3 sm:px-5 py-3 sm:py-4 border-b border-blue-100/60">
                       <div className="flex items-center gap-2 sm:gap-3">
                         <span className="text-xs sm:text-sm font-bold text-gray-800 uppercase tracking-wide">{section}</span>
                         <span className="text-xs text-blue-600 bg-blue-100/80 px-2 sm:px-3 py-1 rounded-full font-medium">{items.length}</span>

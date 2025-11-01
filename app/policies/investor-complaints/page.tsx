@@ -217,85 +217,7 @@ Complaint Data to be Displayed by RAs
           <tr>
             <td className="border border-gray-300 px-3 py-2">1</td>
             <td className="border border-gray-300 px-3 py-2">
-              April, 2025
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              N/A
-            </td>
-          </tr>
-          <tr>
-            <td className="border border-gray-300 px-3 py-2">2</td>
-            <td className="border border-gray-300 px-3 py-2">May, 2025</td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              N/A
-            </td>
-          </tr>
-          <tr>
-            <td className="border border-gray-300 px-3 py-2">3</td>
-            <td className="border border-gray-300 px-3 py-2">June, 2025</td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              N/A
-            </td>
-          </tr>
-          <tr>
-            <td className="border border-gray-300 px-3 py-2">4</td>
-            <td className="border border-gray-300 px-3 py-2">July, 2025</td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              N/A
-            </td>
-          </tr>
-          <tr>
-            <td className="border border-gray-300 px-3 py-2">5</td>
-            <td className="border border-gray-300 px-3 py-2">
-              March, 2025
+              Novemeber, 2025
             </td>
             <td className="border border-gray-300 px-3 py-2 text-center">
               0
@@ -377,55 +299,7 @@ Complaint Data to be Displayed by RAs
         <tbody>
           <tr>
             <td className="border border-gray-300 px-3 py-2">1</td>
-            <td className="border border-gray-300 px-3 py-2">2021-22</td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-          </tr>
-          <tr>
-            <td className="border border-gray-300 px-3 py-2">2</td>
-            <td className="border border-gray-300 px-3 py-2">2022-23</td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-          </tr>
-          <tr>
-            <td className="border border-gray-300 px-3 py-2">3</td>
-            <td className="border border-gray-300 px-3 py-2">2023-24</td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-            <td className="border border-gray-300 px-3 py-2 text-center">
-              0
-            </td>
-          </tr>
-          <tr>
-            <td className="border border-gray-300 px-3 py-2">4</td>
-            <td className="border border-gray-300 px-3 py-2">2024-25</td>
+            <td className="border border-gray-300 px-3 py-2">2025-26</td>
             <td className="border border-gray-300 px-3 py-2 text-center">
               0
             </td>

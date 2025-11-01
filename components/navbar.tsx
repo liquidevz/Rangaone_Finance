@@ -31,7 +31,7 @@ const NavLinks = [
   // },
   {
     title: "Contact Us",
-    href: "#contact-us",
+    href: "/#contact-us",
     sublinks: [],
   },
 ];
@@ -161,7 +161,13 @@ export const RoundedDrawerNav = ({
           }
         }, 100);
       } else {
-        window.location.href = href;
+        router.push('/');
+        setTimeout(() => {
+          const element = document.querySelector(`#${sectionId}`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 500);
       }
     } else if (href.startsWith('#')) {
       e.preventDefault();
@@ -279,13 +285,13 @@ export const RoundedDrawerNav = ({
 
 
             {/* Demo Tour Button */}
-            <button
+            {/* <button
               onClick={handleDemoTour}
               className={`${buttonBg} ${buttonText} p-2 rounded-full transition-all hover:scale-105`}
               title="Start Demo Tour"
             >
               <FiHelpCircle className="w-5 h-5" />
-            </button>
+            </button> */}
 
             {/* Cart Icon - Show for all users */}
             <button

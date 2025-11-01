@@ -71,7 +71,8 @@ export default function GrievanceRedressalPage() {
         <h2 className="text-2xl font-semibold mb-4 text-[#001633]">Step 4: SEBI SCORES Portal</h2>
         <ul className="list-disc pl-6 mb-4">
           <li>If your complaint is not resolved within 30 days, you may lodge your complaint with the regulator, The Securities and Exchange Board of India (SEBI), through its centralized web-based complaints redressal system – SCORES.</li>
-          <li><strong>SCORES Portal Link:</strong> <a href="https://scores.gov.in/scores/complaintRegister.html#" className="text-[#1e3a8a] hover:underline">https://scores.gov.in/scores/complaintRegister.html#</a></li>
+          <li><strong>SCORES Portal Link:</strong> <a href="https://scores.sebi.gov.in/scores/complaintRegister.html" className="text-[#1e3a8a] hover:underline" target="_blank" 
+    rel="noopener noreferrer">https://scores.sebi.gov.in/scores/complaintRegister.html</a></li>
         </ul>
       </section>
 
@@ -79,7 +80,8 @@ export default function GrievanceRedressalPage() {
         <h2 className="text-2xl font-semibold mb-4 text-[#001633]">Step 5: Online Dispute Resolution (ODR)</h2>
         <ul className="list-disc pl-6 mb-4">
           <li>If your complaint is not resolved on the SCORES portal, you may initiate the dispute resolution process through SEBI's Smart ODR Platform.</li>
-          <li><strong>Smart ODR Portal Link:</strong> <a href="https://smartodr.in/login" className="text-[#1e3a8a] hover:underline">https://smartodr.in/login</a></li>
+          <li><strong>Smart ODR Portal Link:</strong> <a href="https://smartodr.in/login" className="text-[#1e3a8a] hover:underline" target="_blank" 
+    rel="noopener noreferrer">https://smartodr.in/login</a></li>
         </ul>
       </section>
     </PolicyLayout>

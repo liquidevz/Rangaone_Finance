@@ -15,7 +15,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     if (isLoading) return;
 
     // Define public routes that don't require authentication
-    const publicRoutes = ["/", "/login", "/signup", "/contact-us", "/premium-subscription", "/basic-subscription", "/cart"];
+    const publicRoutes = ["/", "/login", "/signup", "/contact-us", "/about-us", "/premium-subscription", "/basic-subscription", "/cart"];
     const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith("/auth/") || pathname.startsWith("/policies/");
 
     // Define auth routes that should redirect to dashboard if authenticated
@@ -50,7 +50,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   // Define public routes that don't require authentication
-  const publicRoutes = ["/", "/login", "/signup", "/contact-us", "/premium-subscription", "/basic-subscription", "/cart"];
+  const publicRoutes = ["/", "/login", "/signup", "/contact-us", "/about-us", "/premium-subscription", "/basic-subscription", "/cart"];
   const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith("/auth/") || pathname.startsWith("/policies/");
 
   // If it's a public route or user is authenticated, render children

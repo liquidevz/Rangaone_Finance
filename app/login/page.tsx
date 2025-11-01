@@ -130,10 +130,18 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-8">
           {/* Header */}
           <div className="text-center">
-            <div className="w-16 h-16 bg-[#001633] rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-[#FFFFF0] font-bold text-xl">R</span>
+            <div className="flex items-center justify-center gap-2 mx-auto mt-2 mb-12 -my-16">
+              <img 
+                src="/landing-page/rlogodark.png" 
+                alt="RangaOne Logo" 
+                className="h-20 w-auto" 
+              />
+              <img 
+                src="/landing-page/namelogodark.png" 
+                alt="RangaOne Name" 
+                className="h-20 w-auto" 
+              />
             </div>
-            <h2 className="text-3xl font-bold text-gray-900">Welcome back</h2>
             <p className="mt-2 text-gray-600">
               Sign in to your account to continue
             </p>

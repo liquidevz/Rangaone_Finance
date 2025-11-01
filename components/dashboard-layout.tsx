@@ -4,7 +4,7 @@ import type React from "react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Menu, X, PanelLeft } from "lucide-react";
+import { ChevronDown, Menu, X, PanelLeft, ShoppingCart } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth/auth-context";
@@ -178,6 +178,14 @@ export default function DashboardLayout({
               <div className="flex-1 md:hidden"></div>
 
               <div className="flex items-center gap-2">
+                <Link
+                  href="/cart"
+                  className="rounded-xl p-2 text-gray-700 hover:bg-gray-100/80 transition-all duration-200 ring-1 ring-gray-200/50 hover:ring-gray-300/50"
+                  title="Cart"
+                >
+                  <ShoppingCart className="h-5 w-5" />
+                </Link>
+
                 <div className="relative">
                   <button
                     onClick={() => setShowUserMenu(!showUserMenu)}

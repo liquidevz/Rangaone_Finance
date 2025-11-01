@@ -250,8 +250,8 @@ export default function SignupPage() {
       <div className="hidden lg:flex flex-1 bg-transparent items-top justify-center p-8 fixed left-0 top-0 bottom-0 w-1/2 bg-cover bg-center" style={{ backgroundImage: "url('/signup-bg.png')" }}>
         <div className="absolute inset-0 bg-transparent"></div>
         <div className="text-center text-[#FFFFF0] relative z-10">
-          <h1 className="text-4xl font-bold mb-4">
-            Join RangaOne Finwala
+          <h1 className="text-4xl font-bold mb-2">
+            Join RangaOne Finance
           </h1>
           <p className="text-xl opacity-90 mb-8">
             Your Growth, Our Priority
@@ -264,8 +264,17 @@ export default function SignupPage() {
         <div className="w-full max-w-md space-y-8">
           {/* Header */}
           <div className="text-center">
-            <div className="w-16 h-16 bg-[#001633] rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-[#FFFFF0] font-bold text-xl">R</span>
+            <div className="flex items-center justify-center gap-2 mx-auto mb-12 -mt-24">
+              <img 
+                src="/landing-page/rlogodark.png" 
+                alt="RangaOne Logo" 
+                className="h-20 w-auto" 
+              />
+              <img 
+                src="/landing-page/namelogodark.png" 
+                alt="RangaOne Name" 
+                className="h-20 w-auto" 
+              />
             </div>
             <h2 className="text-3xl font-bold text-gray-900">Create your account</h2>
             <p className="mt-2 text-gray-600">

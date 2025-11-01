@@ -43,15 +43,15 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Quick Links */}
+          {/* Quick Links
           <div>
             <h3 className="text-[#001633] font-bold mb-2 sm:mb-4 text-base">Quick Links</h3>
             <ul className="space-y-1 sm:space-y-2 text-sm">
               <li><Link href="/about-us" className="hover:text-[#1e3a8a]">About Us</Link></li>
-              <li><Link href="#pricing" className="hover:text-[#1e3a8a]">Plans & Pricing</Link></li>
-              <li><Link href="/contact-us" className="hover:text-[#1e3a8a]">Contact Us</Link></li>
+              <li><Link href="/#pricing" className="hover:text-[#1e3a8a]">Plans & Pricing</Link></li>
+              <li><Link href="/#contact-us" className="hover:text-[#1e3a8a]">Contact Us</Link></li>
             </ul>
-          </div>
+          </div> */}
 
           {/* Services */}
           <div>
@@ -85,12 +85,9 @@ export default function Footer() {
               <li><Link href="/policies/cancellation-refund-policy" className="hover:text-[#1e3a8a]">Cancellation & Refund Policy</Link></li>
             </ul>
           </div>
-        </div>
 
-        <hr className="border-gray-300 mb-4 sm:mb-8" />
-
-                  {/* Support */}
-          <div>
+                            {/* Support */}
+                            <div>
             <h4 className="text-[#001633] font-bold mb-2 text-base">Support</h4>
             <div className="space-y-1 sm:space-y-2 text-sm mb-3">
               <p><span className="font-semibold ">Customer Care Number</span></p>
@@ -102,7 +99,9 @@ export default function Footer() {
               <p>Support@rangaone.finance</p>
             </div>
           </div>
+        </div>
 
+        <hr className="border-gray-300 mb-4 sm:mb-8" />
           <hr className="border-gray-300 mb-4 sm:mb-8" />
 
         {/* Company Details Section */}
