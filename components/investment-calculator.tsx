@@ -37,6 +37,7 @@ export function InvestmentCalculator() {
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [error, setError] = useState<string>('');
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
+  const resultsRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadPortfolios();
@@ -78,6 +79,9 @@ export function InvestmentCalculator() {
     try {
       const calculation = performCalculation(selectedPortfolio, amount);
       setResult(calculation);
+      setTimeout(() => {
+        resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
     } catch (error: any) {
       console.error('Calculation error:', error);
       setError(error.message || 'Failed to calculate investment allocation');
@@ -399,7 +403,7 @@ export function InvestmentCalculator() {
       </Card>
 
       {result && (
-        <Card>
+        <Card ref={resultsRef}>
           <CardHeader>
             <CardTitle>Investment Allocation Results</CardTitle>
           </CardHeader>
