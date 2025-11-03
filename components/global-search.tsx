@@ -111,7 +111,11 @@ export function GlobalSearch() {
           hasAccess: portfolio.hasAccess,
           createdAt: portfolio.createdAt,
           updatedAt: portfolio.updatedAt
-        }))
+        })).sort((a: any, b: any) => {
+          const dateA = new Date(a.updatedAt || a.createdAt || 0).getTime()
+          const dateB = new Date(b.updatedAt || b.createdAt || 0).getTime()
+          return dateB - dateA
+        })
         
         const tips = allTips.filter((item: any) => !item.title || !item.title.includes(' - ')).map((tip: any) => ({
           id: tip.id,
@@ -124,7 +128,11 @@ export function GlobalSearch() {
           hasAccess: tip.hasAccess,
           createdAt: tip.createdAt,
           updatedAt: tip.updatedAt
-        }))
+        })).sort((a: any, b: any) => {
+          const dateA = new Date(a.updatedAt || a.createdAt || 0).getTime()
+          const dateB = new Date(b.updatedAt || b.createdAt || 0).getTime()
+          return dateB - dateA
+        })
         
         return {
           Pages: data.results.pages || [],
@@ -282,23 +290,37 @@ export function GlobalSearch() {
     )
   }
 
+  const getPortfolioColor = (name: string) => {
+    const colors = [
+      { from: '#26426e', via: '#0f2e5f', to: '#26426e', shadow: 'rgba(38,66,110,0.4)' },
+      { from: '#00cdf9', via: '#009ddc', to: '#00cdf9', shadow: 'rgba(0,205,249,0.4)' },
+      { from: '#a09bd5', via: '#6761a8', to: '#a09bd5', shadow: 'rgba(160,155,213,0.4)' },
+      { from: '#34d399', via: '#10b981', to: '#34d399', shadow: 'rgba(52,211,153,0.4)' },
+      { from: '#f472b6', via: '#ec4899', to: '#f472b6', shadow: 'rgba(244,114,182,0.4)' },
+      { from: '#fbbf24', via: '#f59e0b', to: '#fbbf24', shadow: 'rgba(251,191,36,0.4)' },
+      { from: '#60a5fa', via: '#3b82f6', to: '#60a5fa', shadow: 'rgba(96,165,250,0.4)' },
+      { from: '#c084fc', via: '#a855f7', to: '#c084fc', shadow: 'rgba(192,132,252,0.4)' },
+      { from: '#4ade80', via: '#22c55e', to: '#4ade80', shadow: 'rgba(74,222,128,0.4)' },
+      { from: '#f87171', via: '#ef4444', to: '#f87171', shadow: 'rgba(248,113,113,0.4)' },
+      { from: '#fb923c', via: '#f97316', to: '#fb923c', shadow: 'rgba(251,146,60,0.4)' },
+      { from: '#14b8a6', via: '#0d9488', to: '#14b8a6', shadow: 'rgba(20,184,166,0.4)' }
+    ]
+    let hash = 0
+    for (let i = 0; i < name.length; i++) {
+      hash = ((hash << 5) - hash) + name.charCodeAt(i)
+      hash = hash & hash
+    }
+    return colors[Math.abs(hash) % colors.length]
+  }
+
   const getResultBadge = (type: string, category?: string, portfolioName?: string) => {
     if (!type) return null
-    
-    const getPortfolioColorClass = (name: string) => {
-      console.log('Portfolio name for color:', name)
-      if (name.toLowerCase().includes('momentum')) return "bg-gradient-to-br from-[#26426e] via-[#0f2e5f] to-[#26426e] shadow-[0_4px_20px_rgba(38,66,110,0.4)]"
-      if (name.toLowerCase().includes('dividend')) return "bg-gradient-to-br from-[#00cdf9] via-[#009ddc] to-[#00cdf9] shadow-[0_4px_20px_rgba(0,205,249,0.4)]"
-      if (name.toLowerCase().includes('value')) return "bg-gradient-to-br from-[#ff9d66] via-[#f26430] to-[#ff9d66] shadow-[0_4px_20px_rgba(255,157,102,0.4)]"
-      if (name.toLowerCase().includes('growth')) return "bg-gradient-to-br from-[#a09bd5] via-[#6761a8] to-[#a09bd5] shadow-[0_4px_20px_rgba(160,155,213,0.4)]"
-      return "bg-gradient-to-br from-[#26426e] via-[#0f2e5f] to-[#26426e] shadow-[0_4px_20px_rgba(38,66,110,0.4)]"
-    }
     
     const badges = {
       tip: category === "premium" 
         ? { text: "Premium Bundle", className: "bg-gradient-to-r from-yellow-400 to-amber-500 text-white shadow-lg" }
         : { text: "Basic Bundle", className: "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg" },
-      portfolio: { text: portfolioName || "Portfolio", className: `${getPortfolioColorClass(portfolioName || '')} text-white` },
+      portfolio: { text: portfolioName || "Portfolio", className: "", style: portfolioName ? getPortfolioColor(portfolioName) : null },
       stock: category === "portfolio" 
         ? { text: "Portfolio Stock", className: "bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg" }
         : { text: "Stock", className: "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg" },
@@ -307,6 +329,21 @@ export function GlobalSearch() {
     }
     
     const badge = badges[type as keyof typeof badges] || { text: type.charAt(0).toUpperCase() + type.slice(1), className: "bg-gray-100 text-gray-600" }
+    
+    if (type === 'portfolio' && 'style' in badge && badge.style) {
+      const color = badge.style
+      return (
+        <span 
+          className="text-xs font-semibold px-3 py-1.5 rounded-full shadow-md border border-white/20 text-white"
+          style={{
+            background: `linear-gradient(to bottom right, ${color.from}, ${color.via}, ${color.to})`,
+            boxShadow: `0 4px 20px ${color.shadow}`
+          }}
+        >
+          {badge.text}
+        </span>
+      )
+    }
     
     return (
       <span className={cn(
@@ -383,9 +420,9 @@ export function GlobalSearch() {
                   const order = ['Stocks', 'Portfolios', 'Tips', 'Pages', 'Subscriptions']
                   return order.indexOf(a) - order.indexOf(b)
                 })
-                .map(([section, items]) => (
+                .map(([section, items], sectionIndex) => (
                   <div key={section} className="border-b border-gray-100/80 last:border-b-0">
-                    <div className="sticky top-0 bg-gradient-to-r from-blue-50/95 to-indigo-50/95 backdrop-blur-md px-3 sm:px-5 py-3 sm:py-4 border-b border-blue-100/60">
+                    <div className="sticky top-0 bg-gradient-to-r from-blue-50/95 to-indigo-50/95 backdrop-blur-md px-3 sm:px-5 py-3 sm:py-4 border-b border-blue-100/60" style={{ zIndex: 50 - sectionIndex }}>
                       <div className="flex items-center gap-2 sm:gap-3">
                         <span className="text-xs sm:text-sm font-bold text-gray-800 uppercase tracking-wide">{section}</span>
                         <span className="text-xs text-blue-600 bg-blue-100/80 px-2 sm:px-3 py-1 rounded-full font-medium">{items.length}</span>

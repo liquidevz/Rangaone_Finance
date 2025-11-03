@@ -260,11 +260,11 @@ export default function SignupPage() {
       </div>
 
       {/* Right Panel - Signup Form */}
-      <div className="flex-1 lg:ml-[50%] overflow-y-auto p-4 sm:p-8 md:p-16 lg:p-36 bg-white">
+      <div className="flex-1 lg:ml-[50%] overflow-y-auto flex items-center justify-center p-4 sm:p-8 lg:pt-32 bg-white">
         <div className="w-full max-w-md space-y-8">
           {/* Header */}
           <div className="text-center">
-            <div className="flex items-center justify-center gap-2 mx-auto mb-12 -mt-24">
+            <div className="flex items-center justify-center gap-2 mx-auto mb-12 lg:-mt-24">
               <img 
                 src="/landing-page/rlogodark.png" 
                 alt="RangaOne Logo" 

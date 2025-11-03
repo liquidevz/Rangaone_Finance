@@ -105,10 +105,25 @@ async function getSearchData(): Promise<SearchResult[]> {
       }
     })
     
-    // Show all portfolios but mark access status
+    // Get user's accessible portfolios from /api/user/portfolios
+    const userPortfoliosResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.rangaone.finance'}/api/user/portfolios`, {
+      headers: {
+        'Authorization': `Bearer ${authService.getAccessToken()}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    const userPortfolios = userPortfoliosResponse.ok ? await userPortfoliosResponse.json() : []
+    const accessiblePortfolioIds = new Set(
+      userPortfolios
+        .filter((p: any) => !p.message || p.message !== "Subscribe to view complete details")
+        .map((p: any) => p._id)
+    )
+    
+    // Show all portfolios but mark access status based on /api/user/portfolios
     portfolios.forEach(portfolio => {
       if (portfolio._id && portfolio.name) {
-        const hasAccess = accessData.portfolioAccess.includes(portfolio._id)
+        const hasAccess = accessiblePortfolioIds.has(portfolio._id)
         searchItems.push({
           id: portfolio._id,
           title: `${portfolio.name} Portfolio`,
@@ -144,8 +159,10 @@ async function getSearchData(): Promise<SearchResult[]> {
         console.log('Tip data:', { id: tip._id, buyRange: tip.buyRange, targetPrice: tip.targetPrice, status: tip.status })
         
         if (hasPortfolio) {
-          // Add to portfolios section
+          // Add to portfolios section - check portfolio-specific access
+          const portfolioId = typeof tip.portfolio === 'string' ? tip.portfolio : tip.portfolio._id
           const portfolioName = tip.portfolioName || (typeof tip.portfolio === 'object' ? tip.portfolio.name : 'Portfolio')
+          
           searchItems.push({
             id: tip._id,
             title: `${tip.title || tip.stockId} - ${portfolioName}`,
@@ -156,7 +173,7 @@ async function getSearchData(): Promise<SearchResult[]> {
             createdAt: tip.createdAt,
             stockId: tip.stockId,
             symbol: tip.symbol,
-            hasAccess,
+            hasAccess: portfolioId ? accessiblePortfolioIds.has(portfolioId) : false,
             onClick: {
               action: 'navigate',
               params: { url: `/tips/${tip._id}` }

@@ -1005,6 +1005,34 @@ export default function CartPage() {
                                       )}
                                     </AnimatePresence>
                                     
+                                    {(() => {
+                                      const premiumBundle = bundleRecommendations.find(bundle => 
+                                        bundle.category === "premium" && bundle.portfolios.some((p: any) => p._id === item.portfolio._id)
+                                      )
+                                      
+                                      if (premiumBundle) {
+                                        return (
+                                          <div className="p-3 bg-gradient-to-br from-yellow-100 via-yellow-50 to-amber-100 rounded-lg border border-yellow-300 cursor-pointer"
+                                               onClick={() => router.push('/premium-subscription')}>
+                                            <div className="flex items-start gap-2">
+                                              <Sparkles className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" />
+                                              <div className="flex-1 min-w-0">
+                                                <div className="text-xs font-bold text-yellow-900 mb-1">
+                                                  💡 Save More with Premium!
+                                                </div>
+                                                <p className="text-xs text-yellow-800 mb-1">
+                                                  <span className="bg-yellow-300 px-1 py-0.5 rounded font-semibold">{item.portfolio.name}</span> is in {premiumBundle.name} at a cheaper price
+                                                </p>
+                                                <div className="text-xs font-medium text-yellow-700">
+                                                  Tap to view →
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        )
+                                      }
+                                      return null
+                                    })()}
 
                                   </div>
                                 </motion.div>
