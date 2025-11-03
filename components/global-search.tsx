@@ -319,7 +319,7 @@ export function GlobalSearch() {
   }
 
   return (
-    <div ref={searchRef} className="relative flex-1 max-w-2xl z-[9999]">
+    <div ref={searchRef} className="relative flex-1 max-w-2xl z-40">
       <div className="relative group">
         <input
           type="text"
@@ -364,7 +364,7 @@ export function GlobalSearch() {
       </div>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 sm:mt-3 bg-white border border-gray-200 rounded-xl sm:rounded-2xl shadow-2xl z-100 max-h-[28rem] sm:max-h-[32rem] overflow-hidden" role="listbox">
+        <div className="absolute top-full left-0 right-0 mt-2 sm:mt-3 bg-white border border-gray-200 rounded-xl sm:rounded-2xl shadow-2xl z-50 max-h-[28rem] sm:max-h-[32rem] overflow-hidden" role="listbox">
           {loading ? (
             <div className="p-8 text-center">
               <div className="relative mx-auto w-12 h-12 mb-4">
