@@ -44,6 +44,7 @@ jobs:
             KEEP_BUILDS=2
             ENV_FILE=".env"
             KEEP_ENV_BACKUPS=3
+            PORT_RELEASE_TIMEOUT=30
 
             echo "🚀 Starting Zero-Downtime Deployment for ${IMAGE_PREFIX}..."
 
@@ -131,25 +132,61 @@ jobs:
             echo "✅ Temporary container healthy!"
 
             ########################################
-            # 🔁 Step 5: Swap Containers
+            # 🔁 Step 5: Swap Containers with Port Cleanup
             ########################################
             echo "🛑 Stopping current production container..."
+            
+            # Stop and remove named production container
             if docker ps -a --format '{{.Names}}' | grep -xq "${CONTAINER_PROD}"; then
               docker stop "${CONTAINER_PROD}" || true
-              docker rm "${CONTAINER_PROD}" || true
-            else
-              echo "⚙️ No named prod container found; checking port ${PROD_PORT}..."
-              docker ps --format "{{.Names}}\t{{.Ports}}" | grep ":${PROD_PORT}" | awk '{print $1}' | xargs -r docker stop || true
-              docker ps -a --format "{{.Names}}\t{{.Ports}}" | grep ":${PROD_PORT}" | awk '{print $1}' | xargs -r docker rm || true
+              docker rm -f "${CONTAINER_PROD}" || true
+            fi
+            
+            # Find and stop any container using the production port
+            echo "🔍 Checking for containers using port ${PROD_PORT}..."
+            CONTAINERS_ON_PORT=$(docker ps --format "{{.ID}}" --filter "publish=${PROD_PORT}" 2>/dev/null || true)
+            if [ -n "${CONTAINERS_ON_PORT}" ]; then
+              echo "🛑 Stopping containers on port ${PROD_PORT}: ${CONTAINERS_ON_PORT}"
+              echo "${CONTAINERS_ON_PORT}" | xargs -r docker stop || true
+              echo "${CONTAINERS_ON_PORT}" | xargs -r docker rm -f || true
             fi
 
-            echo "⌛ Waiting for port ${PROD_PORT} to be released..."
+            # Enhanced port release verification
+            echo "⌛ Waiting for port ${PROD_PORT} to be fully released..."
+            port_wait=0
+            while ss -ltn "sport = :${PROD_PORT}" 2>/dev/null | grep -q ":${PROD_PORT}"; do
+              if [ "$port_wait" -ge "$PORT_RELEASE_TIMEOUT" ]; then
+                echo "❌ Port ${PROD_PORT} still in use after ${PORT_RELEASE_TIMEOUT}s"
+                echo "🔍 Checking what's using the port:"
+                ss -ltnp "sport = :${PROD_PORT}" || true
+                lsof -i :${PROD_PORT} || true
+                
+                # Last resort: kill process using the port
+                echo "⚠️ Attempting to kill process on port ${PROD_PORT}..."
+                fuser -k ${PROD_PORT}/tcp 2>/dev/null || true
+                sleep 2
+                break
+              fi
+              printf "."
+              sleep 1
+              port_wait=$((port_wait + 1))
+            done
+            
+            # Additional safety wait
             sleep 2
-            if ss -ltn "( sport = :${PROD_PORT} )" >/dev/null 2>&1; then
-              echo "⚠️ Port ${PROD_PORT} still in use, waiting 3s more..."
-              sleep 3
+            
+            # Final port check
+            if ss -ltn "sport = :${PROD_PORT}" 2>/dev/null | grep -q ":${PROD_PORT}"; then
+              echo "❌ Port ${PROD_PORT} is STILL occupied. Deployment cannot proceed safely."
+              docker rm -f "${CONTAINER_TMP}" || true
+              exit 1
             fi
+            
+            echo "✅ Port ${PROD_PORT} is free!"
 
+            ########################################
+            # 🚀 Step 6: Start Production Container
+            ########################################
             echo "🚀 Starting production container ${CONTAINER_PROD}..."
             PROD_RUN_CMD=(docker run -d --name "${CONTAINER_PROD}" --restart unless-stopped \
               -p "${PROD_PORT}:3000" \
@@ -157,45 +194,78 @@ jobs:
               -e NEXT_TELEMETRY_DISABLED=1 \
               -e VERCEL=1 \
               -e CI=true)
+            
             if [ -f "${ENV_FILE}" ]; then
               PROD_RUN_CMD+=(--env-file "${ENV_FILE}")
             fi
+            
             PROD_RUN_CMD+=("${NEW_IMAGE}")
-            "${PROD_RUN_CMD[@]}"
+            
+            # Try to start production container with retry
+            prod_start_attempts=0
+            max_prod_attempts=3
+            while [ $prod_start_attempts -lt $max_prod_attempts ]; do
+              if "${PROD_RUN_CMD[@]}"; then
+                echo "✅ Production container started successfully"
+                break
+              else
+                prod_start_attempts=$((prod_start_attempts + 1))
+                if [ $prod_start_attempts -lt $max_prod_attempts ]; then
+                  echo "⚠️ Failed to start production container (attempt ${prod_start_attempts}/${max_prod_attempts}). Retrying in 3s..."
+                  sleep 3
+                else
+                  echo "❌ Failed to start production container after ${max_prod_attempts} attempts"
+                  docker rm -f "${CONTAINER_TMP}" || true
+                  exit 1
+                fi
+              fi
+            done
 
             ########################################
-            # 🩺 Step 6: Verify Production Health
+            # 🩺 Step 7: Verify Production Health
             ########################################
             echo "🩺 Checking production health..."
-            sleep 3
-            if ! curl -fsS "http://localhost:${PROD_PORT}${HEALTH_PATH}" >/dev/null 2>&1; then
-              echo "❌ Production health check failed. Rolling back..."
-              docker logs "${CONTAINER_PROD}" || true
-              docker rm -f "${CONTAINER_PROD}" || true
+            sleep 5
+            
+            health_check_attempts=0
+            max_health_attempts=5
+            while [ $health_check_attempts -lt $max_health_attempts ]; do
+              if curl -fsS "http://localhost:${PROD_PORT}${HEALTH_PATH}" >/dev/null 2>&1; then
+                echo "✅ Production container is healthy!"
+                break
+              else
+                health_check_attempts=$((health_check_attempts + 1))
+                if [ $health_check_attempts -lt $max_health_attempts ]; then
+                  echo "⏳ Health check attempt ${health_check_attempts}/${max_health_attempts} failed, retrying in 3s..."
+                  sleep 3
+                else
+                  echo "❌ Production health check failed after ${max_health_attempts} attempts. Rolling back..."
+                  docker logs "${CONTAINER_PROD}" || true
+                  docker rm -f "${CONTAINER_PROD}" || true
 
-              PREV_IMAGE=$(docker images "${IMAGE_PREFIX}" --format '{{.Repository}}:{{.Tag}}' \
-                | grep -E "${IMAGE_PREFIX}:[0-9]{8}-[0-9]{6}" \
-                | grep -v "${TIMESTAMP}" | head -n1 || true)
+                  PREV_IMAGE=$(docker images "${IMAGE_PREFIX}" --format '{{.Repository}}:{{.Tag}}' \
+                    | grep -E "${IMAGE_PREFIX}:[0-9]{8}-[0-9]{6}" \
+                    | grep -v "${TIMESTAMP}" | head -n1 || true)
 
-              if [ -n "${PREV_IMAGE}" ]; then
-                echo "🔁 Rolling back to previous image: ${PREV_IMAGE}"
-                docker run -d --name "${CONTAINER_PROD}" --restart unless-stopped \
-                  -p "${PROD_PORT}:3000" \
-                  -e NODE_ENV=production \
-                  -e NEXT_TELEMETRY_DISABLED=1 \
-                  "${PREV_IMAGE}" || true
-                sleep 3
+                  if [ -n "${PREV_IMAGE}" ]; then
+                    echo "🔁 Rolling back to previous image: ${PREV_IMAGE}"
+                    docker run -d --name "${CONTAINER_PROD}" --restart unless-stopped \
+                      -p "${PROD_PORT}:3000" \
+                      -e NODE_ENV=production \
+                      -e NEXT_TELEMETRY_DISABLED=1 \
+                      "${PREV_IMAGE}" || true
+                    sleep 5
+                  fi
+
+                  docker rm -f "${CONTAINER_TMP}" || true
+                  docker rmi "${NEW_IMAGE}" || true
+                  exit 1
+                fi
               fi
-
-              docker rm -f "${CONTAINER_TMP}" || true
-              docker rmi "${NEW_IMAGE}" || true
-              exit 1
-            fi
-
-            echo "✅ Production container is healthy!"
+            done
 
             ########################################
-            # 🧹 Step 7: Cleanup Old Images & Containers
+            # 🧹 Step 8: Cleanup Old Images & Containers
             ########################################
             docker rm -f "${CONTAINER_TMP}" 2>/dev/null || true
             echo "🧹 Cleaning up old images (keeping last ${KEEP_BUILDS})..."
@@ -211,6 +281,10 @@ jobs:
             ########################################
             # 📋 Summary
             ########################################
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             echo "📦 Current Running Containers:"
             docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             echo "🎉 Deployment Complete: ${NEW_IMAGE} → ${CONTAINER_PROD}"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
