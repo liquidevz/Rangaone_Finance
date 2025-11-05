@@ -62,7 +62,16 @@ export default function SignupPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    let processedValue = value;
+    
+    // Trim spaces for all fields and enforce phone validation
+    if (name === "phone") {
+      processedValue = value.replace(/\s/g, "").replace(/\D/g, "").slice(0, 10);
+    } else {
+      processedValue = value.trimStart();
+    }
+    
+    setFormData((prev) => ({ ...prev, [name]: processedValue }));
   };
 
   const handleCheckboxChange = (checked: boolean) => {
@@ -91,7 +100,8 @@ export default function SignupPage() {
       return;
     }
 
-    if (!formData.email.trim()) {
+    const emailTrimmed = formData.email.trim();
+    if (!emailTrimmed) {
       toast({
         title: "Email required",
         description: "Please enter your email address.",
@@ -100,10 +110,30 @@ export default function SignupPage() {
       return;
     }
 
-    if (!formData.phone.trim()) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailTrimmed)) {
+      toast({
+        title: "Invalid email",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const phoneTrimmed = formData.phone.trim();
+    if (!phoneTrimmed) {
       toast({
         title: "Phone required",
         description: "Please enter your phone number.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (phoneTrimmed.length !== 10 || !/^\d{10}$/.test(phoneTrimmed)) {
+      toast({
+        title: "Invalid phone number",
+        description: "Phone number must be exactly 10 digits.",
         variant: "destructive",
       });
       return;
@@ -166,11 +196,11 @@ export default function SignupPage() {
       const fullName = getFullName();
       
       const response = await authService.signup({
-        username: generatedUsername,
+        username: generatedUsername.trim(),
         email: formData.email.trim(),
         phone: formData.phone.trim(),
         password: formData.password,
-        fullName: fullName,
+        fullName: fullName.trim(),
         dateOfBirth: formData.dateOfBirth,
         state: formData.state.trim(),
       });
@@ -367,10 +397,12 @@ export default function SignupPage() {
                 required
                 value={formData.phone}
                 onChange={handleChange}
-                placeholder="Enter your phone number (e.g., +91-9876543210)"
+                placeholder="Enter 10-digit phone number"
+                maxLength={10}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#001633] focus:border-transparent"
                 disabled={formLoading}
               />
+              <p className="text-xs text-gray-500 mt-1">Enter 10 digits only (no country code)</p>
             </div>
 
             <div>
