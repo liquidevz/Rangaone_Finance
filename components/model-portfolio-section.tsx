@@ -512,11 +512,18 @@ export default function ModelPortfolioSection() {
                              </div>
                            </a>
                          )}
-                         <a href="#" target="_blank" rel="noopener noreferrer" title="Watch Video">
-                           <div className="w-10 h-10 bg-black dark:bg-white rounded-lg flex items-center justify-center hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors">
-                             <Play className="w-5 h-5 text-[#FFFFF0] dark:text-black" fill="currentColor" />
-                           </div>
-                         </a>
+                         {(portfolio as any).youTubeLinks?.[0]?.link && (
+                           <a
+                             href={(portfolio as any).youTubeLinks[0].link}
+                             target="_blank"
+                             rel="noopener noreferrer"
+                             title="Watch Video"
+                           >
+                             <div className="w-10 h-10 bg-black dark:bg-white rounded-lg flex items-center justify-center hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors">
+                               <Play className="w-5 h-5 text-[#FFFFF0] dark:text-black" fill="currentColor" />
+                             </div>
+                           </a>
+                         )}
                        </div>
                      </div>
 

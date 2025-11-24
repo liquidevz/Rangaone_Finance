@@ -1448,7 +1448,7 @@ export default function PortfolioDetailsPage() {
                           <td colSpan={4} className="px-2 py-3">
                             <div className="grid grid-cols-2 gap-4 text-sm">
                               <div>
-                                <span className="text-gray-600 font-medium">Buy Price:</span>
+                                <span className="text-gray-600 font-medium">Buy/Average Price:</span>
                                 <div className="text-gray-800 font-medium">₹{(holding.buyPrice || 0).toFixed(2)}</div>
                               </div>
                               <div>
@@ -1535,7 +1535,7 @@ export default function PortfolioDetailsPage() {
                 <thead>
                   <tr className="bg-gray-600 text-[#FFFFF0] text-xs">
                     <th className="px-2 py-2 text-left font-medium">Stock Name</th>
-                    <th className="px-2 py-2 text-center font-medium">Buy Price</th>
+                    <th className="px-2 py-2 text-center font-medium">Buy/Average Price</th>
                     <th className="px-2 py-2 text-center font-medium">Wt (%)</th>
                     <th className="px-2 py-2 text-center font-medium">Action</th>
                     <th className="px-2 py-2 text-center font-medium">
@@ -1748,8 +1748,8 @@ export default function PortfolioDetailsPage() {
                     </div>
                   ) : (
                     <>
-                      <div className={`text-xl font-bold ${chartDataPnl.sinceInceptionPnl.value >= 0 ? 'text-blue-700' : 'text-red-600'}`}>
-                        {chartDataPnl.sinceInceptionPnl.value >= 0 ? '+' : ''}₹{Math.abs(chartDataPnl.sinceInceptionPnl.value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <div className={`text-xl font-bold ${((portfolio as any)?.pnlSinceInceptionTotal ?? chartDataPnl.sinceInceptionPnl.value) >= 0 ? 'text-blue-700' : 'text-red-600'}`}>
+                        {((portfolio as any)?.pnlSinceInceptionTotal ?? chartDataPnl.sinceInceptionPnl.value) >= 0 ? '+' : '-'}₹{Math.abs((portfolio as any)?.pnlSinceInceptionTotal ?? chartDataPnl.sinceInceptionPnl.value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                       <div className={`text-sm font-medium ${chartDataPnl.sinceInceptionPnl.percent >= 0 ? 'text-blue-600' : 'text-red-500'}`}>
                         {chartDataPnl.sinceInceptionPnl.percent >= 0 ? '+' : ''}{chartDataPnl.sinceInceptionPnl.percent.toFixed(2)}% return

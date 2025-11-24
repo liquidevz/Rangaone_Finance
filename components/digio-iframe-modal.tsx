@@ -91,8 +91,7 @@ export const DigioIframeModal: React.FC<DigioIframeModalProps> = ({
               src={digioUrl}
               className="w-full h-full border-0"
               onLoad={handleIframeLoad}
-              allow="camera; microphone; geolocation"
-              sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation"
+              allow="camera *; microphone *; geolocation *; fullscreen"
               title="Digio Verification"
             />
           </div>
