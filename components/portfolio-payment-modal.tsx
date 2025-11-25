@@ -491,16 +491,13 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
               <div className="p-4 sm:p-6">
                 {step === "consent" && (
                   <div className="space-y-6">
-                    <div className="bg-gray-100 rounded-lg overflow-hidden">
+                    <div className="bg-black rounded-lg overflow-hidden aspect-video">
                       <iframe
-                        width="100%"
-                        height="315"
-                        src="https://youtube.com/embed/guetyPOoThw"
+                        src={`https://www.youtube.com/embed/guetyPOoThw?origin=${typeof window !== 'undefined' ? window.location.origin : ''}`}
                         title="Digital Verification Process"
-                        frameBorder="0"
+                        className="w-full h-full"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen
-                        className="w-full"
                       ></iframe>
                     </div>
 
