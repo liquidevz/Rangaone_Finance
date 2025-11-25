@@ -5,15 +5,13 @@ interface MobileVideoPlayerProps {
 
 export function MobileVideoPlayer({ youtubeId, title }: MobileVideoPlayerProps) {
   return (
-    <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+    <div className="relative w-full aspect-video">
       <iframe 
-        src={`https://www.youtube.com/embed/${youtubeId}?rel=0&modestbranding=1`}
+        src={`https://www.youtube-nocookie.com/embed/${youtubeId}`}
         title={title}
-        className="absolute top-0 left-0 w-full h-full"
-        frameBorder="0" 
+        className="absolute inset-0 w-full h-full"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
         allowFullScreen
-        loading="lazy"
       />
     </div>
   )
