@@ -42,6 +42,7 @@ interface Suggestion {
   hasAccess?: boolean
   category?: string
   createdAt?: string
+  portfolioName?: string
 }
 
 
@@ -73,14 +74,14 @@ export function GlobalSearch() {
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
-  
+
 
 
   const searchAPI = async (searchQuery: string) => {
     try {
       const { get } = await import('@/lib/axios')
       const data: any = await get(`/api/search?q=${encodeURIComponent(searchQuery)}&limit=10`)
-      
+
       if (data.success) {
         // Handle direct stocks
         const stocks = (data.results.stocks || []).map((stock: any) => ({
@@ -95,10 +96,10 @@ export function GlobalSearch() {
           createdAt: stock.createdAt,
           updatedAt: stock.updatedAt
         }))
-        
+
         // Separate tips with portfolio from regular tips
         const allTips = [...(data.results.portfolios || []), ...(data.results.tips || [])]
-        
+
         const portfolios = allTips.filter((item: any) => item.title && item.title.includes(' - ')).map((portfolio: any) => ({
           id: portfolio.id,
           title: portfolio.title,
@@ -116,7 +117,7 @@ export function GlobalSearch() {
           const dateB = new Date(b.updatedAt || b.createdAt || 0).getTime()
           return dateB - dateA
         })
-        
+
         const tips = allTips.filter((item: any) => !item.title || !item.title.includes(' - ')).map((tip: any) => ({
           id: tip.id,
           title: tip.title,
@@ -133,7 +134,7 @@ export function GlobalSearch() {
           const dateB = new Date(b.updatedAt || b.createdAt || 0).getTime()
           return dateB - dateA
         })
-        
+
         return {
           Pages: data.results.pages || [],
           Portfolios: portfolios,
@@ -153,9 +154,9 @@ export function GlobalSearch() {
     try {
       const { get } = await import('@/lib/axios')
       const data: any = await get(`/api/search/suggestions?q=${encodeURIComponent(searchQuery)}`)
-      
+
       console.log('Suggestions response:', data)
-      
+
       if (data.success && data.suggestions?.length > 0) {
         setSuggestions(data.suggestions)
       } else {
@@ -211,7 +212,7 @@ export function GlobalSearch() {
   }
 
   const flatResults = Object.values(results).flat()
-  
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       setIsOpen(false)
@@ -227,10 +228,10 @@ export function GlobalSearch() {
 
   const handleResultClick = (result: SearchResult) => {
     saveRecentSearch(result.title)
-    
+
     // Use url directly for navigation
     router.push(result.url)
-    
+
     setIsOpen(false)
     setQuery("")
   }
@@ -250,8 +251,8 @@ export function GlobalSearch() {
       case "tip": return (
         <div className={cn(
           "rounded-lg p-2 shadow-sm",
-          category === "premium" 
-            ? "bg-gradient-to-br from-yellow-400 to-amber-500" 
+          category === "premium"
+            ? "bg-gradient-to-br from-yellow-400 to-amber-500"
             : "bg-gradient-to-br from-blue-500 to-indigo-600"
         )}>
           <Lightbulb className="h-4 w-4 text-white" />
@@ -315,25 +316,25 @@ export function GlobalSearch() {
 
   const getResultBadge = (type: string, category?: string, portfolioName?: string) => {
     if (!type) return null
-    
+
     const badges = {
-      tip: category === "premium" 
+      tip: category === "premium"
         ? { text: "Premium Bundle", className: "bg-gradient-to-r from-yellow-400 to-amber-500 text-white shadow-lg" }
         : { text: "Basic Bundle", className: "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg" },
       portfolio: { text: portfolioName || "Portfolio", className: "", style: portfolioName ? getPortfolioColor(portfolioName) : null },
-      stock: category === "portfolio" 
+      stock: category === "portfolio"
         ? { text: "Portfolio Stock", className: "bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg" }
         : { text: "Stock", className: "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg" },
       subscription: { text: "Subscription", className: "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg" },
       page: { text: "Page", className: "bg-gradient-to-r from-gray-500 to-slate-600 text-white shadow-lg" }
     }
-    
+
     const badge = badges[type as keyof typeof badges] || { text: type.charAt(0).toUpperCase() + type.slice(1), className: "bg-gray-100 text-gray-600" }
-    
+
     if (type === 'portfolio' && 'style' in badge && badge.style) {
       const color = badge.style
       return (
-        <span 
+        <span
           className="text-xs font-semibold px-3 py-1.5 rounded-full shadow-md border border-white/20 text-white"
           style={{
             background: `linear-gradient(to bottom right, ${color.from}, ${color.via}, ${color.to})`,
@@ -344,7 +345,7 @@ export function GlobalSearch() {
         </span>
       )
     }
-    
+
     return (
       <span className={cn(
         "text-xs font-semibold px-3 py-1.5 rounded-full shadow-md border border-white/20",
@@ -559,6 +560,18 @@ export function GlobalSearch() {
                         {getTypeIcon(suggestion.type, suggestion.category)}
                       </div>
                       <span className="group-hover:text-blue-700 transition-colors duration-200 text-xs sm:text-sm font-medium truncate flex-1">{suggestion.text}</span>
+                      {suggestion.type === 'tip' && (suggestion.portfolioName || suggestion.category) && (
+                        <span className={cn(
+                          "text-xs px-2 py-0.5 rounded-full flex-shrink-0",
+                          suggestion.portfolioName
+                            ? "bg-purple-100 text-purple-700"
+                            : suggestion.category === 'premium'
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-blue-100 text-blue-700"
+                        )}>
+                          {suggestion.portfolioName || (suggestion.category === 'premium' ? 'Premium' : 'Basic')}
+                        </span>
+                      )}
                       {suggestion.createdAt && (
                         <span className="text-xs text-gray-500 flex-shrink-0">
                           {formatDate(suggestion.createdAt)}

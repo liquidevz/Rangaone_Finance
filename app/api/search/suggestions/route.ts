@@ -11,6 +11,7 @@ interface Suggestion {
   hasAccess?: boolean
   category?: string
   portfolioId?: string
+  portfolioName?: string
 }
 
 const PAGE_SUGGESTIONS: Suggestion[] = [
@@ -30,7 +31,7 @@ async function getSuggestions(query: string): Promise<Suggestion[]> {
   try {
     const queryLower = query.toLowerCase()
     const suggestions: Suggestion[] = []
-    
+
     // Get user subscriptions for access control
     const subscriptionsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.rangaone.finance'}/api/user/subscriptions`, {
       headers: {
@@ -38,16 +39,16 @@ async function getSuggestions(query: string): Promise<Suggestion[]> {
         'Content-Type': 'application/json'
       }
     })
-    
+
     const subscriptionsData = subscriptionsResponse.ok ? await subscriptionsResponse.json() : { subscriptions: [], has_basic: false, has_premium: false, access: { portfolioIds: [] } }
-    
+
     const accessData = {
       hasBasic: subscriptionsData.has_basic || false,
       hasPremium: subscriptionsData.has_premium || false,
       portfolioAccess: subscriptionsData.access?.portfolioIds || [],
       subscriptionType: subscriptionsData.overview?.subscriptionType || 'none'
     }
-    
+
     // Add page suggestions
     PAGE_SUGGESTIONS.forEach(page => {
       if (page.text.toLowerCase().includes(queryLower)) {
@@ -57,13 +58,13 @@ async function getSuggestions(query: string): Promise<Suggestion[]> {
         })
       }
     })
-    
+
     // Get dynamic data
     const [portfolios, tips] = await Promise.all([
       portfolioService.getAll().catch(() => []),
       tipsService.getAll().catch(() => [])
     ])
-    
+
     // Show all portfolios with access status
     portfolios.forEach(portfolio => {
       if (portfolio.name && portfolio.name.toLowerCase().includes(queryLower)) {
@@ -76,9 +77,9 @@ async function getSuggestions(query: string): Promise<Suggestion[]> {
         })
       }
     })
-    
+
     // Add subscription suggestions
-    subscriptionsData.subscriptions.forEach(sub => {
+    subscriptionsData.subscriptions.forEach((sub: any) => {
       const productName = typeof sub.productId === 'object' ? sub.productId?.name : sub.productId
       if (productName && productName.toLowerCase().includes(queryLower)) {
         const productId = typeof sub.productId === 'string' ? sub.productId : sub.productId?._id
@@ -90,23 +91,38 @@ async function getSuggestions(query: string): Promise<Suggestion[]> {
         })
       }
     })
-    
-    // Show all tips with access status
+
+    // Show all tips with access status and portfolio information
     tips.forEach(tip => {
       const title = tip.title || tip.stockId
       if (title && title.toLowerCase().includes(queryLower)) {
         const hasAccess = tip.category === 'premium' ? accessData.hasPremium : accessData.hasBasic
+
+        // Determine category to display
+        let displayCategory: string = tip.category
+        let portfolioName: string | undefined = undefined
+
+        // If tip is part of a portfolio, use portfolio name as category
+        if (tip.portfolioId) {
+          const portfolio = portfolios.find(p => p._id === tip.portfolioId)
+          if (portfolio) {
+            portfolioName = portfolio.name
+            displayCategory = portfolioName
+          }
+        }
+
         suggestions.push({
           text: title,
           type: 'tip',
           id: tip._id,
           hasAccess,
-          category: tip.category,
-          portfolioId: tip.portfolioId
+          category: displayCategory,
+          portfolioId: tip.portfolioId,
+          portfolioName
         })
       }
     })
-    
+
     // Add stock suggestions from accessible tips only
     const uniqueStocks = new Set()
     tips.forEach(tip => {
@@ -123,17 +139,17 @@ async function getSuggestions(query: string): Promise<Suggestion[]> {
         }
       }
     })
-    
+
     // Remove duplicates and limit results
-    const uniqueSuggestions = suggestions.filter((suggestion, index, self) => 
+    const uniqueSuggestions = suggestions.filter((suggestion, index, self) =>
       index === self.findIndex(s => s.text === suggestion.text && s.type === suggestion.type)
     )
-    
+
     return uniqueSuggestions.slice(0, 10)
-    
+
   } catch (error) {
     console.error('Failed to get suggestions:', error)
-    return PAGE_SUGGESTIONS.filter(page => 
+    return PAGE_SUGGESTIONS.filter(page =>
       page.text.toLowerCase().includes(query.toLowerCase())
     ).slice(0, 5)
   }

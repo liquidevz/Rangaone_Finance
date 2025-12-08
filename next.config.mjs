@@ -10,27 +10,26 @@ const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
 
-  webpack: (config, { isServer }) => {
-    // Resolve alias
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@': new URL('.', import.meta.url).pathname,
-    }
-
-    // Optimize for Docker
-    if (isServer) {
-      config.externals.push('sharp')
-    }
-
-    return config
-  },
+  // Turbopack configuration (empty to silence warning)
+  turbopack: {},
 
   generateBuildId: async () => 'build-' + Date.now(),
 
   // Image configuration for Docker
   images: {
-    domains: ['v0.blob.com', 'img.youtube.com', 'i.ytimg.com'],
     remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'v0.blob.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'img.youtube.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.ytimg.com',
+      },
       {
         protocol: 'https',
         hostname: '**',
@@ -44,7 +43,6 @@ const nextConfig = {
 
   transpilePackages: ['lucide-react'],
 
-  eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
 
   outputFileTracingIncludes: {
@@ -83,13 +81,7 @@ const nextConfig = {
     ]
   },
 
-  serverRuntimeConfig: {
-    PROJECT_ROOT: __dirname,
-  },
 
-  publicRuntimeConfig: {
-    staticFolder: '/static',
-  },
 }
 
 export default nextConfig
