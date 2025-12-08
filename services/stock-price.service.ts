@@ -1,5 +1,6 @@
 import axiosApi from "@/lib/axios";
 import { authService } from "./auth.service";
+import { logger } from "@/lib/logger";
 
 export interface StockPriceData {
   symbol: string;
@@ -44,31 +45,31 @@ class StockPriceService {
       // Get auth token
       const token = authService.getAccessToken();
       if (!token) {
-        console.warn(`No auth token available for fetching stock ID ${id} price`);
+        logger.warn(`No auth token available for fetching stock ID ${id} price`);
         return { success: false, data: null, error: "Authentication required" };
       }
 
-      console.log(`🔍 Fetching live price for stock ID ${id}`);
+      logger.debug(`🔍 Fetching live price for stock ID ${id}`);
 
       // Make API call with retry logic using the exact endpoint
       const stockData = await this.fetchByIdWithRetry(id, token);
-      
+
       if (stockData) {
         // Cache the result
         this.setCachedPrice(id, stockData);
-        console.log(`✅ Successfully fetched price for stock ID ${id}: ₹${stockData.currentPrice}`);
+        logger.debug(`✅ Successfully fetched price for stock ID ${id}: ₹${stockData.currentPrice}`);
         return { success: true, data: stockData };
       } else {
-        console.warn(`⚠️ No data returned for stock ID ${id}`);
+        logger.warn(`⚠️ No data returned for stock ID ${id}`);
         return { success: false, data: null, error: "No data available" };
       }
 
     } catch (error: any) {
-      console.error(`❌ Failed to fetch price for stock ID ${id}:`, error);
-      return { 
-        success: false, 
-        data: null, 
-        error: error.message || "Failed to fetch stock price" 
+      logger.error(`❌ Failed to fetch price for stock ID ${id}:`, error);
+      return {
+        success: false,
+        data: null,
+        error: error.message || "Failed to fetch stock price"
       };
     }
   }
@@ -87,31 +88,31 @@ class StockPriceService {
       // Get auth token
       const token = authService.getAccessToken();
       if (!token) {
-        console.warn(`No auth token available for fetching ${symbol} price`);
+        logger.warn(`No auth token available for fetching ${symbol} price`);
         return { success: false, data: null, error: "Authentication required" };
       }
 
-      console.log(`🔍 Fetching live price for ${symbol}`);
+      logger.debug(`🔍 Fetching live price for ${symbol}`);
 
       // Make API call with retry logic
       const stockData = await this.fetchWithRetry(symbol, token);
-      
+
       if (stockData) {
         // Cache the result
         this.setCachedPrice(symbol, stockData);
-        console.log(`✅ Successfully fetched price for ${symbol}: ₹${stockData.currentPrice}`);
+        logger.debug(`✅ Successfully fetched price for ${symbol}: ₹${stockData.currentPrice}`);
         return { success: true, data: stockData };
       } else {
-        console.warn(`⚠️ No data returned for ${symbol}`);
+        logger.warn(`⚠️ No data returned for ${symbol}`);
         return { success: false, data: null, error: "No data available" };
       }
 
     } catch (error: any) {
-      console.error(`❌ Failed to fetch price for ${symbol}:`, error);
-      return { 
-        success: false, 
-        data: null, 
-        error: error.message || "Failed to fetch stock price" 
+      logger.error(`❌ Failed to fetch price for ${symbol}:`, error);
+      return {
+        success: false,
+        data: null,
+        error: error.message || "Failed to fetch stock price"
       };
     }
   }
@@ -120,10 +121,10 @@ class StockPriceService {
    * Fetch live stock prices for multiple stock IDs with exact precision
    */
   async getMultipleStockPricesById(ids: string[]): Promise<Map<string, StockPriceResponse>> {
-    console.log(`🔍 Fetching exact prices for ${ids.length} stock IDs`);
-    
+    logger.debug(`🔍 Fetching exact prices for ${ids.length} stock IDs`);
+
     const results = new Map<string, StockPriceResponse>();
-    
+
     // Use Promise.allSettled to handle partial failures gracefully
     const promises = ids.map(async (id) => {
       const result = await this.getStockPriceById(id);
@@ -131,18 +132,18 @@ class StockPriceService {
     });
 
     const settledResults = await Promise.allSettled(promises);
-    
+
     settledResults.forEach((settledResult) => {
       if (settledResult.status === 'fulfilled') {
         const { id, result } = settledResult.value;
         results.set(id, result);
       } else {
-        console.error('Failed to fetch price for stock ID:', settledResult.reason);
+        logger.error('Failed to fetch price for stock ID:', settledResult.reason);
       }
     });
 
-    console.log(`✅ Completed fetching exact prices. Success: ${Array.from(results.values()).filter(r => r.success).length}/${ids.length}`);
-    
+    logger.debug(`✅ Completed fetching exact prices. Success: ${Array.from(results.values()).filter(r => r.success).length}/${ids.length}`);
+
     return results;
   }
 
@@ -150,10 +151,10 @@ class StockPriceService {
    * Fetch live stock prices for multiple symbols (backwards compatibility)
    */
   async getMultipleStockPrices(symbols: string[]): Promise<Map<string, StockPriceResponse>> {
-    console.log(`🔍 Fetching prices for ${symbols.length} symbols`);
-    
+    logger.debug(`🔍 Fetching prices for ${symbols.length} symbols`);
+
     const results = new Map<string, StockPriceResponse>();
-    
+
     // Use Promise.allSettled to handle partial failures gracefully
     const promises = symbols.map(async (symbol) => {
       const result = await this.getStockPrice(symbol);
@@ -161,18 +162,18 @@ class StockPriceService {
     });
 
     const settledResults = await Promise.allSettled(promises);
-    
+
     settledResults.forEach((settledResult) => {
       if (settledResult.status === 'fulfilled') {
         const { symbol, result } = settledResult.value;
         results.set(symbol, result);
       } else {
-        console.error('Failed to fetch price for symbol:', settledResult.reason);
+        logger.error('Failed to fetch price for symbol:', settledResult.reason);
       }
     });
 
-    console.log(`✅ Completed fetching prices. Success: ${Array.from(results.values()).filter(r => r.success).length}/${symbols.length}`);
-    
+    logger.debug(`✅ Completed fetching prices. Success: ${Array.from(results.values()).filter(r => r.success).length}/${symbols.length}`);
+
     return results;
   }
 
@@ -188,20 +189,21 @@ class StockPriceService {
         timeout: this.REQUEST_TIMEOUT,
       });
 
-      console.log(`📊 API response for stock ID ${id}:`, response.data);
+      // Reduced logging: removed full data dump
+      logger.debug(`📊 API response status for stock ID ${id}: ${response.status}`);
 
       return this.parseStockByIdResponse(response.data, id);
 
     } catch (error: any) {
-      console.error(`❌ API call failed for stock ID ${id} (attempt ${retryCount + 1}):`, error.message, error.response?.data);
-      
+      logger.error(`❌ API call failed for stock ID ${id} (attempt ${retryCount + 1}):`, error.message);
+
       if (retryCount < this.MAX_RETRIES) {
-        console.log(`🔄 Retrying stock ID ${id} (${retryCount + 1}/${this.MAX_RETRIES})`);
+        logger.debug(`🔄 Retrying stock ID ${id} (${retryCount + 1}/${this.MAX_RETRIES})`);
         // Exponential backoff: wait 1s, then 2s, then 4s
         await this.delay(Math.pow(2, retryCount) * 1000);
         return this.fetchByIdWithRetry(id, token, retryCount + 1);
       }
-      
+
       throw error;
     }
   }
@@ -218,20 +220,21 @@ class StockPriceService {
         timeout: this.REQUEST_TIMEOUT,
       });
 
-      console.log(`📊 API response for ${symbol}:`, response.data);
+      // Reduced logging: removed full data dump
+      logger.debug(`📊 API response status for ${symbol}: ${response.status}`);
 
       return this.parseStockResponse(response.data, symbol);
 
     } catch (error: any) {
-      console.error(`❌ API call failed for ${symbol} (attempt ${retryCount + 1}):`, error.message, error.response?.data);
-      
+      logger.error(`❌ API call failed for ${symbol} (attempt ${retryCount + 1}):`, error.message);
+
       if (retryCount < this.MAX_RETRIES) {
-        console.log(`🔄 Retrying ${symbol} (${retryCount + 1}/${this.MAX_RETRIES})`);
+        logger.debug(`🔄 Retrying ${symbol} (${retryCount + 1}/${this.MAX_RETRIES})`);
         // Exponential backoff: wait 1s, then 2s, then 4s
         await this.delay(Math.pow(2, retryCount) * 1000);
         return this.fetchWithRetry(symbol, token, retryCount + 1);
       }
-      
+
       throw error;
     }
   }
@@ -252,7 +255,7 @@ class StockPriceService {
       }
 
       if (!stockData || !stockData.symbol) {
-        console.warn(`⚠️ No stock data found in response for ID ${id}`);
+        logger.warn(`⚠️ No stock data found in response for ID ${id}`);
         return null;
       }
 
@@ -262,7 +265,7 @@ class StockPriceService {
       const todayClosingPrice = this.parseExactPrice(stockData.todayClosingPrice || stockData.previousPrice);
 
       if (isNaN(currentPrice) || currentPrice <= 0) {
-        console.warn(`⚠️ Invalid current price for ID ${id}:`, currentPrice);
+        logger.warn(`⚠️ Invalid current price for ID ${id}:`, currentPrice);
         return null;
       }
 
@@ -286,17 +289,12 @@ class StockPriceService {
         open: this.parseExactPrice(stockData.open),
       };
 
-      console.log(`📈 Parsed exact stock data for ID ${id}:`, {
-        symbol: result.symbol,
-        currentPrice: result.currentPrice,
-        change: result.change,
-        changePercent: result.changePercent + '%'
-      });
+      // Removed verbose parsing log
 
       return result;
 
     } catch (error) {
-      console.error(`❌ Failed to parse response for ID ${id}:`, error);
+      logger.error(`❌ Failed to parse response for ID ${id}:`, error);
       return null;
     }
   }
@@ -320,22 +318,22 @@ class StockPriceService {
       }
 
       if (!stockData) {
-        console.warn(`⚠️ No stock data found in response for ${symbol}`);
+        logger.warn(`⚠️ No stock data found in response for ${symbol}`);
         return null;
       }
 
       // Extract price information with fallbacks
       const currentPrice = this.parsePrice(
-        stockData.currentPrice || 
-        stockData.price || 
-        stockData.ltp || 
+        stockData.currentPrice ||
+        stockData.price ||
+        stockData.ltp ||
         stockData.lastPrice ||
         stockData.close
       );
 
       const previousPrice = this.parsePrice(
-        stockData.previousPrice || 
-        stockData.prevPrice || 
+        stockData.previousPrice ||
+        stockData.prevPrice ||
         stockData.previousClose ||
         stockData.close ||
         currentPrice
@@ -343,14 +341,14 @@ class StockPriceService {
 
       const todayClosingPrice = this.parsePrice(
         stockData.todayClosingPrice ||
-        stockData.previousPrice || 
-        stockData.prevPrice || 
+        stockData.previousPrice ||
+        stockData.prevPrice ||
         stockData.previousClose ||
         previousPrice
       );
 
       if (isNaN(currentPrice) || currentPrice <= 0) {
-        console.warn(`⚠️ Invalid current price for ${symbol}:`, currentPrice);
+        logger.warn(`⚠️ Invalid current price for ${symbol}:`, currentPrice);
         return null;
       }
 
@@ -374,16 +372,12 @@ class StockPriceService {
         open: this.parsePrice(stockData.open || stockData.dayOpen),
       };
 
-      console.log(`📈 Parsed stock data for ${symbol}:`, {
-        currentPrice: result.currentPrice,
-        change: result.change,
-        changePercent: result.changePercent.toFixed(2) + '%'
-      });
+      // Removed verbose parsing log
 
       return result;
 
     } catch (error) {
-      console.error(`❌ Failed to parse response for ${symbol}:`, error);
+      logger.error(`❌ Failed to parse response for ${symbol}:`, error);
       return null;
     }
   }
@@ -395,18 +389,18 @@ class StockPriceService {
     if (value === null || value === undefined || value === '') {
       return 0;
     }
-    
+
     if (typeof value === 'number') {
       return isNaN(value) ? 0 : value;
     }
-    
+
     if (typeof value === 'string') {
       // Remove currency symbols, commas, and other non-numeric characters
       const cleaned = value.replace(/[₹,\s]/g, '');
       const parsed = parseFloat(cleaned);
       return isNaN(parsed) ? 0 : parsed;
     }
-    
+
     return 0;
   }
 
@@ -417,18 +411,18 @@ class StockPriceService {
     if (value === null || value === undefined || value === '') {
       return 0;
     }
-    
+
     if (typeof value === 'number') {
       return isNaN(value) ? 0 : value;
     }
-    
+
     if (typeof value === 'string') {
       // Remove currency symbols, commas, and other non-numeric characters
       const cleaned = value.replace(/[₹,\s]/g, '');
       const parsed = parseFloat(cleaned);
       return isNaN(parsed) ? 0 : parsed;
     }
-    
+
     return 0;
   }
 
@@ -438,17 +432,35 @@ class StockPriceService {
   private getCachedPrice(symbol: string): StockPriceData | null {
     const cached = this.cache.get(symbol);
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
-      console.log(`📋 Using cached price for ${symbol}`);
+      logger.debug(`📋 Using cached price for ${symbol}`);
       return cached.data;
     }
     return null;
   }
 
   private setCachedPrice(symbol: string, data: StockPriceData): void {
+    // Basic cleanup if cache gets too large (simple safeguards)
+    if (this.cache.size > 1000) {
+      this.cleanupCache();
+    }
+
     this.cache.set(symbol, {
       data,
       timestamp: Date.now()
     });
+  }
+
+  /**
+   * Remove expired entries from cache
+   */
+  private cleanupCache(): void {
+    const now = Date.now();
+    this.cache.forEach((value, key) => {
+      if (now - value.timestamp > this.CACHE_DURATION) {
+        this.cache.delete(key);
+      }
+    });
+    logger.debug(`🧹 Cleaned up stock price cache. Current size: ${this.cache.size}`);
   }
 
   /**
@@ -457,10 +469,10 @@ class StockPriceService {
   clearCache(symbol?: string): void {
     if (symbol) {
       this.cache.delete(symbol);
-      console.log(`🗑️ Cleared cache for ${symbol}`);
+      logger.debug(`🗑️ Cleared cache for ${symbol}`);
     } else {
       this.cache.clear();
-      console.log(`🗑️ Cleared all price cache`);
+      logger.debug(`🗑️ Cleared all price cache`);
     }
   }
 

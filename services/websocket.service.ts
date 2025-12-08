@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { logger } from "@/lib/logger";
 
 export interface WebSocketMessage {
   type: 'recommendation' | 'price_alert' | 'portfolio_update' | 'market_update' | 'tip' | 'system';
@@ -21,12 +22,12 @@ class WebSocketService extends EventEmitter {
 
   connect(token?: string) {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      console.log('WebSocket already connected');
+      logger.debug('WebSocket already connected');
       return;
     }
 
     this.isIntentionallyClosed = false;
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL ||
       (process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.rangaone.finance')
         .replace('https://', 'wss://')
         .replace('http://', 'ws://');
@@ -37,7 +38,7 @@ class WebSocketService extends EventEmitter {
       this.ws = new WebSocket(url);
 
       this.ws.onopen = () => {
-        console.log('WebSocket connected');
+        logger.debug('WebSocket connected');
         this.reconnectAttempts = 0;
         this.emit('connected');
         this.startHeartbeat();
@@ -52,28 +53,33 @@ class WebSocketService extends EventEmitter {
       this.ws.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
-          console.log('WebSocket message received:', message);
-          
+          // Removed verbose message logging of every single message
+
           // Handle heartbeat
           if (message.type === 'system' && message.data?.action === 'pong') {
             return;
+          }
+
+          // Only log significant messages in debug
+          if (message.type !== 'system') {
+            logger.debug('WebSocket message received:', message.type);
           }
 
           // Emit specific events based on message type
           this.emit('message', message);
           this.emit(message.type, message.data);
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+          logger.error('Error parsing WebSocket message:', error);
         }
       };
 
       this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        logger.error('WebSocket error:', error);
         this.emit('error', error);
       };
 
       this.ws.onclose = (event) => {
-        console.log('WebSocket disconnected', event);
+        logger.debug('WebSocket disconnected', event.code);
         this.stopHeartbeat();
         this.emit('disconnected');
 
@@ -83,7 +89,7 @@ class WebSocketService extends EventEmitter {
         }
       };
     } catch (error) {
-      console.error('Error creating WebSocket connection:', error);
+      logger.error('Error creating WebSocket connection:', error);
       this.emit('error', error);
     }
   }
@@ -111,10 +117,10 @@ class WebSocketService extends EventEmitter {
     this.reconnectAttempts++;
     const delay = this.reconnectDelay * Math.pow(2, Math.min(this.reconnectAttempts - 1, 3));
 
-    console.log(`Scheduling reconnect attempt ${this.reconnectAttempts} in ${delay}ms`);
+    logger.debug(`Scheduling reconnect attempt ${this.reconnectAttempts} in ${delay}ms`);
 
     this.reconnectInterval = setTimeout(() => {
-      console.log('Attempting to reconnect...');
+      logger.debug('Attempting to reconnect...');
       this.connect();
     }, delay);
   }
@@ -123,13 +129,13 @@ class WebSocketService extends EventEmitter {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(data));
     } else {
-      console.warn('WebSocket is not connected. Message not sent:', data);
+      logger.warn('WebSocket is not connected. Message not sent:', data);
     }
   }
 
   disconnect() {
     this.isIntentionallyClosed = true;
-    
+
     if (this.reconnectInterval) {
       clearTimeout(this.reconnectInterval);
       this.reconnectInterval = null;

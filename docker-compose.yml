@@ -28,8 +28,10 @@ services:
     deploy:
       resources:
         limits:
+          cpus: '0.50'
           memory: 1G
         reservations:
+          cpus: '0.25'
           memory: 512M
     security_opt:
       - no-new-privileges:false

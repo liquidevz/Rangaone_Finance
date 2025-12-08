@@ -4,6 +4,7 @@ import axios, {
   AxiosRequestConfig,
   AxiosResponse,
 } from "axios";
+import { logger } from "./logger";
 
 //apply base url for axios
 const API_URL: string = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.rangaone.finance";
@@ -65,18 +66,20 @@ interface ApiErrorResponse {
 // Response interceptor to handle errors and token refresh
 axiosApi.interceptors.response.use(
   (response: AxiosResponse) => {
-    // Log successful responses for debugging
-    console.log(`[${response.config.method?.toUpperCase()}] ${response.config.url}:`, {
-      status: response.status,
-      statusText: response.statusText
-    });
+    // Log successful responses for debugging - reduced verbosity
+    if (process.env.NODE_ENV !== 'production') {
+      logger.debug(`[${response.config.method?.toUpperCase()}] ${response.config.url}:`, {
+        status: response.status,
+        statusText: response.statusText
+      });
+    }
     return response;
   },
   async (error: AxiosError<ApiErrorResponse>) => {
     const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
-    
-    // Log error details
-    console.error(`API Error [${originalRequest?.method?.toUpperCase()}] ${originalRequest?.url}:`, {
+
+    // Log error details using logger
+    logger.error(`API Error [${originalRequest?.method?.toUpperCase()}] ${originalRequest?.url}:`, {
       status: error.response?.status,
       statusText: error.response?.statusText,
       data: error.response?.data,
@@ -86,7 +89,7 @@ axiosApi.interceptors.response.use(
     // Handle 401 Unauthorized
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      console.log("Attempting token refresh...");
+      logger.warn("Attempting token refresh...");
 
       const refreshToken = getRefreshToken();
       if (refreshToken) {
@@ -97,7 +100,7 @@ axiosApi.interceptors.response.use(
           });
 
           const { accessToken, refreshToken: newRefreshToken } = response.data;
-          console.log("Token refresh successful");
+          logger.info("Token refresh successful");
 
           // Store new tokens
           if (typeof window !== "undefined") {
@@ -117,14 +120,14 @@ axiosApi.interceptors.response.use(
           }
           return axiosApi(originalRequest);
         } catch (refreshError) {
-          console.error("Token refresh failed:", refreshError);
+          logger.error("Token refresh failed:", refreshError);
           // Clear tokens and redirect to login
           if (typeof window !== "undefined") {
             localStorage.removeItem("accessToken");
             localStorage.removeItem("refreshToken");
             sessionStorage.removeItem("accessToken");
             sessionStorage.removeItem("refreshToken");
-            
+
             if (redirectHandler) {
               redirectHandler("/login");
             } else {
@@ -135,7 +138,7 @@ axiosApi.interceptors.response.use(
         }
       }
     }
-    
+
     // Return the original error to avoid any issues with error construction
     return Promise.reject(error);
   }
@@ -168,22 +171,14 @@ export async function post<T>(
   config: AxiosRequestConfig = {},
   isFormData: boolean = false
 ): Promise<T> {
-  try {
-    console.log(`Making POST request to ${url} with data:`, data);
-    let response;
-    
-    if (isFormData) {
-      response = await axiosApi.post(url, getFormData(data), { ...config });
-    } else {
-      response = await axiosApi.post(url, data, { ...config });
-    }
-    
-    console.log(`POST response from ${url}:`, response.data);
-    return response.data;
-  } catch (error) {
-    console.error(`POST request to ${url} failed:`, error);
-    throw error;
+  if (isFormData) {
+    return axiosApi
+      .post(url, getFormData(data), { ...config })
+      .then((response: AxiosResponse<T>) => response.data);
   }
+  return axiosApi
+    .post(url, data, { ...config })
+    .then((response: AxiosResponse<T>) => response.data);
 }
 
 export async function put<T>(
