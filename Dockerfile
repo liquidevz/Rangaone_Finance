@@ -16,7 +16,7 @@ COPY package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --legacy-peer-deps --prefer-offline --no-audit
 COPY . .
-ENV NEXT_TELEMETRY_DISABLED=1 NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1 NODE_ENV=production NODE_OPTIONS="--max-old-space-size=2048"
 RUN --mount=type=cache,target=/app/.next/cache npm run build
 
 # Runner

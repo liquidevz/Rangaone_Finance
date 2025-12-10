@@ -1,14 +1,15 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import { ImageTrailHero } from "@/components/image-trail-hero"
-import PricingSection from "@/components/pricing-section"
-import FeatureComparison from "@/components/feature-comparison"
-import QuoteSection from "@/components/quote-section"
-import Footer from "@/components/footer"
-import ModelPortfolioSection from "@/components/model-portfolio-section"
-import FAQContactSection from "@/components/faq-contact-section"
 import { Navbar } from "@/components/navbar"
-// import StackedCardTestimonials from "@/components/stacked-card-testimonials"
+
+const PricingSection = dynamic(() => import("@/components/pricing-section"), { ssr: true })
+const FeatureComparison = dynamic(() => import("@/components/feature-comparison"), { ssr: true })
+const QuoteSection = dynamic(() => import("@/components/quote-section"), { ssr: true })
+const ModelPortfolioSection = dynamic(() => import("@/components/model-portfolio-section"), { ssr: true })
+const FAQContactSection = dynamic(() => import("@/components/faq-contact-section"), { ssr: true })
+const Footer = dynamic(() => import("@/components/footer"), { ssr: true })
 
 export default function Home() {
   return (
@@ -19,7 +20,6 @@ export default function Home() {
       <FeatureComparison />
       <QuoteSection />
       <ModelPortfolioSection />
-      {/* <StackedCardTestimonials /> */}
       <FAQContactSection />
       <Footer />
     </main>

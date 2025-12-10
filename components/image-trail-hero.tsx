@@ -2,6 +2,7 @@
 "use client"
 import { motion, useAnimate } from "framer-motion"
 import { useRef } from "react"
+import Image from "next/image"
 
 export const ImageTrailHero = () => {
   return (
@@ -44,9 +45,12 @@ const Copy = () => {
       <div className="relative w-full">
         {/* Mobile Hero Image */}
         <div className="absolute bottom-0 left-0 z-10 block md:hidden">
-          <img
+          <Image
             src="/landing-page/mobileHeroImage.png"
             alt="RangaOne Hero Mobile"
+            width={400}
+            height={300}
+            priority
             className="w-full h-auto max-w-full object-contain"
             style={{
               maxHeight: '40vh',
@@ -57,9 +61,12 @@ const Copy = () => {
   
         {/* Desktop Hero Image */}
         <div className="absolute bottom-0 left-0 z-10 hidden md:block">
-          <img
+          <Image
             src="/landing-page/HeroImage.png"
             alt="RangaOne Hero Desktop"
+            width={800}
+            height={600}
+            priority
             className="w-full h-auto max-w-full object-contain"
             style={{
               maxHeight: '50vh',
@@ -199,7 +206,7 @@ const MouseImageTrail = ({
       {children}
 
       {images.map((img, index) => (
-        <img
+        <Image
           className="pointer-events-none absolute left-0 top-0 h-36 w-auto rounded-xl border-2 border-slate-900 bg-slate-800 object-cover opacity-0"
           src={img || "/placeholder.svg"}
           alt={`Mouse move image ${index}`}
@@ -207,6 +214,7 @@ const MouseImageTrail = ({
           data-mouse-move-index={index}
           width={144}
           height={144}
+          loading="lazy"
         />
       ))}
     </div>

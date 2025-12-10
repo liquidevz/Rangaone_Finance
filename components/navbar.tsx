@@ -199,12 +199,16 @@ export const RoundedDrawerNav = ({
                   <img 
                     src="/landing-page/rlogodark.png" 
                     alt="RangaOne Logo" 
-                    className="h-10 w-auto mix-blend-multiply dark:mix-blend-screen" 
+                    className="h-10 w-auto mix-blend-multiply dark:mix-blend-screen"
+                    loading="eager"
+                    decoding="async"
                   />
                   <img 
                     src="/landing-page/namelogodark.png" 
                     alt="RangaOne Name" 
-                    className="h-10 w-auto mix-blend-multiply dark:mix-blend-screen" 
+                    className="h-10 w-auto mix-blend-multiply dark:mix-blend-screen"
+                    loading="eager"
+                    decoding="async"
                   />
                 </>
               ) : (
@@ -212,12 +216,16 @@ export const RoundedDrawerNav = ({
                   <img 
                     src="/landing-page/rlogo.png" 
                     alt="RangaOne Logo" 
-                    className="h-10 w-auto" 
+                    className="h-10 w-auto"
+                    loading="eager"
+                    decoding="async"
                   />
                   <img 
                     src="/landing-page/namelogo.png" 
                     alt="RangaOne Name" 
-                    className="h-10 w-auto" 
+                    className="h-10 w-auto"
+                    loading="eager"
+                    decoding="async"
                   />
                 </>
               )}

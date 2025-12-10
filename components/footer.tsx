@@ -11,12 +11,16 @@ export default function Footer() {
             <img 
               src="/landing-page/rlogo.png" 
               alt="RangaOne Logo" 
-              className="h-8 sm:h-12 w-auto" 
+              className="h-8 sm:h-12 w-auto"
+              loading="lazy"
+              decoding="async"
             />
             <img 
               src="/landing-page/namelogodark.png" 
               alt="RangaOne Name" 
-              className="h-8 sm:h-12 w-auto" 
+              className="h-8 sm:h-12 w-auto"
+              loading="lazy"
+              decoding="async"
             />
           </Link>
           <p className="text-[#001633] italic text-sm">Your Growth Our Priority</p>

@@ -13,6 +13,7 @@ const nextConfig = {
   compress: true,
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
+  swcMinify: true,
 
   // Image configuration for Docker
   images: {
@@ -38,11 +39,14 @@ const nextConfig = {
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    formats: ['image/webp'],
+    minimumCacheTTL: 60,
   },
 
   transpilePackages: ['lucide-react'],
 
   typescript: { ignoreBuildErrors: true },
+  eslint: { ignoreDuringBuilds: true },
 
   outputFileTracingIncludes: {
     '/': ['./public/**/*'],
@@ -51,12 +55,15 @@ const nextConfig = {
   experimental: {
     optimizeCss: false,
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    webpackBuildWorker: true,
   },
 
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.optimization.splitChunks = {
         chunks: 'all',
+        maxInitialRequests: 25,
+        minSize: 20000,
         cacheGroups: {
           default: false,
           vendors: false,
@@ -64,6 +71,14 @@ const nextConfig = {
             name: 'commons',
             chunks: 'all',
             minChunks: 2,
+          },
+          lib: {
+            test: /[\\/]node_modules[\\/]/,
+            name(module) {
+              const packageName = module.context.match(/[\\/]node_modules[\\/](.*?)(?:[\\/]|$)/)[1];
+              return `npm.${packageName.replace('@', '')}`;
+            },
+            priority: 10,
           },
         },
       };

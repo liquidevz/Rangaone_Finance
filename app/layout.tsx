@@ -29,6 +29,11 @@ export const metadata = {
   },
 };
 
+const preloadResources = [
+  { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+  { rel: 'dns-prefetch', href: 'https://www.youtube.com' },
+];
+
 export default function RootLayout({
   children,
 }: {
@@ -36,6 +41,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        {preloadResources.map((resource, i) => (
+          <link key={i} {...resource} />
+        ))}
+      </head>
       <body className="font-sans">
         <AuthProvider>
             <CartProvider>

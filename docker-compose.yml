@@ -1,12 +1,9 @@
-version: "3.9"
-
 services:
   rangaone-fe:
     build:
       context: .
-      dockerfile: Dockerfile
       args:
-        BUILDKIT_INLINE_CACHE: 1
+        - BUILDKIT_INLINE_CACHE=1
     image: rangaone-fe:latest
     container_name: Rangaone_Finance
     ports:
@@ -16,7 +13,7 @@ services:
     environment:
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: 1
-      NODE_OPTIONS: "--max-old-space-size=768"
+      NODE_OPTIONS: "--max-old-space-size=2048"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
@@ -27,11 +24,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 1G
+          cpus: '2'
+          memory: 3G
         reservations:
-          cpus: '0.5'
-          memory: 768M
+          cpus: '1'
+          memory: 2G
     security_opt:
       - no-new-privileges:true
     networks:

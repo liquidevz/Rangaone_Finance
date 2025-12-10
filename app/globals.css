@@ -158,6 +158,9 @@
     @apply bg-background text-foreground;
     overflow-x: hidden;
   }
+  img, video {
+    content-visibility: auto;
+  }
 }
 
 .bg-navy-blue {
