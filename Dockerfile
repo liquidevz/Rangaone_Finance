@@ -36,8 +36,6 @@ RUN --mount=type=cache,target=/root/.npm \
 COPY . .
 
 # Build with cache mount for Next.js
-# Skip font optimization to avoid Google Fonts timeout
-ENV NEXT_FONT_GOOGLE_MOCKED_RESPONSES='[{"url":"https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap","css":"@font-face{font-family:\'Inter\';font-style:normal;font-weight:100 900;src:local(\'Inter\')}"}]'
 RUN --mount=type=cache,target=/app/.next/cache \
     npm run build
 
