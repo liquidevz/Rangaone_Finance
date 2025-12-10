@@ -1,66 +1,46 @@
-# Dependencies
 node_modules
-npm-debug.log*
-
-# Build outputs
 .next
 out
 dist
 build
-
-# Environment and config
-!.env.example
-
-# Git and version control
 .git
 .gitignore
-
-# IDE and editor files
 .vscode
 .idea
 *.swp
 *.swo
-
-# OS generated files
 .DS_Store
 Thumbs.db
-
-# Logs
 *.log
 logs
-
-# Runtime data
 pids
 *.pid
 *.seed
 *.pid.lock
-
-# Coverage directory used by tools like istanbul
 coverage
 .nyc_output
-
-# Test files
 TEST/
 *.test.js
+*.test.ts
+*.test.tsx
 *.spec.js
-
-# Documentation
+*.spec.ts
+*.spec.tsx
 docs/
 *.md
 !README.md
-
-# Firebase
 firebase-debug.log
 .firebase
-
-# Temporary files
 tmp/
 temp/
-
-# Font files (if not needed in container)
-*.woff
-*.ttf
-
-# Large assets that aren't needed
 *.docx
 *.pdf
+*.zip
+*.tar.gz
+Dockerfile*
+docker-compose*
+.dockerignore
+.env.local
+.env.*.local
+.cache
+.turbo

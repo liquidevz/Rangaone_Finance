@@ -6,14 +6,13 @@ const __dirname = dirname(__filename)
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Essential for Docker deployment
   output: 'standalone',
   reactStrictMode: true,
-
-  // Turbopack configuration (empty to silence warning)
   turbopack: {},
-
   generateBuildId: async () => 'build-' + Date.now(),
+  compress: true,
+  poweredByHeader: false,
+  productionBrowserSourceMaps: false,
 
   // Image configuration for Docker
   images: {
@@ -50,7 +49,26 @@ const nextConfig = {
   },
 
   experimental: {
+    optimizeCss: false,
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+  },
+
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.optimization.splitChunks = {
+        chunks: 'all',
+        cacheGroups: {
+          default: false,
+          vendors: false,
+          commons: {
+            name: 'commons',
+            chunks: 'all',
+            minChunks: 2,
+          },
+        },
+      };
+    }
+    return config;
   },
 
   async headers() {
