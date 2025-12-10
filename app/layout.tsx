@@ -1,5 +1,4 @@
 // app/layout.tsx
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-context";
 import { CartProvider } from "@/components/cart/cart-context";
@@ -7,10 +6,6 @@ import { FilterProvider } from "@/components/recommendations/filter-state-contex
 
 import AuthGuard from "@/components/auth/auth-guard";
 import { Toaster } from "@/components/ui/toaster";
-
-
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
   title: "Finance - SEBI Registered Research Analyst",
@@ -41,7 +36,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className="font-sans">
         <AuthProvider>
             <CartProvider>
               <FilterProvider>
