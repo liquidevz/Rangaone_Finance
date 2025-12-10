@@ -18,13 +18,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { customerName, customerEmail, customerMobile, amount, subscriptionType, couponCode } = body;
     
-    console.log("📦 Digio eMandate creation:", {
-      customerName,
-      customerEmail,
-      amount,
-      subscriptionType,
-      couponCode: couponCode || "none"
-    });
 
     // Create e-mandate document
     const emandatePayload = {

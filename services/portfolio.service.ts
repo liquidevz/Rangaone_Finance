@@ -42,11 +42,6 @@ export const portfolioService = {
 
       const response = await axiosApi.get<Portfolio[]>(url, { headers });
       
-      console.log(`📊 Fetched ${response.data.length} portfolios`, {
-        authenticated: !!token,
-        withParams: !!params,
-        queryString
-      });
       
       return response.data;
     } catch (error: any) {

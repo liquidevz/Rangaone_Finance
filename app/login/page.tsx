@@ -7,7 +7,13 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/components/auth/auth-context";
 import { cartRedirectState } from "@/lib/cart-redirect-state";
-import ForgotPasswordModal from "@/components/auth/forgot-password-modal";
+import dynamic from "next/dynamic";
+
+const ForgotPasswordModal = dynamic(() => import("@/components/auth/forgot-password-modal"), { 
+  ssr: false,
+  loading: () => null 
+});
+
 import { IconEye, IconEyeOff } from "@/components/ui/icons";
 import Image from "next/image";
 import Link from "next/link";
@@ -131,15 +137,19 @@ export default function LoginPage() {
           {/* Header */}
           <div className="text-center">
             <div className="flex items-center justify-center gap-2 mx-auto mt-2 mb-12 -my-16">
-              <img 
+              <Image 
                 src="/landing-page/rlogodark.png" 
                 alt="RangaOne Logo" 
-                className="h-20 w-auto" 
+                width={80}
+                height={80}
+                priority
               />
-              <img 
+              <Image 
                 src="/landing-page/namelogodark.png" 
                 alt="RangaOne Name" 
-                className="h-20 w-auto" 
+                width={180}
+                height={180}
+                priority
               />
             </div>
             <p className="mt-2 text-gray-600">
@@ -247,7 +257,7 @@ export default function LoginPage() {
               className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Image
-                src="../../google.svg"
+                src="/google.svg"
                 alt="Google"
                 width={20}
                 height={20}
@@ -271,23 +281,33 @@ export default function LoginPage() {
       </div>
 
       {/* Right Panel - Image/Branding */}
-      <div className="hidden lg:flex flex-1 bg-transparent items-top justify-center p-8 relative bg-cover bg-center" style={{ backgroundImage: "url('/login-bg.png')" }}>
-        <div className="absolute inset-0 bg-transparent"></div>
-        <div className="text-center text-[#FFFFF0] relative z-10">
+      <div className="hidden lg:flex flex-1 relative overflow-hidden">
+        <Image
+          src="/login-bg.png"
+          alt="Bull Market"
+          fill
+          className="object-cover"
+          priority
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+
+        <div className="absolute bottom-12 left-12 right-12 text-center text-white z-10">
           <h1 className="text-4xl font-bold mb-4">
             Welcome to RangaOne Finance
           </h1>
-          <p className="text-xl opacity-90 mb-8">
+          <p className="text-xl opacity-90">
           Grow Your Portfolio, Not your worries
           </p>
         </div>
       </div>
 
       {/* Forgot Password Modal */}
-      <ForgotPasswordModal
-        isOpen={showForgotPassword}
-        onClose={() => setShowForgotPassword(false)}
-      />
+      {showForgotPassword && (
+        <ForgotPasswordModal
+          isOpen={showForgotPassword}
+          onClose={() => setShowForgotPassword(false)}
+        />
+      )}
     </div>
   );
 }

@@ -34,7 +34,6 @@ export const emailCheckService = {
       
       return response.exists;
     } catch (error: any) {
-      console.log("Email check endpoint not available, using fallback method");
       
       // If the endpoint doesn't exist, use the login-based fallback
       if (error?.response?.status === 404 || error?.response?.status === 405) {
@@ -69,7 +68,6 @@ export const emailCheckService = {
       // but we should never reach here with a dummy password
       return false;
     } catch (error: any) {
-      console.log('Email check error response:', error?.response?.status, error?.response?.data);
       
       // If we get a 401 (Unauthorized), it means the email exists but password is wrong
       if (error?.response?.status === 401) {

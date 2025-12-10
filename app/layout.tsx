@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-context";
 import { CartProvider } from "@/components/cart/cart-context";
 import { FilterProvider } from "@/components/recommendations/filter-state-context";
+import { PrefetchRoutes } from "@/components/prefetch-routes";
 
 import AuthGuard from "@/components/auth/auth-guard";
 import { Toaster } from "@/components/ui/toaster";
@@ -15,12 +16,6 @@ export const metadata = {
     icon: '/favicon.ico',
     maskIcon: '/favicon.ico',
   },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
   other: {
     'format-detection': 'telephone=no',
     'mobile-web-app-capable': 'yes',
@@ -29,10 +24,20 @@ export const metadata = {
   },
 };
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 const preloadResources = [
   { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
   { rel: 'dns-prefetch', href: 'https://www.youtube.com' },
 ];
+
+// GLOBAL: runs once before any child component
+console.log = () => {};
 
 export default function RootLayout({
   children,
@@ -50,6 +55,7 @@ export default function RootLayout({
         <AuthProvider>
             <CartProvider>
               <FilterProvider>
+                <PrefetchRoutes />
                 <AuthGuard>
                   <div className="min-h-screen bg-gray-50 overflow-x-hidden">
                     <main>

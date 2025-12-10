@@ -295,15 +295,19 @@ export default function SignupPage() {
           {/* Header */}
           <div className="text-center">
             <div className="flex items-center justify-center gap-2 mx-auto mb-12 lg:-mt-24">
-              <img 
+              <Image 
                 src="/landing-page/rlogodark.png" 
                 alt="RangaOne Logo" 
-                className="h-20 w-auto" 
+                width={80}
+                height={80}
+                priority
               />
-              <img 
+              <Image 
                 src="/landing-page/namelogodark.png" 
                 alt="RangaOne Name" 
-                className="h-20 w-auto" 
+                width={180}
+                height={180}
+                priority
               />
             </div>
             <h2 className="text-3xl font-bold text-gray-900">Create your account</h2>
@@ -547,7 +551,7 @@ export default function SignupPage() {
               disabled={formLoading}
               className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Image src="../../google.svg" alt="Google" width={20} height={20} className="mr-2" /> Sign up with Google
+              <Image src="/google.svg" alt="Google" width={20} height={20} className="mr-2" /> Sign up with Google
             </Button>
             {/* Login link */}
             <div className="text-center">

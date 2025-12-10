@@ -1,10 +1,29 @@
+import dynamic from "next/dynamic"
 import DashboardLayout from "@/components/dashboard-layout"
-import Banner from "@/components/banner"
-import { 
-  MarketIndicesSection, 
-  ExpertRecommendationsSection, 
-  ModelPortfolioSection 
-} from "@/components/dashboard-sections"
+import { Skeleton } from "@/components/ui/skeleton"
+
+// Enable SSR for critical components with loading states
+const Banner = dynamic(() => import("@/components/banner"), { 
+  ssr: true,
+  loading: () => <Skeleton className="w-full h-32 rounded-lg" />
+})
+
+const MarketIndicesSection = dynamic(() => import("@/components/dashboard-sections").then(mod => ({ default: mod.MarketIndicesSection })), { 
+  ssr: true,
+  loading: () => <Skeleton className="w-full h-48 rounded-lg" />
+})
+
+const ExpertRecommendationsSection = dynamic(() => import("@/components/dashboard-sections").then(mod => ({ default: mod.ExpertRecommendationsSection })), { 
+  ssr: true,
+  loading: () => <Skeleton className="w-full h-96 rounded-lg" />
+})
+
+const ModelPortfolioSection = dynamic(() => import("@/components/dashboard-sections").then(mod => ({ default: mod.ModelPortfolioSection })), { 
+  ssr: true,
+  loading: () => <Skeleton className="w-full h-96 rounded-lg" />
+})
+
+export const revalidate = 300;
 
 export default function Dashboard() {
   return (

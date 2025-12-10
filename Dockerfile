@@ -14,10 +14,12 @@ RUN --mount=type=cache,target=/root/.npm \
 FROM base AS builder
 COPY package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --legacy-peer-deps --prefer-offline --no-audit
+    npm ci --legacy-peer-deps --prefer-offline --no-audit --ignore-scripts
 COPY . .
-ENV NEXT_TELEMETRY_DISABLED=1 NODE_ENV=production NODE_OPTIONS="--max-old-space-size=2048"
-RUN --mount=type=cache,target=/app/.next/cache npm run build
+ENV NEXT_TELEMETRY_DISABLED=1 NODE_ENV=production NODE_OPTIONS="--max-old-space-size=4096"
+RUN --mount=type=cache,target=/app/.next/cache \
+    --mount=type=cache,target=/root/.npm \
+    npm run build
 
 # Runner
 FROM node:20-alpine AS runner

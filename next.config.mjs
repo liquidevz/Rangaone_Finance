@@ -15,6 +15,15 @@ const nextConfig = {
   productionBrowserSourceMaps: false,
   swcMinify: true,
 
+  // Force static generation for critical pages
+  generateStaticParams: true,
+  
+  // Optimize page loading
+  onDemandEntries: {
+    maxInactiveAge: 60 * 1000,
+    pagesBufferLength: 5,
+  },
+
   // Image configuration for Docker
   images: {
     remotePatterns: [
@@ -29,6 +38,14 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'i.ytimg.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.youtube.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'youtube.com',
       },
       {
         protocol: 'https',
@@ -53,24 +70,34 @@ const nextConfig = {
   },
 
   experimental: {
-    optimizeCss: false,
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    optimizeCss: true,
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons', 'recharts', 'framer-motion'],
     webpackBuildWorker: true,
+    parallelServerBuildTraces: true,
+    parallelServerCompiles: true,
+    serverActions: {
+      bodySizeLimit: '2mb',
+    },
   },
+
+  // Preload critical pages during build
+  staticPageGenerationTimeout: 120,
 
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.optimization.splitChunks = {
         chunks: 'all',
-        maxInitialRequests: 25,
-        minSize: 20000,
+        maxInitialRequests: 10,
+        minSize: 40000,
+        maxSize: 244000,
         cacheGroups: {
           default: false,
           vendors: false,
-          commons: {
-            name: 'commons',
-            chunks: 'all',
-            minChunks: 2,
+          framework: {
+            name: 'framework',
+            test: /[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+            priority: 40,
+            enforce: true,
           },
           lib: {
             test: /[\\/]node_modules[\\/]/,
@@ -78,7 +105,9 @@ const nextConfig = {
               const packageName = module.context.match(/[\\/]node_modules[\\/](.*?)(?:[\\/]|$)/)[1];
               return `npm.${packageName.replace('@', '')}`;
             },
-            priority: 10,
+            priority: 30,
+            minChunks: 1,
+            reuseExistingChunk: true,
           },
         },
       };
@@ -100,8 +129,15 @@ const nextConfig = {
       {
         source: '/videos-for-you',
         headers: [
-          { key: 'Content-Security-Policy', value: "frame-src 'self' https://www.youtube.com https://youtube.com; frame-ancestors 'self';" },
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Content-Security-Policy', value: "frame-src 'self' https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com; frame-ancestors 'self';" },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        ],
+      },
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
         ],
       },
       {

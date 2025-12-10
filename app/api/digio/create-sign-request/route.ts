@@ -8,12 +8,6 @@ const DIGIO_CLIENT_SECRET = process.env.DIGIO_CLIENT_SECRET;
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('Digio API request:', {
-      hasClientId: !!DIGIO_CLIENT_ID,
-      hasClientSecret: !!DIGIO_CLIENT_SECRET,
-      baseUrl: DIGIO_BASE_URL,
-      endpoint: `${DIGIO_BASE_URL}/v2/client/document/uploadpdf`
-    });
 
     if (!DIGIO_CLIENT_ID || !DIGIO_CLIENT_SECRET || 
         DIGIO_CLIENT_ID === 'your-digio-client-id' || 
@@ -40,7 +34,6 @@ export async function POST(request: NextRequest) {
       }]
     };
 
-    console.log('Digio API payload:', JSON.stringify(digioPayload, null, 2));
 
     // Create Basic Auth header
     const credentials = Buffer.from(`${DIGIO_CLIENT_ID}:${DIGIO_CLIENT_SECRET}`).toString('base64');

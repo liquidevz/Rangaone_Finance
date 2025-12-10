@@ -166,7 +166,6 @@ async function getSearchData(): Promise<SearchResult[]> {
 
         // Check if tip has portfolio ID
         const hasPortfolio = tip.portfolio && (typeof tip.portfolio === 'string' || typeof tip.portfolio === 'object')
-        console.log('Tip data:', { id: tip._id, buyRange: tip.buyRange, targetPrice: tip.targetPrice, status: tip.status })
 
         if (hasPortfolio) {
           // Add to portfolios section - check portfolio-specific access
@@ -263,8 +262,6 @@ export async function GET(request: NextRequest) {
     }
 
     const searchData = await getSearchData()
-    console.log('Search data length:', searchData.length)
-    console.log('Sample search items:', searchData.slice(0, 3))
 
     // Prioritize exact matches, then starts-with matches, then fuzzy matches
     let filteredResults = searchData

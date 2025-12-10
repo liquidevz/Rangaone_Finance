@@ -1,16 +1,18 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, memo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronDown, Menu, X, PanelLeft, ShoppingCart } from "lucide-react";
+import dynamic from "next/dynamic";
 
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth/auth-context";
 import { useCart } from "@/components/cart/cart-context";
-import Sidebar from "@/components/sidebar";
-import { GlobalSearch } from "@/components/global-search";
+
+const Sidebar = dynamic(() => import("@/components/sidebar"), { ssr: false });
+const GlobalSearch = dynamic(() => import("@/components/global-search").then(mod => ({ default: mod.GlobalSearch })), { ssr: false });
 
 export default function DashboardLayout({
   children,
@@ -78,26 +80,27 @@ export default function DashboardLayout({
     };
   }, [sidebarOpen, isMounted]);
 
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
+  const toggleSidebar = useCallback(() => {
+    setSidebarOpen(prev => !prev);
+  }, []);
 
-  const toggleSidebarCollapse = () => {
-    const newCollapsedState = !sidebarCollapsed;
-    setSidebarCollapsed(newCollapsedState);
-    
-    if (typeof window !== "undefined") {
-      localStorage.setItem('sidebar-collapsed', JSON.stringify(newCollapsedState));
-    }
-  };
+  const toggleSidebarCollapse = useCallback(() => {
+    setSidebarCollapsed(prev => {
+      const newState = !prev;
+      if (typeof window !== "undefined") {
+        localStorage.setItem('sidebar-collapsed', JSON.stringify(newState));
+      }
+      return newState;
+    });
+  }, []);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       await logout();
     } catch (error) {
       console.error("Logout failed:", error);
     }
-  };
+  }, [logout]);
 
   if (!isMounted) {
     return null;

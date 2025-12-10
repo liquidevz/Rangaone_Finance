@@ -452,13 +452,7 @@ export const subscriptionService = {
     const access = await this.getSubscriptionAccess();
     const hasAccess = access.portfolioAccess.includes(portfolioId);
     
-    console.log(`🔍 Portfolio access check for ID "${portfolioId}":`, {
-      portfolioId,
-      portfolioAccessArray: access.portfolioAccess,
-      isInArray: hasAccess,
-      hasBasic: access.hasBasic,
-      hasPremium: access.hasPremium
-    });
+  
     
     return hasAccess;
   },
@@ -495,12 +489,7 @@ export const subscriptionService = {
     const canAccessTips = await this.canAccessTips();
     const canAccessPremiumTips = await this.hasPremiumAccess();
     
-    console.log('🔍 Subscription Debug Info:', {
-      subscriptions,
-      access,
-      canAccessTips,
-      canAccessPremiumTips
-    });
+  
     
     return {
       subscriptions,
@@ -512,11 +501,9 @@ export const subscriptionService = {
 
   // Force refresh subscription data after payment
   async refreshAfterPayment(): Promise<void> {
-    console.log('🔄 Refreshing subscription data after payment...');
     this.clearCache();
     // Force fresh fetch
     await this.getUserSubscriptions(true);
-    console.log('✅ Subscription data refreshed');
   }
 };
 
