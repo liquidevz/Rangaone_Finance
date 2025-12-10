@@ -37,24 +37,24 @@ const PAGES: SearchResult[] = [
 function fuzzyMatch(text: string, query: string): number {
   const textLower = text.toLowerCase()
   const queryLower = query.toLowerCase()
-  
+
   // Exact match gets highest score
   if (textLower === queryLower) return 10
-  
+
   // Contains match gets high score
   if (textLower.includes(queryLower)) return 5
-  
+
   // Fuzzy character matching gets lower score
   let score = 0
   let queryIndex = 0
-  
+
   for (let i = 0; i < textLower.length && queryIndex < queryLower.length; i++) {
     if (textLower[i] === queryLower[queryIndex]) {
       score++
       queryIndex++
     }
   }
-  
+
   return queryIndex === queryLower.length ? score / text.length : 0
 }
 
@@ -67,44 +67,44 @@ async function getSearchData(): Promise<SearchResult[]> {
         'Content-Type': 'application/json'
       }
     })
-    
+
     const subscriptionsData = subscriptionsResponse.ok ? await subscriptionsResponse.json() : { subscriptions: [], has_basic: false, has_premium: false, access: { portfolioIds: [] } }
-    
+
     const accessData = {
       hasBasic: subscriptionsData.has_basic || false,
       hasPremium: subscriptionsData.has_premium || false,
       portfolioAccess: subscriptionsData.access?.portfolioIds || [],
       subscriptionType: subscriptionsData.overview?.subscriptionType || 'none'
     }
-    
+
     const [portfolios, tips, portfolioTips] = await Promise.all([
       portfolioService.getAll().catch(() => []),
       tipsService.getAll().catch(() => []),
       tipsService.getPortfolioTips().catch(() => [])
     ])
-    
+
     const searchItems: SearchResult[] = [...PAGES]
-    
-    (subscriptionsData.subscriptions || []).forEach(sub => {
-      const productId = typeof sub.productId === 'string' ? sub.productId : sub.productId?._id
-      const productName = typeof sub.productId === 'object' ? sub.productId?.name : sub.productId
-      
-      if (productName && productId) {
-        searchItems.push({
-          id: productId,
-          title: productName,
-          type: sub.productType === 'Portfolio' ? 'portfolio' : 'subscription',
-          url: sub.productType === 'Portfolio' ? `/model-portfolios/${productId}` : `/dashboard`,
-          description: `${sub.productType} subscription - ${sub.planType || 'Active'}`,
-          category: sub.productType,
-          onClick: {
-            action: 'navigate',
-            params: { url: sub.productType === 'Portfolio' ? `/model-portfolios/${productId}` : `/dashboard` }
-          }
-        })
-      }
-    })
-    
+
+      (subscriptionsData.subscriptions || []).forEach(sub => {
+        const productId = typeof sub.productId === 'string' ? sub.productId : sub.productId?._id
+        const productName = typeof sub.productId === 'object' ? sub.productId?.name : sub.productId
+
+        if (productName && productId) {
+          searchItems.push({
+            id: productId,
+            title: productName,
+            type: sub.productType === 'Portfolio' ? 'portfolio' : 'subscription',
+            url: sub.productType === 'Portfolio' ? `/model-portfolios/${productId}` : `/dashboard`,
+            description: `${sub.productType} subscription - ${sub.planType || 'Active'}`,
+            category: sub.productType,
+            onClick: {
+              action: 'navigate',
+              params: { url: sub.productType === 'Portfolio' ? `/model-portfolios/${productId}` : `/dashboard` }
+            }
+          })
+        }
+      })
+
     // Get user's accessible portfolios from /api/user/portfolios
     const userPortfoliosResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.rangaone.finance'}/api/user/portfolios`, {
       headers: {
@@ -112,14 +112,14 @@ async function getSearchData(): Promise<SearchResult[]> {
         'Content-Type': 'application/json'
       }
     })
-    
+
     const userPortfolios = userPortfoliosResponse.ok ? await userPortfoliosResponse.json() : []
     const accessiblePortfolioIds = new Set(
       userPortfolios
         .filter((p: any) => !p.message || p.message !== "Subscribe to view complete details")
         .map((p: any) => p._id)
     )
-    
+
     // Show all portfolios but mark access status based on /api/user/portfolios
     portfolios.forEach(portfolio => {
       if (portfolio._id && portfolio.name) {
@@ -139,37 +139,47 @@ async function getSearchData(): Promise<SearchResult[]> {
         })
       }
     })
-    
+
     // Track processed tip IDs to avoid duplicates
     const processedTipIds = new Set()
-    
+
     // Combine all tips and check for portfolio association
     const allTips = [...tips, ...portfolioTips]
-    
+
     allTips.forEach(tip => {
       if (tip._id && (tip.title || tip.stockId) && !processedTipIds.has(tip._id)) {
         processedTipIds.add(tip._id)
-        const bundleType = tip.category === 'premium' ? 'Premium' : 'Basic'
-        
+
+        // Determine valid category - only 'premium' or 'basic' are valid
+        // Ignore 'portfolio' as it's an invalid category value
+        let validCategory: string
+        if (tip.category === 'premium' || tip.category === 'basic') {
+          validCategory = tip.category
+        } else {
+          validCategory = 'basic' // Default fallback for invalid categories
+        }
+
+        const bundleType = validCategory === 'premium' ? 'Premium' : 'Basic'
+
         // Check access based on tip category
-        const hasAccess = tip.category === 'premium' ? accessData.hasPremium : accessData.hasBasic
-        
+        const hasAccess = validCategory === 'premium' ? accessData.hasPremium : accessData.hasBasic
+
         // Check if tip has portfolio ID
         const hasPortfolio = tip.portfolio && (typeof tip.portfolio === 'string' || typeof tip.portfolio === 'object')
         console.log('Tip data:', { id: tip._id, buyRange: tip.buyRange, targetPrice: tip.targetPrice, status: tip.status })
-        
+
         if (hasPortfolio) {
           // Add to portfolios section - check portfolio-specific access
           const portfolioId = typeof tip.portfolio === 'string' ? tip.portfolio : tip.portfolio._id
           const portfolioName = tip.portfolioName || (typeof tip.portfolio === 'object' ? tip.portfolio.name : 'Portfolio')
-          
+
           searchItems.push({
             id: tip._id,
             title: `${tip.title || tip.stockId} - ${portfolioName}`,
             type: 'portfolio',
             url: `/tips/${tip._id}`,
             description: `Buy Range: ${tip.buyRange || 'N/A'} | Target: ${tip.targetPrice || 'N/A'} | Status: ${tip.status || 'N/A'}`,
-            category: tip.category,
+            category: validCategory,
             createdAt: tip.createdAt,
             stockId: tip.stockId,
             symbol: tip.symbol,
@@ -187,7 +197,7 @@ async function getSearchData(): Promise<SearchResult[]> {
             type: 'tip',
             url: `/tips/${tip._id}`,
             description: `Buy Range: ${tip.buyRange || 'N/A'} | Target: ${tip.targetPrice || 'N/A'} | Status: ${tip.status || 'N/A'}`,
-            category: tip.category,
+            category: validCategory,
             createdAt: tip.createdAt,
             stockId: tip.stockId,
             symbol: tip.symbol,
@@ -200,7 +210,7 @@ async function getSearchData(): Promise<SearchResult[]> {
         }
       }
     })
-    
+
     // Show all stocks but mark access status
     const uniqueStocks = new Set()
     allTips.forEach(tip => {
@@ -222,7 +232,7 @@ async function getSearchData(): Promise<SearchResult[]> {
         })
       }
     })
-    
+
     return searchItems
   } catch (error) {
     console.error('Failed to load search data:', error)
@@ -255,18 +265,18 @@ export async function GET(request: NextRequest) {
     const searchData = await getSearchData()
     console.log('Search data length:', searchData.length)
     console.log('Sample search items:', searchData.slice(0, 3))
-    
+
     // Prioritize exact matches, then starts-with matches, then fuzzy matches
     let filteredResults = searchData
       .map(item => {
         const titleExact = exactMatch(item.title, query)
         const symbolExact = exactMatch(item.symbol || '', query)
         const stockIdExact = exactMatch(item.stockId || '', query)
-        
+
         const titleStartsWith = startsWithMatch(item.title, query)
         const symbolStartsWith = startsWithMatch(item.symbol || '', query)
         const stockIdStartsWith = startsWithMatch(item.stockId || '', query)
-        
+
         const fuzzyScore = Math.max(
           fuzzyMatch(item.title, query),
           fuzzyMatch(item.description || '', query),
@@ -274,7 +284,7 @@ export async function GET(request: NextRequest) {
           fuzzyMatch(item.stockId || '', query),
           fuzzyMatch(item.symbol || '', query)
         )
-        
+
         let score = 0
         if (titleExact || symbolExact || stockIdExact) {
           score = 100 // Highest priority for exact matches
@@ -283,7 +293,7 @@ export async function GET(request: NextRequest) {
         } else if (fuzzyScore > 0) {
           score = fuzzyScore // Lowest priority for fuzzy matches
         }
-        
+
         return { ...item, score }
       })
       .filter(item => item.score > 0)
@@ -299,7 +309,7 @@ export async function GET(request: NextRequest) {
     const tipResults = filteredResults.filter(item => item.type === 'tip').slice(0, limit)
     const pageResults = filteredResults.filter(item => item.type === 'page').slice(0, limit)
     const subscriptionResults = filteredResults.filter(item => item.type === 'subscription').slice(0, limit)
-    
+
     const results = {
       stocks: stockResults.map(stock => ({
         id: stock.id,
@@ -328,8 +338,8 @@ export async function GET(request: NextRequest) {
       subscriptions: subscriptionResults
     }
 
-    const totalResults = results.stocks.length + results.portfolios.length + 
-                        results.pages.length + results.tips.length + results.subscriptions.length
+    const totalResults = results.stocks.length + results.portfolios.length +
+      results.pages.length + results.tips.length + results.subscriptions.length
 
     return NextResponse.json({
       success: true,

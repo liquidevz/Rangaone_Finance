@@ -98,16 +98,33 @@ async function getSuggestions(query: string): Promise<Suggestion[]> {
       if (title && title.toLowerCase().includes(queryLower)) {
         const hasAccess = tip.category === 'premium' ? accessData.hasPremium : accessData.hasBasic
 
-        // Determine category to display
-        let displayCategory: string = tip.category
-        let portfolioName: string | undefined = undefined
+        // Determine category - only use it if it's 'premium' or 'basic'
+        // Ignore if it's 'portfolio' (invalid category value)
+        let displayCategory: string
+        if (tip.category === 'premium' || tip.category === 'basic') {
+          displayCategory = tip.category
+        } else {
+          displayCategory = 'basic' // Default fallback
+        }
 
-        // If tip is part of a portfolio, use portfolio name as category
-        if (tip.portfolioId) {
-          const portfolio = portfolios.find(p => p._id === tip.portfolioId)
-          if (portfolio) {
-            portfolioName = portfolio.name
-            displayCategory = portfolioName
+        let portfolioName: string | undefined = undefined
+        let portfolioId: string | undefined = undefined
+
+        // Check if tip belongs to a portfolio
+        if (tip.portfolio) {
+          if (typeof tip.portfolio === 'object' && tip.portfolio._id && tip.portfolio.name) {
+            // Portfolio is populated as an object with name
+            portfolioName = tip.portfolio.name
+            portfolioId = tip.portfolio._id
+            displayCategory = portfolioName  // Use portfolio name as display category
+          } else if (typeof tip.portfolio === 'string' && tip.portfolio.length > 0) {
+            // Portfolio is just an ID, look it up
+            const portfolio = portfolios.find(p => p._id === tip.portfolio)
+            if (portfolio && portfolio.name) {
+              portfolioName = portfolio.name
+              portfolioId = tip.portfolio
+              displayCategory = portfolioName  // Use portfolio name as display category
+            }
           }
         }
 
@@ -117,7 +134,7 @@ async function getSuggestions(query: string): Promise<Suggestion[]> {
           id: tip._id,
           hasAccess,
           category: displayCategory,
-          portfolioId: tip.portfolioId,
+          portfolioId: portfolioId,
           portfolioName
         })
       }
