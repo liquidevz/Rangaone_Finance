@@ -7,13 +7,21 @@ const __dirname = dirname(__filename)
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
-  reactStrictMode: true,
+  reactStrictMode: false,
   turbopack: {},
   generateBuildId: async () => 'build-' + Date.now(),
   compress: true,
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
   swcMinify: true,
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn']
+    } : false,
+  },
+  
+  // Optimize font loading
+  optimizeFonts: true,
 
   // Force static generation for critical pages
   generateStaticParams: true,
@@ -56,8 +64,11 @@ const nextConfig = {
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    formats: ['image/webp'],
-    minimumCacheTTL: 60,
+    formats: ['image/webp', 'image/avif'],
+    minimumCacheTTL: 86400,
+    deviceSizes: [640, 750, 828, 1080, 1200],
+    imageSizes: [16, 32, 48, 64, 96],
+    loader: 'default',
   },
 
   transpilePackages: ['lucide-react'],
@@ -71,25 +82,36 @@ const nextConfig = {
 
   experimental: {
     optimizeCss: true,
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons', 'recharts', 'framer-motion'],
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons', 'recharts', 'framer-motion', 'react-icons'],
     webpackBuildWorker: true,
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
     serverActions: {
       bodySizeLimit: '2mb',
     },
+    turbo: {
+      resolveAlias: {
+        canvas: './empty-module.ts',
+      },
+    },
+    // Enable PPR for better performance
+    ppr: false,
+    // Optimize server components
+    serverComponentsExternalPackages: ['axios'],
   },
 
   // Preload critical pages during build
   staticPageGenerationTimeout: 120,
 
   webpack: (config, { isServer }) => {
+    config.optimization.minimize = true;
+    
     if (!isServer) {
       config.optimization.splitChunks = {
         chunks: 'all',
-        maxInitialRequests: 10,
-        minSize: 40000,
-        maxSize: 244000,
+        maxInitialRequests: 25,
+        minSize: 20000,
+        maxSize: 200000,
         cacheGroups: {
           default: false,
           vendors: false,
@@ -98,6 +120,18 @@ const nextConfig = {
             test: /[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/,
             priority: 40,
             enforce: true,
+          },
+          framerMotion: {
+            name: 'framer-motion',
+            test: /[\\/]node_modules[\\/]framer-motion[\\/]/,
+            priority: 35,
+            reuseExistingChunk: true,
+          },
+          radix: {
+            name: 'radix-ui',
+            test: /[\\/]node_modules[\\/]@radix-ui[\\/]/,
+            priority: 33,
+            reuseExistingChunk: true,
           },
           lib: {
             test: /[\\/]node_modules[\\/]/,
@@ -120,7 +154,7 @@ const nextConfig = {
       {
         source: '/api/:path*',
         headers: [
-          { key: 'Cache-Control', value: 'no-store, must-revalidate' },
+          { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-XSS-Protection', value: '1; mode=block' },
@@ -142,6 +176,51 @@ const nextConfig = {
       },
       {
         source: '/_next/static/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+        ],
+      },
+      {
+        source: '/dashboard/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store, must-revalidate' },
+        ],
+      },
+      {
+        source: '/cart/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store, must-revalidate' },
+        ],
+      },
+      {
+        source: '/settings/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store, must-revalidate' },
+        ],
+      },
+      {
+        source: '/recommendations/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache, must-revalidate' },
+        ],
+      },
+      {
+        source: '/imgs/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+        ],
+      },
+      {
+        source: '/landing-page/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+        ],
+      },
+      {
+        source: '/fonts/:path*',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
         ],

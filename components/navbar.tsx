@@ -3,11 +3,13 @@
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useEffect } from "react";
-import { FiMenu, FiUser, FiLogOut, FiSettings, FiShoppingCart, FiX, FiChevronDown, FiPlay, FiHelpCircle } from "react-icons/fi";
+import { memo, useState, useEffect, useCallback } from "react";
+import { FiMenu, FiUser, FiLogOut, FiSettings, FiShoppingCart, FiX, FiChevronDown } from "react-icons/fi";
 import { useAuth } from "./auth/auth-context";
 import { useCart } from "./cart/cart-context";
-import DemoTour from "./demo-tour";
+import dynamic from "next/dynamic";
+
+const DemoTour = dynamic(() => import("./demo-tour"), { ssr: false });
 
 
 
@@ -107,46 +109,43 @@ export const RoundedDrawerNav = ({
   const buttonText = variant === "premium" ? "text-white" : "text-[#001633]";
   const mobileMenuBg = variant === "premium" ? "bg-[#FFB800]" : "bg-[#001633]";
 
-  const handleLogin = () => {
+  const handleLogin = useCallback(() => {
     router.push("/login");
     setMobileNavOpen(false);
-  };
+  }, [router]);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       await logout();
       setUserMenuOpen(false);
       setMobileNavOpen(false);
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
-  };
+    } catch (error) {}
+  }, [logout]);
 
-  const handleDashboard = () => {
+  const handleDashboard = useCallback(() => {
     router.push("/dashboard");
     setUserMenuOpen(false);
     setMobileNavOpen(false);
-  };
+  }, [router]);
 
-  const handleSettings = () => {
+  const handleSettings = useCallback(() => {
     router.push("/settings");
     setUserMenuOpen(false);
     setMobileNavOpen(false);
-  };
+  }, [router]);
 
-  const handleCartClick = () => {
+  const handleCartClick = useCallback(() => {
     router.push("/cart");
     setMobileNavOpen(false);
-  };
+  }, [router]);
 
-  const handleDemoTour = () => {
-    console.log('Demo tour button clicked, showDemoTour:', showDemoTour);
+  const handleDemoTour = useCallback(() => {
     setShowDemoTour(true);
     setMobileNavOpen(false);
     setUserMenuOpen(false);
-  };
+  }, []);
 
-  const handleSmoothScroll = (href: string, e: React.MouseEvent) => {
+  const handleSmoothScroll = useCallback((href: string, e: React.MouseEvent) => {
     if (href.startsWith('/#')) {
       e.preventDefault();
       const sectionId = href.substring(2);
@@ -154,38 +153,28 @@ export const RoundedDrawerNav = ({
       setDropdownOpen(null);
       
       if (window.location.pathname === '/') {
-        setTimeout(() => {
-          const element = document.querySelector(`#${sectionId}`);
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        }, 100);
+        requestAnimationFrame(() => {
+          document.querySelector(`#${sectionId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
       } else {
         router.push('/');
         setTimeout(() => {
-          const element = document.querySelector(`#${sectionId}`);
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        }, 500);
+          document.querySelector(`#${sectionId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 300);
       }
     } else if (href.startsWith('#')) {
       e.preventDefault();
       setMobileNavOpen(false);
       setDropdownOpen(null);
-      
-      setTimeout(() => {
-        const element = document.querySelector(href);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }, 100);
+      requestAnimationFrame(() => {
+        document.querySelector(href)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
     } else if (href && href !== '') {
       setMobileNavOpen(false);
       setDropdownOpen(null);
       router.push(href);
     }
-  };
+  }, [router]);
 
   return (
     <>
@@ -558,11 +547,9 @@ export const RoundedDrawerNav = ({
         )}
       </AnimatePresence>
       
-      {console.log('Rendering DemoTour, isOpen:', showDemoTour)}
       <DemoTour 
         isOpen={showDemoTour} 
         onClose={() => {
-          console.log('Demo tour closed');
           setShowDemoTour(false);
           sessionStorage.removeItem('demo-tour-active')
           sessionStorage.removeItem('demo-tour-step')

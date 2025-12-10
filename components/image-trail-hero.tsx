@@ -114,14 +114,15 @@ const Watermark = ({ reverse = false, text }: { reverse?: boolean; text: string 
 
 const TranslateWrapper = ({ children, reverse = false }: { children: React.ReactNode; reverse?: boolean }) => {
   return (
-    <motion.div
-      initial={{ translateX: reverse ? "-100%" : "0%" }}
-      animate={{ translateX: reverse ? "0%" : "-100%" }}
-      transition={{ duration: 75, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-      className="flex"
+    <div
+      className="flex animate-marquee"
+      style={{
+        animationDirection: reverse ? 'reverse' : 'normal',
+        animationDuration: '75s'
+      }}
     >
       {children}
-    </motion.div>
+    </div>
   )
 }
 

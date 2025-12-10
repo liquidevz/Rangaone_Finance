@@ -3,10 +3,9 @@ import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-context";
 import { CartProvider } from "@/components/cart/cart-context";
 import { FilterProvider } from "@/components/recommendations/filter-state-context";
-import { PrefetchRoutes } from "@/components/prefetch-routes";
-
 import AuthGuard from "@/components/auth/auth-guard";
-import { Toaster } from "@/components/ui/toaster";
+import { PrefetchRoutes, Toaster } from "@/components/client-wrapper";
+import { PerformanceMonitor } from "@/components/performance-monitor";
 
 export const metadata = {
   title: "Finance - SEBI Registered Research Analyst",
@@ -31,13 +30,12 @@ export const viewport = {
   userScalable: false,
 };
 
-const preloadResources = [
-  { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-  { rel: 'dns-prefetch', href: 'https://www.youtube.com' },
-];
-
 // GLOBAL: runs once before any child component
-console.log = () => {};
+if (typeof window === 'undefined') {
+  console.log = () => {};
+  console.warn = () => {};
+  console.error = () => {};
+}
 
 export default function RootLayout({
   children,
@@ -47,11 +45,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {preloadResources.map((resource, i) => (
-          <link key={i} {...resource} />
-        ))}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="dns-prefetch" href="https://www.youtube.com" />
+        <link rel="dns-prefetch" href="https://api.rangaone.finance" />
+        <meta name="theme-color" content="#ffffff" />
       </head>
-      <body className="font-sans">
+      <body className="font-sans" suppressHydrationWarning>
+        <PerformanceMonitor />
         <AuthProvider>
             <CartProvider>
               <FilterProvider>

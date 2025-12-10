@@ -35,7 +35,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     "plan" | "consent" | "auth" | "pan-form" | "esign" | "processing" | "success" | "error"
   >("plan");
   const [subscriptionType, setSubscriptionType] = useState<
-    "monthly" | "yearly"
+    "monthly" | "quarterly"
   >("monthly");
   const [appliedCoupon, setAppliedCoupon] = useState<CouponValidationResponse["coupon"] | null>(null);
   const [processing, setProcessing] = useState(false);
@@ -74,7 +74,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     let basePrice = 0;
     if (isEmandateFlow) {
       basePrice =
-        subscriptionType === "yearly"
+        subscriptionType === "quarterly"
           ? (bundle as any).yearlyemandateprice || bundle.yearlyPrice || 0
           : (bundle as any).monthlyemandateprice || bundle.monthlyPrice || 0;
     } else {
@@ -181,8 +181,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const getOriginalPrice = () => {
     if (!bundle) return 0;
     if (isEmandateFlow) {
-      return subscriptionType === "yearly"
-        ? (bundle as any).yearlyemandateprice || bundle.yearlyPrice || 0
+      return subscriptionType === "quarterly"
+        ? (bundle as any).yearlyemandateprice || bundle.quarterlyPrice || 0
         : (bundle as any).monthlyemandateprice || bundle.monthlyPrice || 0;
     }
     return bundle.monthlyPrice || 0;
@@ -284,7 +284,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       setProcessingMsg("Creating eMandate…");
       
       const emandateAmount =
-        subscriptionType === "yearly"
+        subscriptionType === "quarterly"
           ? ((bundle as any).yearlyemandateprice as number) ||
             bundle.yearlyPrice ||
             0
@@ -374,7 +374,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       // Check for eSign requirement (412 error)
       if (error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
         console.log("🔍 eSign required for eMandate - showing Digio verification");
-        const amount = subscriptionType === "yearly"
+        const amount = subscriptionType === "quarterly"
           ? ((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0
           : ((bundle as any).monthlyemandateprice as number) || bundle.monthlyPrice || 0;
         const data: PaymentAgreementData = {
@@ -401,7 +401,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         console.log("🔍 eSign pending for eMandate - showing Digio modal");
         const authUrl = error.response.data.pendingEsign?.authenticationUrl;
         if (authUrl) {
-          const amount = subscriptionType === "yearly"
+          const amount = subscriptionType === "quarterly"
             ? ((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0
             : ((bundle as any).monthlyemandateprice as number) || bundle.monthlyPrice || 0;
           const data: PaymentAgreementData = {
@@ -799,11 +799,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                         {/* Annual prepaid (yearly) */}
                         <button
                           onClick={() => {
-                            setSubscriptionType("yearly");
-                            paymentFlowState.update({ subscriptionType: "yearly" });
+                            setSubscriptionType("quarterly");
+                            paymentFlowState.update({ subscriptionType: "quarterly" });
                           }}
                           className={`p-4 sm:p-5 md:p-6 rounded-xl border-2 transition-all text-left relative overflow-hidden h-full flex flex-col ${
-                            subscriptionType === "yearly"
+                            subscriptionType === "quarterly"
                               ? "border-blue-500 bg-blue-50"
                               : "border-gray-200 hover:border-gray-300"
                           }`}
@@ -826,16 +826,16 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                           </div>
                           <div className="pt-9 sm:pt-10" />
                           <div className="font-semibold text-base sm:text-lg md:text-xl">
-                            Annual, billed Yearly
+                            Annual, billed Quarterly
                           </div>
                           <div className="text-xs sm:text-sm text-gray-600 line-through">
                             ₹
                             {(bundle as any).strikeYear ||
-                              Math.round((bundle.yearlyPrice || 0))}{" "}
+                              Math.round((bundle.quarterlyPrice || 0))}{" "}
                             /yr
                           </div>
                           <div className="mt-1 text-2xl sm:text-3xl md:text-4xl font-bold text-blue-700">
-                            ₹{(bundle as any).yearlyemandateprice || 0}
+                            ₹{(bundle as any).quarterlyemandateprice || 0}
                             <span className="text-base font-medium">/yr</span>
                           </div>
                           <div className="text-[11px] sm:text-xs text-gray-500 mt-1">
@@ -920,7 +920,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     )}
                     <p className="text-sm text-gray-500 mt-1">
                       Billed{" "}
-                      {subscriptionType === "yearly" ? "annually" : "monthly"}
+                      {subscriptionType === "quarterly" ? "annually" : "monthly"}
                     </p>
                   </div>
 
