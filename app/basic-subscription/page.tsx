@@ -94,7 +94,7 @@ export default function BasicSubscriptionPage() {
   };
 
   const { isAuthenticated } = useAuth();
-  const { addBundleToCart, hasBundle } = useCart();
+  const { addBundleToCart, hasBundle, cart } = useCart();
   const { toast } = useToast();
   const router = useRouter();
   const [showPaymentModal, setShowPaymentModal] = useState(false);

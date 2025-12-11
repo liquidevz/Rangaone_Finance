@@ -364,9 +364,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
   };
 
   const hasBundle = (bundleId: string): boolean => {
-    // For now, we'll check if any item in the cart has a portfolio with the bundle ID
-    // This is a simplified implementation since bundles are not directly stored in cart
-    return cart?.items.some(item => item.portfolio._id === bundleId) || false;
+    return cart?.items?.some(item => item?.portfolio?._id === bundleId) || false;
   };
 
   const addBundleToCart = async (bundleId: string, subscriptionType: "monthly" | "quarterly" | "yearly", category?: string) => {

@@ -75,7 +75,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     if (isEmandateFlow) {
       basePrice =
         subscriptionType === "quarterly"
-          ? (bundle as any).yearlyemandateprice || bundle.yearlyPrice || 0
+          ? (bundle as any).quarterlyemandateprice || bundle.quarterlyPrice || 0
           : (bundle as any).monthlyemandateprice || bundle.monthlyPrice || 0;
     } else {
       basePrice = bundle.monthlyPrice || 0;
@@ -832,11 +832,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                             ₹
                             {(bundle as any).strikeYear ||
                               Math.round((bundle.quarterlyPrice || 0))}{" "}
-                            /yr
+                            /qr
                           </div>
                           <div className="mt-1 text-2xl sm:text-3xl md:text-4xl font-bold text-blue-700">
                             ₹{(bundle as any).quarterlyemandateprice || 0}
-                            <span className="text-base font-medium">/yr</span>
+                            <span className="text-base font-medium">/qr</span>
                           </div>
                           <div className="text-[11px] sm:text-xs text-gray-500 mt-1">
                             Best value - Save more with Yearly Billing
