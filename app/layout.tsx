@@ -6,6 +6,8 @@ import { FilterProvider } from "@/components/recommendations/filter-state-contex
 import AuthGuard from "@/components/auth/auth-guard";
 import { PrefetchRoutes, Toaster } from "@/components/client-wrapper";
 import { PerformanceMonitor } from "@/components/performance-monitor";
+import { CriticalPagePreloader } from "@/components/critical-page-preloader";
+import { ServiceWorkerRegister } from "@/components/service-worker-register";
 
 export const metadata = {
   title: "Finance - SEBI Registered Research Analyst",
@@ -49,9 +51,20 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://www.youtube.com" />
         <link rel="dns-prefetch" href="https://api.rangaone.finance" />
         <meta name="theme-color" content="#ffffff" />
+        {/* Preload critical routes for instant navigation */}
+        <link rel="prefetch" href="/login" as="document" />
+        <link rel="prefetch" href="/signup" as="document" />
+        <link rel="prefetch" href="/dashboard" as="document" />
+        {/* Preload critical images */}
+        <link rel="preload" href="/landing-page/rlogodark.png" as="image" />
+        <link rel="preload" href="/landing-page/namelogodark.png" as="image" />
+        <link rel="preload" href="/login-bg.png" as="image" />
+        <link rel="preload" href="/signup-bg.png" as="image" />
       </head>
       <body className="font-sans" suppressHydrationWarning>
         <PerformanceMonitor />
+        <ServiceWorkerRegister />
+        <CriticalPagePreloader />
         <AuthProvider>
             <CartProvider>
               <FilterProvider>

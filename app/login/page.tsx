@@ -8,18 +8,17 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/components/auth/auth-context";
 import { cartRedirectState } from "@/lib/cart-redirect-state";
 import dynamic from "next/dynamic";
-
-const ForgotPasswordModal = dynamic(() => import("@/components/auth/forgot-password-modal"), { 
-  ssr: false,
-  loading: () => null 
-});
-
 import { IconEye, IconEyeOff } from "@/components/ui/icons";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type React from "react";
 import { useState, useEffect } from "react";
+
+const ForgotPasswordModal = dynamic(() => import("@/components/auth/forgot-password-modal"), { 
+  ssr: false,
+  loading: () => null 
+});
 
 export default function LoginPage() {
   const router = useRouter();
@@ -143,6 +142,7 @@ export default function LoginPage() {
                 width={80}
                 height={80}
                 priority
+                fetchPriority="high"
               />
               <Image 
                 src="/landing-page/namelogodark.png" 
@@ -150,6 +150,7 @@ export default function LoginPage() {
                 width={180}
                 height={180}
                 priority
+                fetchPriority="high"
               />
             </div>
             <p className="mt-2 text-gray-600">
@@ -288,6 +289,7 @@ export default function LoginPage() {
           fill
           className="object-cover"
           priority
+          fetchPriority="high"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
 

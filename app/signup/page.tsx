@@ -301,6 +301,7 @@ export default function SignupPage() {
                 width={80}
                 height={80}
                 priority
+                fetchPriority="high"
               />
               <Image 
                 src="/landing-page/namelogodark.png" 
@@ -308,6 +309,7 @@ export default function SignupPage() {
                 width={180}
                 height={180}
                 priority
+                fetchPriority="high"
               />
             </div>
             <h2 className="text-3xl font-bold text-gray-900">Create your account</h2>

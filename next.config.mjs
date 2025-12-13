@@ -98,6 +98,9 @@ const nextConfig = {
     ppr: false,
     // Optimize server components
     serverComponentsExternalPackages: ['axios'],
+    // Aggressive preloading for critical pages
+    workerThreads: true,
+    cpus: 4,
   },
 
   // Preload critical pages during build
@@ -109,9 +112,9 @@ const nextConfig = {
     if (!isServer) {
       config.optimization.splitChunks = {
         chunks: 'all',
-        maxInitialRequests: 25,
+        maxInitialRequests: 30,
         minSize: 20000,
-        maxSize: 200000,
+        maxSize: 150000,
         cacheGroups: {
           default: false,
           vendors: false,
@@ -133,6 +136,12 @@ const nextConfig = {
             priority: 33,
             reuseExistingChunk: true,
           },
+          authPages: {
+            name: 'auth-pages',
+            test: /[\\/](login|signup|dashboard)[\\/]/,
+            priority: 32,
+            reuseExistingChunk: true,
+          },
           lib: {
             test: /[\\/]node_modules[\\/]/,
             name(module) {
@@ -145,6 +154,10 @@ const nextConfig = {
           },
         },
       };
+      
+      // Enable module concatenation for better performance
+      config.optimization.concatenateModules = true;
+      config.optimization.usedExports = true;
     }
     return config;
   },

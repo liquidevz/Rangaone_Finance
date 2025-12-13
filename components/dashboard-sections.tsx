@@ -601,11 +601,39 @@ function GeneralTipCard({ tip, subscriptionAccess }: { tip: Tip; subscriptionAcc
                 <p className="text-sm font-light text-gray-600" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>NSE</p>
               </div>
 
-              <div className="bg-[#219612] p-[3px] rounded-xl">
-                <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg text-center min-w-[70px] py-0.5 px-1">
-                  <p className="text-xs text-black font-bold text-center mb-0" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>Target</p>
-                  <p className="text-2xl font-bold text-black -mt-1 mb-0" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>{formatPercentage(tip.targetPercentage)}</p>
-                  <p className="text-xs text-black font-bold text-right px-1 -mt-1" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>Upto</p>
+              <div className={`p-[3px] rounded-xl ${
+                tip.status?.toLowerCase() === "closed"
+                  ? (tip.exitStatus?.toLowerCase().includes("loss") || (tip.exitStatusPercentage && parseFloat(tip.exitStatusPercentage.replace("%", "")) < 0))
+                    ? "bg-gradient-to-r from-[#627281] to-[#A6AFB6]"
+                    : "bg-[#219612]"
+                  : "bg-[#219612]"
+              }`}>
+                <div className={`rounded-lg text-center min-w-[70px] py-0.5 px-1 ${
+                  tip.status?.toLowerCase() === "closed"
+                    ? (tip.exitStatus?.toLowerCase().includes("loss") || (tip.exitStatusPercentage && parseFloat(tip.exitStatusPercentage.replace("%", "")) < 0))
+                      ? "bg-gradient-to-tr from-[#A6AFB6] to-[#627281]"
+                      : "bg-gradient-to-r from-green-50 to-green-100"
+                    : "bg-gradient-to-r from-green-50 to-green-100"
+                }`}>
+                  <p className={`text-xs font-bold text-center mb-0 ${
+                    tip.status?.toLowerCase() === "closed"
+                      ? (tip.exitStatus?.toLowerCase().includes("loss") || (tip.exitStatusPercentage && parseFloat(tip.exitStatusPercentage.replace("%", "")) < 0))
+                        ? "text-white"
+                        : "text-black"
+                      : "text-black"
+                  }`} style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>
+                    {tip.status?.toLowerCase() === "closed" ? tip.exitStatus : "Target"}
+                  </p>
+                  <p className={`text-2xl font-bold -mt-1 mb-0 ${
+                    tip.status?.toLowerCase() === "closed"
+                      ? (tip.exitStatus?.toLowerCase().includes("loss") || (tip.exitStatusPercentage && parseFloat(tip.exitStatusPercentage.replace("%", "")) < 0))
+                        ? "text-white"
+                        : "text-black"
+                      : "text-black"
+                  }`} style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>
+                    {tip.status?.toLowerCase() === "closed" ? formatPercentage(tip.exitStatusPercentage) : formatPercentage(tip.targetPercentage)}
+                  </p>
+                  <p className="text-xs text-black font-bold text-right px-1 -mt-1" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>{tip.status?.toLowerCase() === "closed" ? "" : "Upto"}</p>
                 </div>
               </div>
             </div>
@@ -718,6 +746,9 @@ function ModelPortfolioTipCard({ tip, subscriptionAccess }: { tip: Tip; subscrip
 
   return (
     <div className="mb-4">
+      <h3 className="text-sm font-medium text-gray-900 line-clamp-2 mb-2">
+        <b>Title:- </b>{tip.title}
+      </h3>
       <div
         className={`relative p-[3px] rounded-lg mx-auto max-w-[18rem] md:max-w-[24rem] ${canAccessTip ? 'cursor-pointer' : ''}`}
         style={{

@@ -8,6 +8,11 @@ export function middleware(request: NextRequest) {
   response.headers.set('X-DNS-Prefetch-Control', 'on')
   response.headers.set('X-Content-Type-Options', 'nosniff')
   
+  // Add preload hints for critical pages on home page
+  if (request.nextUrl.pathname === '/') {
+    response.headers.set('Link', '</login>; rel=prefetch, </signup>; rel=prefetch, </dashboard>; rel=prefetch, </landing-page/rlogodark.png>; rel=preload; as=image, </landing-page/namelogodark.png>; rel=preload; as=image')
+  }
+  
   // Cache headers for static assets
   if (request.nextUrl.pathname.startsWith('/_next/static')) {
     response.headers.set('Cache-Control', 'public, max-age=31536000, immutable')
@@ -18,8 +23,8 @@ export function middleware(request: NextRequest) {
     response.headers.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800')
   }
 
-  // Cache login and dashboard pages with stale-while-revalidate
-  if (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/dashboard') {
+  // Cache critical pages with stale-while-revalidate for instant loading
+  if (['/login', '/signup', '/dashboard'].includes(request.nextUrl.pathname)) {
     response.headers.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400')
   }
   
