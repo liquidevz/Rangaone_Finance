@@ -4,23 +4,19 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 // Preload critical components for instant rendering
 const Banner = dynamicImport(() => import("@/components/banner"), { 
-  ssr: true,
-  loading: () => <Skeleton className="w-full h-32 rounded-lg" />
+  ssr: true
 })
 
 const MarketIndicesSection = dynamicImport(() => import("@/components/dashboard-sections").then(mod => ({ default: mod.MarketIndicesSection })), { 
-  ssr: true,
-  loading: () => <Skeleton className="w-full h-48 rounded-lg" />
+  ssr: true
 })
 
 const ExpertRecommendationsSection = dynamicImport(() => import("@/components/dashboard-sections").then(mod => ({ default: mod.ExpertRecommendationsSection })), { 
-  ssr: true,
-  loading: () => <Skeleton className="w-full h-96 rounded-lg" />
+  ssr: true
 })
 
 const ModelPortfolioSection = dynamicImport(() => import("@/components/dashboard-sections").then(mod => ({ default: mod.ModelPortfolioSection })), { 
-  ssr: true,
-  loading: () => <Skeleton className="w-full h-96 rounded-lg" />
+  ssr: true
 })
 
 export const revalidate = 300;

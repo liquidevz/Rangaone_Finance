@@ -16,8 +16,7 @@ import type React from "react";
 import { useState, useEffect } from "react";
 
 const ForgotPasswordModal = dynamic(() => import("@/components/auth/forgot-password-modal"), { 
-  ssr: false,
-  loading: () => null 
+  ssr: false
 });
 
 export default function LoginPage() {
