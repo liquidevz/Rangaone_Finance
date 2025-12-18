@@ -19,12 +19,9 @@ const nextConfig = {
     } : false,
   },
   
-
-  
-  // Optimize page loading
   onDemandEntries: {
-    maxInactiveAge: 60 * 1000,
-    pagesBufferLength: 5,
+    maxInactiveAge: 25 * 1000,
+    pagesBufferLength: 2,
   },
 
   // Image configuration for Docker
@@ -76,9 +73,9 @@ const nextConfig = {
   },
 
   experimental: {
-    serverActions: {
-      bodySizeLimit: '2mb',
-    },
+    serverActions: { bodySizeLimit: '2mb' },
+    optimizePackageImports: ['lucide-react', 'recharts', 'framer-motion'],
+    optimizeCss: true,
   },
 
   staticPageGenerationTimeout: 120,
