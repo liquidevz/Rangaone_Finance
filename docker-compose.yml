@@ -2,8 +2,11 @@ services:
   rangaone-fe:
     build:
       context: .
+      dockerfile: Dockerfile
       args:
         - BUILDKIT_INLINE_CACHE=1
+      cache_from:
+        - rangaone-fe:latest
     image: rangaone-fe:latest
     container_name: Rangaone_Finance
     ports:
@@ -14,6 +17,8 @@ services:
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: 1
       NODE_OPTIONS: "--max-old-space-size=2048"
+      PORT: 3000
+      HOSTNAME: "0.0.0.0"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
@@ -31,8 +36,17 @@ services:
           memory: 2G
     security_opt:
       - no-new-privileges:true
+    read_only: false
+    tmpfs:
+      - /tmp
+      - /app/.next/cache
     networks:
       - rangaone-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
   rangaone-network:

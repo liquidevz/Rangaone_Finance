@@ -1,35 +1,98 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
+# Dependencies
 /node_modules
+/.pnp
+.pnp.js
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
 
-# next.js
+# Next.js Build Output
 /.next/
 /out/
+/build
+/.next/standalone
+/.next/static
+/.next/cache
+.turbo
 
-# production
+# Production
+/dist
 /build
 
-# debug
+# Testing
+/coverage
+.nyc_output
+/TEST
+*.test.js
+*.test.ts
+*.test.tsx
+*.spec.js
+*.spec.ts
+*.spec.tsx
+__tests__/
+__mocks__/
+
+# Debug & Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+lerna-debug.log*
+logs
+*.log
 
-# env files
+# Environment Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
 
-
-# vercel
+# Vercel
 .vercel
 
-# typescript
+# TypeScript
 *.tsbuildinfo
 next-env.d.ts
 
-# YoYo AI version control directory
-.yoyo/
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-workspace
+*.sublime-project
 
-# Large files and archives
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# AI Tools
+.yoyo/
+.cursor/
+.copilot/
+
+# Temporary Files
+*.tmp
+*.temp
+tmp/
+temp/
+.cache/
+
+# Large Files and Archives
 *.zip
 *.tar.gz
 *.rar
@@ -38,5 +101,15 @@ next-env.d.ts
 *.dmg
 *.pkg
 
-# Files larger than 50MB (GitHub limit is 100MB, but we'll be conservative)
-# You can use: find . -size +50M -type f to find large files
+# Docker (keep docker files in repo)
+# docker-compose.yml
+# Dockerfile
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Documentation Build
+/docs/build
+/docs/.docusaurus

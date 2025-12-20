@@ -4,6 +4,8 @@ import { portfolioService } from '@/services/portfolio.service'
 import { tipsService } from '@/services/tip.service'
 import { authService } from '@/services/auth.service'
 
+export const dynamic = 'force-dynamic';
+
 interface SearchResult {
   id: string
   title: string

@@ -1,3 +1,5 @@
+"use client";
+
 import dynamicImport from "next/dynamic"
 import DashboardLayout from "@/components/dashboard-layout"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -18,10 +20,6 @@ const ExpertRecommendationsSection = dynamicImport(() => import("@/components/da
 const ModelPortfolioSection = dynamicImport(() => import("@/components/dashboard-sections").then(mod => ({ default: mod.ModelPortfolioSection })), { 
   ssr: true
 })
-
-export const revalidate = 300;
-export const dynamic = 'force-static';
-export const fetchCache = 'force-cache';
 
 export default function Dashboard() {
   return (

@@ -142,7 +142,6 @@ export class LocalCartService {
   // Get local cart from localStorage with enhanced error handling
   getLocalCart(): LocalCart {
     if (!this.isBrowser()) {
-      console.log("Not in browser, returning empty cart");
       return { items: [], lastUpdated: new Date().toISOString() };
     }
 
