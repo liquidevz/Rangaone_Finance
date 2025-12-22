@@ -128,6 +128,12 @@ export default function VideosForYou() {
     setVideoLoading(true)
     setSelectedVideo(video)
     
+    // Scroll to video player on selection
+    const videoPlayer = document.getElementById('video-player-section')
+    if (videoPlayer) {
+      videoPlayer.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    
     // Reset loading state after a short delay
     setTimeout(() => {
       setVideoLoading(false)
@@ -175,7 +181,7 @@ export default function VideosForYou() {
 
         {/* Featured Video Player */}
         {selectedVideo && (
-          <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-lg border border-gray-200 overflow-hidden mb-8">
+          <div id="video-player-section" className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-lg border border-gray-200 overflow-hidden mb-8">
             <div className="w-full bg-black relative rounded-t-xl overflow-hidden">
               <MobileVideoPlayer
                 youtubeId={selectedVideo.youtubeId}

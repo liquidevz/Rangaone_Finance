@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Search, X, TrendingUp, Briefcase, FileText, Clock, ArrowRight, Lightbulb } from "lucide-react"
+import { Search, X, TrendingUp, Briefcase, FileText, Clock, ArrowRight, Lightbulb, Eye, Sparkles, Crown, Zap } from "lucide-react"
 import { useAuth } from "@/components/auth/auth-context"
-import { useCart } from "@/components/cart/cart-context"
 import { cn } from "@/lib/utils"
 
 const debounce = <T extends (...args: any[]) => any>(func: T, wait: number) => {
@@ -29,6 +28,8 @@ interface SearchResult {
   portfolioName?: string
   portfolioId?: string
   hasAccess?: boolean
+  tipAction?: string
+  action?: string
   onClick?: {
     action: string
     params?: Record<string, any>
@@ -36,13 +37,19 @@ interface SearchResult {
 }
 
 interface Suggestion {
-  text: string
-  type: "portfolio" | "subscription" | "page" | "tip" | "stock"
+  text?: string
+  title?: string
+  displayText?: string
+  type: "portfolio" | "premium" | "basic" | "subscription" | "page" | "tip" | "stock"
   id: string
   hasAccess?: boolean
   category?: string
   createdAt?: string
   portfolioName?: string
+  tag?: string
+  onclick?: string
+  action?: string
+  meta?: string
 }
 
 
@@ -58,7 +65,6 @@ export function GlobalSearch() {
   const router = useRouter()
   const searchRef = useRef<HTMLDivElement>(null)
   const { isAuthenticated } = useAuth()
-  const { addToCart } = useCart()
 
   useEffect(() => {
     const saved = localStorage.getItem('recent-searches')
@@ -97,49 +103,52 @@ export function GlobalSearch() {
           updatedAt: stock.updatedAt
         }))
 
-        // Separate tips with portfolio from regular tips
-        const allTips = [...(data.results.portfolios || []), ...(data.results.tips || [])]
-
-        const portfolios = allTips.filter((item: any) => item.title && item.title.includes(' - ')).map((portfolio: any) => ({
-          id: portfolio.id,
-          title: portfolio.title,
-          type: 'portfolio' as const,
-          url: portfolio.onclick || portfolio.url,
-          description: 'Buy Range: Click here | Target: Click here | Status: Click here',
-          category: portfolio.category,
-          onClick: portfolio.onClick,
-          portfolioName: portfolio.portfolioName,
-          hasAccess: portfolio.hasAccess,
-          createdAt: portfolio.createdAt,
-          updatedAt: portfolio.updatedAt
-        })).sort((a: any, b: any) => {
-          const dateA = new Date(a.updatedAt || a.createdAt || 0).getTime()
-          const dateB = new Date(b.updatedAt || b.createdAt || 0).getTime()
-          return dateB - dateA
-        })
-
-        const tips = allTips.filter((item: any) => !item.title || !item.title.includes(' - ')).map((tip: any) => ({
+        // Process tips from search results
+        const tips = (data.results.tips || []).map((tip: any) => ({
           id: tip.id,
           title: tip.title,
           type: 'tip' as const,
           url: tip.onclick || tip.url,
-          description: 'Buy Range: Click here | Target: Click here | Status: Click here',
-          category: tip.category,
-          onClick: tip.onClick,
-          hasAccess: tip.hasAccess,
+          // Check if it has portfolioName - then it's a portfolio tip
+          category: tip.portfolioName ? 'portfolio' : (tip.category || 'basic'),
+          portfolioName: tip.portfolioName,
+          portfolioId: tip.portfolioId,
+          hasAccess: tip.hasAccess || tip.accessType !== 'none',
           createdAt: tip.createdAt,
-          updatedAt: tip.updatedAt
+          updatedAt: tip.updatedAt,
+          tipAction: tip.tipAction || tip.action
         })).sort((a: any, b: any) => {
           const dateA = new Date(a.updatedAt || a.createdAt || 0).getTime()
           const dateB = new Date(b.updatedAt || b.createdAt || 0).getTime()
           return dateB - dateA
         })
 
+        // Process portfolios (if any direct portfolio results)
+        const portfolios = (data.results.portfolios || []).map((portfolio: any) => ({
+          id: portfolio.id,
+          title: portfolio.name,
+          type: 'portfolio' as const,
+          url: portfolio.onclick || `/portfolios/${portfolio.id}`,
+          description: portfolio.description,
+          category: portfolio.category,
+          minInvestment: portfolio.minInvestment
+        }))
+
+        // Process FAQs as pages
+        const faqs = (data.results.faqs || []).map((faq: any) => ({
+          id: faq.id,
+          title: faq.question,
+          type: 'page' as const,
+          url: faq.onclick || `/faqs#${faq.id}`,
+          description: faq.answer?.substring(0, 100) + '...',
+          category: faq.category
+        }))
+
         return {
-          Pages: data.results.pages || [],
           Portfolios: portfolios,
           Tips: tips,
           Stocks: stocks,
+          Pages: [...(data.results.pages || []), ...faqs],
           Subscriptions: data.results.subscriptions || []
         }
       }
@@ -239,37 +248,39 @@ export function GlobalSearch() {
   const getTypeIcon = (type: string, category?: string) => {
     switch (type) {
       case "portfolio": return (
-        <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg p-2 shadow-sm">
+        <div className="bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl p-2 shadow-lg shadow-purple-500/25">
           <Briefcase className="h-4 w-4 text-white" />
         </div>
       )
       case "subscription": return (
-        <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg p-2 shadow-sm">
+        <div className="bg-gradient-to-br from-emerald-400 to-teal-600 rounded-xl p-2 shadow-lg shadow-emerald-500/25">
           <TrendingUp className="h-4 w-4 text-white" />
         </div>
       )
       case "tip": return (
         <div className={cn(
-          "rounded-lg p-2 shadow-sm",
+          "rounded-xl p-2 shadow-lg",
           category === "premium"
-            ? "bg-gradient-to-br from-yellow-400 to-amber-500"
-            : "bg-gradient-to-br from-blue-500 to-indigo-600"
+            ? "bg-gradient-to-br from-amber-400 via-yellow-500 to-orange-500 shadow-amber-500/25"
+            : category === "portfolio"
+              ? "bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500 shadow-purple-500/25"
+              : "bg-gradient-to-br from-blue-400 via-indigo-500 to-blue-600 shadow-blue-500/25"
         )}>
           <Lightbulb className="h-4 w-4 text-white" />
         </div>
       )
       case "stock": return (
-        <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg p-2 shadow-sm">
+        <div className="bg-gradient-to-br from-green-400 to-emerald-600 rounded-xl p-2 shadow-lg shadow-green-500/25">
           <TrendingUp className="h-4 w-4 text-white" />
         </div>
       )
       case "page": return (
-        <div className="bg-gradient-to-br from-gray-500 to-slate-600 rounded-lg p-2 shadow-sm">
+        <div className="bg-gradient-to-br from-slate-400 to-gray-600 rounded-xl p-2 shadow-lg shadow-gray-500/25">
           <FileText className="h-4 w-4 text-white" />
         </div>
       )
       default: return (
-        <div className="bg-gradient-to-br from-gray-400 to-gray-500 rounded-lg p-2 shadow-sm">
+        <div className="bg-gradient-to-br from-gray-400 to-gray-500 rounded-xl p-2 shadow-lg shadow-gray-500/25">
           <Search className="h-4 w-4 text-white" />
         </div>
       )
@@ -314,44 +325,137 @@ export function GlobalSearch() {
     return colors[Math.abs(hash) % colors.length]
   }
 
-  const getResultBadge = (type: string, category?: string, portfolioName?: string) => {
+  const getResultBadge = (type: string, category?: string, portfolioName?: string, tipAction?: string) => {
     if (!type) return null
 
-    const badges = {
-      tip: category === "premium"
-        ? { text: "Premium Bundle", className: "bg-gradient-to-r from-yellow-400 to-amber-500 text-white shadow-lg" }
-        : { text: "Basic Bundle", className: "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg" },
-      portfolio: { text: portfolioName || "Portfolio", className: "", style: portfolioName ? getPortfolioColor(portfolioName) : null },
-      stock: category === "portfolio"
-        ? { text: "Portfolio Stock", className: "bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg" }
-        : { text: "Stock", className: "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg" },
-      subscription: { text: "Subscription", className: "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg" },
-      page: { text: "Page", className: "bg-gradient-to-r from-gray-500 to-slate-600 text-white shadow-lg" }
+    // For tips - determine the badge based on portfolio or standalone type
+    if (type === 'tip') {
+      // If it has portfolioName, it's a portfolio tip - show portfolio name with Portfolio tag
+      if (portfolioName) {
+        const color = getPortfolioColor(portfolioName)
+        return (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold px-2 py-1 rounded-full bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-md">
+              <Briefcase className="h-3 w-3" />
+              Portfolio
+            </span>
+            <span
+              className="text-[10px] sm:text-xs font-semibold px-2 py-1 rounded-full text-white shadow-md border border-white/20"
+              style={{
+                background: `linear-gradient(135deg, ${color.from}, ${color.via}, ${color.to})`,
+                boxShadow: `0 2px 8px ${color.shadow}`
+              }}
+            >
+              {portfolioName}
+            </span>
+            {tipAction && (
+              <span className={cn(
+                "text-[10px] sm:text-xs font-bold px-2 py-1 rounded-full shadow-sm uppercase",
+                tipAction.toLowerCase() === 'buy' || tipAction.toLowerCase() === 'add more'
+                  ? "bg-gradient-to-r from-green-400 to-emerald-500 text-white"
+                  : tipAction.toLowerCase() === 'sell'
+                    ? "bg-gradient-to-r from-red-400 to-rose-500 text-white"
+                    : "bg-gradient-to-r from-amber-400 to-yellow-500 text-gray-900"
+              )}>
+                {tipAction}
+              </span>
+            )}
+          </div>
+        )
+      }
+
+      // Premium tip
+      if (category === 'premium') {
+        return (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-400 via-yellow-500 to-orange-500 text-white shadow-lg shadow-amber-500/30">
+              <Crown className="h-3 w-3" />
+              Premium
+            </span>
+            {tipAction && (
+              <span className={cn(
+                "text-[10px] sm:text-xs font-bold px-2 py-1 rounded-full shadow-sm uppercase",
+                tipAction.toLowerCase() === 'buy' || tipAction.toLowerCase() === 'add more'
+                  ? "bg-gradient-to-r from-green-400 to-emerald-500 text-white"
+                  : tipAction.toLowerCase() === 'sell'
+                    ? "bg-gradient-to-r from-red-400 to-rose-500 text-white"
+                    : "bg-gradient-to-r from-amber-400 to-yellow-500 text-gray-900"
+              )}>
+                {tipAction}
+              </span>
+            )}
+          </div>
+        )
+      }
+
+      // Basic tip (default)
+      return (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-400 via-indigo-500 to-blue-600 text-white shadow-lg shadow-blue-500/30">
+            <Zap className="h-3 w-3" />
+            Basic
+          </span>
+          {tipAction && (
+            <span className={cn(
+              "text-[10px] sm:text-xs font-bold px-2 py-1 rounded-full shadow-sm uppercase",
+              tipAction.toLowerCase() === 'buy' || tipAction.toLowerCase() === 'add more'
+                ? "bg-gradient-to-r from-green-400 to-emerald-500 text-white"
+                : tipAction.toLowerCase() === 'sell'
+                  ? "bg-gradient-to-r from-red-400 to-rose-500 text-white"
+                  : "bg-gradient-to-r from-amber-400 to-yellow-500 text-gray-900"
+            )}>
+              {tipAction}
+            </span>
+          )}
+        </div>
+      )
     }
 
-    const badge = badges[type as keyof typeof badges] || { text: type.charAt(0).toUpperCase() + type.slice(1), className: "bg-gray-100 text-gray-600" }
-
-    if (type === 'portfolio' && 'style' in badge && badge.style) {
-      const color = badge.style
+    // For portfolios
+    if (type === 'portfolio') {
+      const color = portfolioName ? getPortfolioColor(portfolioName) : null
+      if (color) {
+        return (
+          <span
+            className="text-[10px] sm:text-xs font-semibold px-2.5 py-1 rounded-full text-white shadow-md border border-white/20"
+            style={{
+              background: `linear-gradient(135deg, ${color.from}, ${color.via}, ${color.to})`,
+              boxShadow: `0 2px 8px ${color.shadow}`
+            }}
+          >
+            {portfolioName}
+          </span>
+        )
+      }
       return (
-        <span
-          className="text-xs font-semibold px-3 py-1.5 rounded-full shadow-md border border-white/20 text-white"
-          style={{
-            background: `linear-gradient(to bottom right, ${color.from}, ${color.via}, ${color.to})`,
-            boxShadow: `0 4px 20px ${color.shadow}`
-          }}
-        >
-          {badge.text}
+        <span className="text-[10px] sm:text-xs font-bold px-2.5 py-1 rounded-full bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-lg shadow-purple-500/30">
+          Portfolio
         </span>
       )
     }
 
+    // For stocks
+    if (type === 'stock') {
+      return (
+        <span className="text-[10px] sm:text-xs font-bold px-2.5 py-1 rounded-full bg-gradient-to-r from-green-400 to-emerald-600 text-white shadow-lg shadow-green-500/30">
+          Stock
+        </span>
+      )
+    }
+
+    // For pages
+    if (type === 'page') {
+      return (
+        <span className="text-[10px] sm:text-xs font-semibold px-2.5 py-1 rounded-full bg-gradient-to-r from-slate-400 to-gray-600 text-white shadow-md">
+          Page
+        </span>
+      )
+    }
+
+    // Default
     return (
-      <span className={cn(
-        "text-xs font-semibold px-3 py-1.5 rounded-full shadow-md border border-white/20",
-        badge.className
-      )}>
-        {badge.text}
+      <span className="text-[10px] sm:text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">
+        {type.charAt(0).toUpperCase() + type.slice(1)}
       </span>
     )
   }
@@ -402,31 +506,31 @@ export function GlobalSearch() {
       </div>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 sm:mt-3 bg-white border border-gray-200 rounded-xl sm:rounded-2xl shadow-2xl z-50 max-h-[28rem] sm:max-h-[32rem] overflow-hidden" role="listbox">
+        <div className="absolute top-full left-0 right-0 mt-2 sm:mt-3 bg-white border border-gray-200 rounded-xl sm:rounded-2xl shadow-2xl z-50 max-h-[80vh] sm:max-h-[32rem] overflow-hidden" role="listbox">
           {loading ? (
-            <div className="p-8 text-center">
-              <div className="relative mx-auto w-12 h-12 mb-4">
-                <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
-                <div className="absolute inset-0 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <div className="p-6 sm:p-8 text-center">
+              <div className="relative mx-auto w-10 h-10 sm:w-12 sm:h-12 mb-3 sm:mb-4">
+                <div className="absolute inset-0 border-3 sm:border-4 border-blue-100 rounded-full"></div>
+                <div className="absolute inset-0 border-3 sm:border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
-              <p className="text-base font-semibold text-gray-700">Searching...</p>
-              <p className="text-sm text-gray-500 mt-2">Finding portfolios, tips, stocks & pages</p>
+              <p className="text-sm sm:text-base font-semibold text-gray-700">Searching...</p>
+              <p className="text-xs sm:text-sm text-gray-500 mt-1 sm:mt-2">Finding portfolios, tips, stocks & pages</p>
             </div>
           ) : query && flatResults.length > 0 ? (
-            <div className="max-h-[26rem] sm:max-h-[30rem] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+          <div className="max-h-[70vh] sm:max-h-[30rem] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
               {Object.entries(results)
                 .filter(([section, items]) => items.length > 0)
                 .sort(([a], [b]) => {
-                  // Sort order: Stocks, Portfolios, Tips, Pages, Subscriptions
-                  const order = ['Stocks', 'Portfolios', 'Tips', 'Pages', 'Subscriptions']
+                  // Sort order: Tips, Portfolios, Stocks, Pages, Subscriptions
+                  const order = ['Tips', 'Portfolios', 'Stocks', 'Pages', 'Subscriptions']
                   return order.indexOf(a) - order.indexOf(b)
                 })
                 .map(([section, items], sectionIndex) => (
                   <div key={section} className="border-b border-gray-100/80 last:border-b-0">
-                    <div className="sticky top-0 bg-gradient-to-r from-blue-50/95 to-indigo-50/95 backdrop-blur-md px-3 sm:px-5 py-3 sm:py-4 border-b border-blue-100/60" style={{ zIndex: 50 - sectionIndex }}>
+                    <div className="sticky top-0 bg-gradient-to-r from-slate-50/98 via-blue-50/98 to-indigo-50/98 backdrop-blur-md px-3 sm:px-5 py-2.5 sm:py-3 border-b border-blue-100/60" style={{ zIndex: 50 - sectionIndex }}>
                       <div className="flex items-center gap-2 sm:gap-3">
-                        <span className="text-xs sm:text-sm font-bold text-gray-800 uppercase tracking-wide">{section}</span>
-                        <span className="text-xs text-blue-600 bg-blue-100/80 px-2 sm:px-3 py-1 rounded-full font-medium">{items.length}</span>
+                        <span className="text-xs sm:text-sm font-bold text-gray-800 uppercase tracking-wider">{section}</span>
+                        <span className="text-[10px] sm:text-xs text-white bg-gradient-to-r from-blue-500 to-indigo-600 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full font-bold shadow-sm">{items.length}</span>
                       </div>
                     </div>
                     <div className="py-1">
@@ -437,84 +541,45 @@ export function GlobalSearch() {
                             key={result.id}
                             onClick={() => handleResultClick(result)}
                             className={cn(
-                              "w-full px-3 sm:px-5 py-3 sm:py-4 text-left transition-all duration-300 group relative",
-                              "hover:bg-gradient-to-r hover:from-blue-50/90 hover:to-indigo-50/90 hover:scale-[1.01]",
+                              "w-full px-3 sm:px-5 py-3 sm:py-4 text-left transition-all duration-200 group relative",
+                              "hover:bg-gradient-to-r hover:from-blue-50/80 hover:via-indigo-50/60 hover:to-purple-50/40",
                               "border-b border-gray-100/60 last:border-b-0",
-                              isActive && "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200/60 shadow-sm"
+                              isActive && "bg-gradient-to-r from-blue-50 via-indigo-50/80 to-purple-50/60 border-blue-200/60 shadow-sm"
                             )}
                             role="option"
                             aria-selected={isActive}
                           >
-                            <div className="flex items-start gap-2 sm:gap-3 relative">
-                              <div className="flex-shrink-0">
+                            <div className="flex items-start gap-2.5 sm:gap-3 relative">
+                              <div className="flex-shrink-0 mt-0.5">
                                 {getTypeIcon(result.type, result.category)}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
-                                  <div className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors duration-300 text-sm sm:text-base leading-tight">
-                                    {highlightMatch(String(result.title || ''), query)}
-                                    {result.portfolioName && result.category === 'portfolio' && (
-                                      <span className="block sm:inline text-xs sm:text-sm text-blue-600 sm:ml-2 font-medium">in {result.portfolioName}</span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    {getResultBadge(result.type, result.category, result.portfolioName) && getResultBadge(result.type, result.category, result.portfolioName)}
-                                    {(result.createdAt || result.updatedAt) && (
-                                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                                        {formatDate(result.updatedAt || result.createdAt)}
-                                      </span>
-                                    )}
-                                  </div>
+                                {/* Title */}
+                                <div className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors duration-200 text-sm sm:text-base leading-tight mb-1.5 sm:mb-2 line-clamp-2">
+                                  {highlightMatch(String(result.title || ''), query)}
                                 </div>
-                                {result.description && (
-                                  <div className="text-xs sm:text-sm text-gray-600 group-hover:text-gray-700 transition-colors duration-300">
-                                    <div className="hidden sm:flex items-center gap-2 flex-wrap">
-                                      <span>Buy Range:</span>
-                                      <button className="text-blue-600 hover:text-blue-800 underline" onClick={(e) => { e.stopPropagation(); handleResultClick(result); }}>Click here</button>
-                                      <span>| Target:</span>
-                                      <button className="text-blue-600 hover:text-blue-800 underline" onClick={(e) => { e.stopPropagation(); handleResultClick(result); }}>Click here</button>
-                                      <span>| Status:</span>
-                                      <button className="text-blue-600 hover:text-blue-800 underline" onClick={(e) => { e.stopPropagation(); handleResultClick(result); }}>Click here</button>
-                                    </div>
-                                    <div className="flex sm:hidden items-center gap-1">
-                                      <span>Target:</span>
-                                      <button className="text-blue-600 hover:text-blue-800 underline" onClick={(e) => { e.stopPropagation(); handleResultClick(result); }}>Click here</button>
-                                    </div>
-                                  </div>
-                                )}
+                                
+                                {/* Tags/Badges Row */}
+                                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap mb-2">
+                                  {getResultBadge(result.type, result.category, result.portfolioName, (result as any).tipAction)}
+                                </div>
+                                
+                                {/* Click to view more CTA */}
+                                <div className="flex items-center gap-1.5 text-xs sm:text-sm text-blue-600 group-hover:text-blue-700 font-medium">
+                                  <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                  <span>Click to view details</span>
+                                  <ArrowRight className="h-3 w-3 sm:h-3.5 sm:w-3.5 group-hover:translate-x-1 transition-transform duration-200" />
+                                </div>
                               </div>
-                              {result.hasAccess === false && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-10 rounded backdrop-blur-sm">
-                                  <div className="flex flex-col items-center gap-2 bg-white rounded-lg px-4 py-3 shadow-lg border border-gray-200">
-                                    <span className="text-xs font-semibold text-gray-700">
-                                      {result.type === 'portfolio' ? 'Portfolio Access Required' : result.category === 'premium' ? 'Premium Required' : 'Subscription Required'}
-                                    </span>
-                                    <button
-                                      onClick={async (e) => {
-                                        e.stopPropagation()
-                                        if (result.type === 'portfolio') {
-                                          try {
-                                            await addToCart(result.id, 1, { name: result.title })
-                                          } catch (error: any) {
-                                            console.error('Failed to add to cart:', error)
-                                          }
-                                        } else {
-                                          window.location.href = result.category === 'premium' ? '/premium-subscription' : '/basic-subscription'
-                                        }
-                                      }}
-                                      className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-sm"
-                                    >
-                                      {result.type === 'portfolio' ? 'Add to Cart' : 'Subscribe Now'}
-                                    </button>
-                                  </div>
+                              
+                              {/* Date badge - only on larger screens */}
+                              {(result.createdAt || result.updatedAt) && (
+                                <div className="hidden sm:flex flex-shrink-0 items-center">
+                                  <span className="text-[10px] text-gray-500 bg-gray-100/80 px-2 py-1 rounded-full whitespace-nowrap">
+                                    {formatDate(result.updatedAt || result.createdAt)}
+                                  </span>
                                 </div>
                               )}
-                              <div className="flex-shrink-0 hidden sm:block">
-                                <ArrowRight className={cn(
-                                  "h-4 w-4 sm:h-5 sm:w-5 text-gray-400 transition-all duration-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-2 group-hover:text-blue-600",
-                                  isActive && "opacity-100 text-blue-500 translate-x-1"
-                                )} />
-                              </div>
                             </div>
                           </button>
                         )
@@ -522,19 +587,18 @@ export function GlobalSearch() {
                     </div>
                   </div>
                 ))}
-              <div className="p-3 sm:p-4 bg-gradient-to-r from-blue-50/60 to-indigo-50/60 border-t border-blue-100/60">
-                <div className="flex items-center justify-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
-                  <div className="flex items-center gap-1 sm:gap-2">
-                    <kbd className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-white border border-gray-300 rounded-md text-xs font-mono shadow-sm">↑↓</kbd>
-                    <span className="font-medium hidden sm:inline">Navigate</span>
-                    <span className="font-medium sm:hidden">Nav</span>
+              <div className="p-2.5 sm:p-4 bg-gradient-to-r from-slate-50/80 via-blue-50/80 to-indigo-50/80 border-t border-blue-100/60">
+                <div className="flex items-center justify-center gap-3 sm:gap-4 text-[10px] sm:text-xs text-gray-600">
+                  <div className="hidden sm:flex items-center gap-1 sm:gap-2">
+                    <kbd className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-white border border-gray-300 rounded-md text-[10px] sm:text-xs font-mono shadow-sm">↑↓</kbd>
+                    <span className="font-medium">Navigate</span>
                   </div>
                   <div className="flex items-center gap-1 sm:gap-2">
-                    <kbd className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-white border border-gray-300 rounded-md text-xs font-mono shadow-sm">↵</kbd>
+                    <kbd className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-white border border-gray-300 rounded-md text-[10px] sm:text-xs font-mono shadow-sm">↵</kbd>
                     <span className="font-medium">Select</span>
                   </div>
                   <div className="flex items-center gap-1 sm:gap-2">
-                    <kbd className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-white border border-gray-300 rounded-md text-xs font-mono shadow-sm">Esc</kbd>
+                    <kbd className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-white border border-gray-300 rounded-md text-[10px] sm:text-xs font-mono shadow-sm">Esc</kbd>
                     <span className="font-medium">Close</span>
                   </div>
                 </div>
@@ -542,80 +606,141 @@ export function GlobalSearch() {
             </div>
           ) : suggestions.length > 0 ? (
             <div>
-              <div className="bg-gradient-to-r from-gray-50/90 to-blue-50/90 px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-100/50">
+              <div className="bg-gradient-to-r from-slate-50/95 via-blue-50/95 to-indigo-50/95 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-blue-100/60">
                 <div className="flex items-center gap-2">
-                  <Search className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500" />
+                  <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-500" />
                   <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Suggestions</span>
                 </div>
               </div>
-              <div className="py-1 max-h-48 sm:max-h-64 overflow-y-auto">
-                {suggestions.map((suggestion, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleInputChange(suggestion.text)}
-                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-left hover:bg-blue-50 transition-all duration-200 text-gray-700 group border-b border-gray-100 last:border-b-0"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 flex-shrink-0">
-                        {getTypeIcon(suggestion.type, suggestion.category)}
+              <div className="py-1 max-h-[60vh] sm:max-h-72 overflow-y-auto">
+                {suggestions.map((suggestion, index) => {
+                  const displayText = suggestion.displayText || suggestion.title || suggestion.text || ''
+                  const hasPortfolio = !!suggestion.portfolioName
+                  const isPremiumTip = suggestion.meta?.includes('Premium') || (!hasPortfolio && suggestion.meta === 'Standalone Tip')
+                  const isBasicTip = !hasPortfolio && !isPremiumTip
+                  const action = suggestion.action
+                  
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        if (suggestion.onclick) {
+                          router.push(suggestion.onclick)
+                          setIsOpen(false)
+                          setQuery('')
+                        } else {
+                          handleInputChange(displayText)
+                        }
+                      }}
+                      className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left hover:bg-gradient-to-r hover:from-blue-50/80 hover:via-indigo-50/60 hover:to-purple-50/40 transition-all duration-200 text-gray-700 group border-b border-gray-100/60 last:border-b-0"
+                    >
+                      <div className="flex items-start gap-2.5 sm:gap-3">
+                        {/* Icon */}
+                        <div className="flex-shrink-0 mt-0.5">
+                          <div className={cn(
+                            "rounded-lg p-1.5 sm:p-2 shadow-md",
+                            hasPortfolio
+                              ? "bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500"
+                              : isPremiumTip
+                                ? "bg-gradient-to-br from-amber-400 via-yellow-500 to-orange-500"
+                                : "bg-gradient-to-br from-blue-400 via-indigo-500 to-blue-600"
+                          )}>
+                            <Lightbulb className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+                          </div>
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          {/* Title */}
+                          <div className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors duration-200 text-sm sm:text-base leading-tight mb-1.5 line-clamp-2">
+                            {displayText}
+                          </div>
+                          
+                          {/* Tags */}
+                          <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                            {hasPortfolio ? (
+                              <>
+                                <span className="inline-flex items-center gap-0.5 text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-sm">
+                                  <Briefcase className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                                  Portfolio
+                                </span>
+                                <span 
+                                  className="text-[10px] sm:text-xs font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-white shadow-sm"
+                                  style={{
+                                    background: `linear-gradient(135deg, ${getPortfolioColor(suggestion.portfolioName || '').from}, ${getPortfolioColor(suggestion.portfolioName || '').to})`
+                                  }}
+                                >
+                                  {suggestion.portfolioName}
+                                </span>
+                              </>
+                            ) : isPremiumTip ? (
+                              <span className="inline-flex items-center gap-0.5 text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full bg-gradient-to-r from-amber-400 via-yellow-500 to-orange-500 text-white shadow-sm">
+                                <Crown className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                                Premium
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-0.5 text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full bg-gradient-to-r from-blue-400 via-indigo-500 to-blue-600 text-white shadow-sm">
+                                <Zap className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                                Basic
+                              </span>
+                            )}
+                            
+                            {action && (
+                              <span className={cn(
+                                "text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded-full uppercase shadow-sm",
+                                action.toLowerCase() === 'buy' || action.toLowerCase() === 'add more'
+                                  ? "bg-gradient-to-r from-green-400 to-emerald-500 text-white"
+                                  : action.toLowerCase() === 'sell'
+                                    ? "bg-gradient-to-r from-red-400 to-rose-500 text-white"
+                                    : "bg-gradient-to-r from-amber-400 to-yellow-500 text-gray-900"
+                              )}>
+                                {action}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Click to view */}
+                          <div className="flex items-center gap-1 text-[10px] sm:text-xs text-blue-600 group-hover:text-blue-700 font-medium">
+                            <Eye className="h-3 w-3" />
+                            <span>Click to view details</span>
+                            <ArrowRight className="h-2.5 w-2.5 group-hover:translate-x-0.5 transition-transform duration-200" />
+                          </div>
+                        </div>
+                        
+                        {/* Date - only on larger screens */}
+                        {suggestion.createdAt && (
+                          <div className="hidden sm:block flex-shrink-0">
+                            <span className="text-[10px] text-gray-500 bg-gray-100/80 px-2 py-1 rounded-full whitespace-nowrap">
+                              {formatDate(suggestion.createdAt)}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      <span className="group-hover:text-blue-700 transition-colors duration-200 text-xs sm:text-sm font-medium truncate flex-1">{suggestion.text}</span>
-                      {suggestion.type === 'tip' && (suggestion.portfolioName || suggestion.category) && (
-                        <span className={cn(
-                          "text-xs px-2 py-0.5 rounded-full flex-shrink-0",
-                          suggestion.portfolioName
-                            ? "bg-purple-100 text-purple-700"
-                            : suggestion.category === 'premium'
-                              ? "bg-yellow-100 text-yellow-700"
-                              : "bg-blue-100 text-blue-700"
-                        )}>
-                          {suggestion.portfolioName || (suggestion.category === 'premium' ? 'Premium' : 'Basic')}
-                        </span>
-                      )}
-                      {suggestion.createdAt && (
-                        <span className="text-xs text-gray-500 flex-shrink-0">
-                          {formatDate(suggestion.createdAt)}
-                        </span>
-                      )}
-                      {suggestion.hasAccess === false ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            window.location.href = suggestion.category === 'premium' ? '/premium-subscription' : '/basic-subscription'
-                          }}
-                          className="px-2 py-0.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 flex-shrink-0"
-                        >
-                          Subscribe
-                        </button>
-                      ) : (
-                        <ArrowRight className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-all duration-200 flex-shrink-0" />
-                      )}
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           ) : !isAuthenticated ? (
-            <div className="p-8 text-center">
-              <div className="bg-gradient-to-br from-red-100 to-red-200 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                <Search className="h-8 w-8 text-red-500" />
+            <div className="p-6 sm:p-8 text-center">
+              <div className="bg-gradient-to-br from-red-100 via-rose-100 to-pink-100 rounded-2xl w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center mx-auto mb-3 sm:mb-4 shadow-lg shadow-red-200/50">
+                <Search className="h-6 w-6 sm:h-8 sm:w-8 text-red-500" />
               </div>
-              <p className="text-sm font-medium text-gray-600 mb-1">Please log in to search</p>
-              <p className="text-xs text-gray-400">Authentication required to access search functionality</p>
+              <p className="text-sm sm:text-base font-semibold text-gray-700 mb-1">Please log in to search</p>
+              <p className="text-xs sm:text-sm text-gray-500">Authentication required to access search functionality</p>
             </div>
           ) : query && suggestions.length === 0 ? (
-            <div className="p-8 text-center">
-              <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                <Search className="h-8 w-8 text-gray-400" />
+            <div className="p-6 sm:p-8 text-center">
+              <div className="bg-gradient-to-br from-gray-100 via-slate-100 to-gray-200 rounded-2xl w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center mx-auto mb-3 sm:mb-4 shadow-lg shadow-gray-200/50">
+                <Search className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400" />
               </div>
-              <p className="text-sm font-medium text-gray-600 mb-1">No results found for "{query}"</p>
-              <p className="text-xs text-gray-400">Try different keywords or check your spelling</p>
+              <p className="text-sm sm:text-base font-semibold text-gray-700 mb-1">No results found for "{query}"</p>
+              <p className="text-xs sm:text-sm text-gray-500">Try different keywords or check your spelling</p>
             </div>
           ) : recentSearches.length > 0 && isAuthenticated ? (
             <div>
-              <div className="bg-gradient-to-r from-gray-50/90 to-blue-50/90 px-4 py-3 border-b border-gray-100/50">
+              <div className="bg-gradient-to-r from-slate-50/95 via-blue-50/95 to-indigo-50/95 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-blue-100/60">
                 <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-blue-500" />
+                  <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-500" />
                   <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Recent Searches</span>
                 </div>
               </div>
@@ -624,34 +749,34 @@ export function GlobalSearch() {
                   <button
                     key={index}
                     onClick={() => handleInputChange(search)}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 text-left hover:bg-gradient-to-r hover:from-blue-50/80 hover:to-indigo-50/80 transition-all duration-200 text-sm text-gray-700 group border-b border-gray-50/80 last:border-b-0"
+                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left hover:bg-gradient-to-r hover:from-blue-50/80 hover:via-indigo-50/60 hover:to-purple-50/40 transition-all duration-200 text-sm text-gray-700 group border-b border-gray-100/60 last:border-b-0"
                   >
                     <div className="flex items-center gap-2 sm:gap-3">
-                      <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 group-hover:text-blue-500 transition-colors duration-200 flex-shrink-0" />
-                      <span className="group-hover:text-blue-700 transition-colors duration-200 flex-1 min-w-0 truncate text-xs sm:text-sm">{search}</span>
-                      <div className="flex-shrink-0 hidden sm:block">
-                        <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200" />
+                      <div className="bg-gradient-to-br from-gray-100 to-slate-200 rounded-lg p-1.5 shadow-sm">
+                        <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-gray-500 group-hover:text-blue-500 transition-colors duration-200" />
                       </div>
+                      <span className="group-hover:text-blue-700 transition-colors duration-200 flex-1 min-w-0 truncate text-xs sm:text-sm font-medium">{search}</span>
+                      <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200 flex-shrink-0" />
                     </div>
                   </button>
                 ))}
               </div>
             </div>
           ) : isAuthenticated ? (
-            <div className="p-8 text-center">
-              <div className="bg-gradient-to-br from-blue-100 to-indigo-200 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                <Search className="h-8 w-8 text-blue-600" />
+            <div className="p-6 sm:p-8 text-center">
+              <div className="bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 rounded-2xl w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center mx-auto mb-3 sm:mb-4 shadow-lg shadow-blue-200/50">
+                <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
               </div>
-              <p className="text-sm font-medium text-gray-700 mb-1">Start typing to search...</p>
-              <p className="text-xs text-gray-500">Find portfolios, tips, stocks, and pages</p>
+              <p className="text-sm sm:text-base font-semibold text-gray-700 mb-1">Start typing to search...</p>
+              <p className="text-xs sm:text-sm text-gray-500">Find portfolios, tips, stocks, and pages</p>
             </div>
           ) : (
-            <div className="p-8 text-center">
-              <div className="bg-gradient-to-br from-red-100 to-red-200 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                <Search className="h-8 w-8 text-red-500" />
+            <div className="p-6 sm:p-8 text-center">
+              <div className="bg-gradient-to-br from-red-100 via-rose-100 to-pink-100 rounded-2xl w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center mx-auto mb-3 sm:mb-4 shadow-lg shadow-red-200/50">
+                <Search className="h-6 w-6 sm:h-8 sm:w-8 text-red-500" />
               </div>
-              <p className="text-sm font-medium text-gray-600 mb-1">Please log in to search</p>
-              <p className="text-xs text-gray-400">Authentication required to access search functionality</p>
+              <p className="text-sm sm:text-base font-semibold text-gray-700 mb-1">Please log in to search</p>
+              <p className="text-xs sm:text-sm text-gray-500">Authentication required to access search functionality</p>
             </div>
           )}
         </div>

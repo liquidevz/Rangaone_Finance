@@ -1,4 +1,5 @@
 import axiosApi from "@/lib/axios";
+import { logger } from "@/lib/logger";
 
 export interface MarketIndexData {
   symbol: string;
@@ -43,11 +44,9 @@ class MarketDataService {
     try {
       // Check cache first (unless force refresh)
       if (!forceRefresh && this.cache && Date.now() - this.cacheTimestamp < this.CACHE_DURATION) {
-        console.log("📋 Using cached market data");
+        logger.debug("Using cached market data");
         return this.cache;
       }
-
-      console.log("🔍 Fetching real-time market data for indices");
 
       const response = await axiosApi.get('/api/stock-symbols/realtime/market', {
         params: {
@@ -60,18 +59,13 @@ class MarketDataService {
       if (response.data?.success) {
         this.cache = response.data;
         this.cacheTimestamp = Date.now();
-        console.log("✅ Successfully fetched market indices data:", {
-          totalStocks: response.data.summary?.totalStocks,
-          gainers: response.data.summary?.gainers,
-          losers: response.data.summary?.losers
-        });
         return response.data;
       } else {
-        console.warn("⚠️ API returned unsuccessful response");
+        logger.warn("API returned unsuccessful response");
         return null;
       }
     } catch (error: any) {
-      console.error("❌ Failed to fetch market indices:", error);
+      logger.error("Failed to fetch market indices:", error);
       return null;
     }
   }
@@ -79,7 +73,6 @@ class MarketDataService {
   clearCache(): void {
     this.cache = null;
     this.cacheTimestamp = 0;
-    console.log("🗑️ Cleared market data cache");
   }
 }
 

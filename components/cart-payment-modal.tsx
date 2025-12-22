@@ -716,10 +716,8 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                       
                       <div className="flex gap-3 pt-2">
                         <Button
-                          type="button"
                           onClick={() => setStep("consent")}
-                          variant="outline"
-                          className="flex-1 py-3"
+                          className="flex-1 py-3 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                           disabled={panFormLoading}
                         >
                           Back
@@ -752,7 +750,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                       If the Razorpay window is open, you can close it to cancel.
                     </p>
                     <Button
-                      variant="outline"
+                      className="border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                       onClick={() => {
                         cancelRequested.current = true;
                         setProcessing(false);
@@ -859,8 +857,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                       </Button>
                       <Button
                         onClick={handleClose}
-                        variant="outline"
-                        className="w-full"
+                        className="w-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                       >
                         Cancel
                       </Button>
@@ -894,8 +891,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                 <div className="flex gap-3">
                   <Button
                     onClick={() => setStep("plan")}
-                    variant="outline"
-                    className="flex-1"
+                    className="flex-1 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                   >
                     Back to Plan
                   </Button>

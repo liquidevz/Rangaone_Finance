@@ -1,39 +1,37 @@
+version: "3.9"
+
+# =============================================================================
+# LOCAL DEVELOPMENT ONLY - Production uses direct docker run commands
+# =============================================================================
+
 services:
+  # =======================================================================
+  # Local development container
+  # =======================================================================
   rangaone-fe:
     build:
       context: .
-      args:
-        - BUILDKIT_INLINE_CACHE=1
-    image: rangaone-fe:latest
-    container_name: Rangaone_Finance
-    ports:
-      - "3000:3000"
-    env_file:
-      - .env
+      dockerfile: Dockerfile
+    image: ${IMAGE_NAME:-rangaone-fe}:${IMAGE_TAG:-latest}
+    container_name: rangaone_fe_local
     environment:
       NODE_ENV: production
-      NEXT_TELEMETRY_DISABLED: 1
-      NODE_OPTIONS: "--max-old-space-size=2048"
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+    ports:
+      - "3000:3000"
     restart: unless-stopped
+    init: true
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
       start_period: 40s
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 3G
-        reservations:
-          cpus: '1'
-          memory: 2G
-    security_opt:
-      - no-new-privileges:true
     networks:
       - rangaone-network
 
 networks:
   rangaone-network:
+    name: rangaone_network
     driver: bridge

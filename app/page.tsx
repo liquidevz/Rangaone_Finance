@@ -1,11 +1,20 @@
-import { HomeClient } from "@/components/home-client-wrapper"
-import { Metadata } from "next"
+"use client"
 
-export const metadata: Metadata = {
-  title: "RangaOne Finance - Investment Advisory",
-  description: "Grow Your Portfolio, Not your worries"
-}
+import { ImageTrailHero } from "@/components/image-trail-hero"
+import { Navbar } from "@/components/navbar"
+import { PricingSection, FeatureComparison, QuoteSection, ModelPortfolioSection, FAQContactSection, Footer } from "@/components/home-client-wrapper"
 
 export default function Home() {
-  return <HomeClient />
+  return (
+    <main>
+      <Navbar />
+      <ImageTrailHero />
+      <PricingSection />
+      <FeatureComparison />
+      <QuoteSection />
+      <ModelPortfolioSection />
+      <FAQContactSection />
+      <Footer />
+    </main>
+  )
 }

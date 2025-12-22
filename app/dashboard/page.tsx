@@ -1,27 +1,12 @@
-import dynamicImport from "next/dynamic"
+"use client";
+
 import DashboardLayout from "@/components/dashboard-layout"
-import { Skeleton } from "@/components/ui/skeleton"
-
-// Preload critical components for instant rendering
-const Banner = dynamicImport(() => import("@/components/banner"), { 
-  ssr: true
-})
-
-const MarketIndicesSection = dynamicImport(() => import("@/components/dashboard-sections").then(mod => ({ default: mod.MarketIndicesSection })), { 
-  ssr: true
-})
-
-const ExpertRecommendationsSection = dynamicImport(() => import("@/components/dashboard-sections").then(mod => ({ default: mod.ExpertRecommendationsSection })), { 
-  ssr: true
-})
-
-const ModelPortfolioSection = dynamicImport(() => import("@/components/dashboard-sections").then(mod => ({ default: mod.ModelPortfolioSection })), { 
-  ssr: true
-})
-
-export const revalidate = 300;
-export const dynamic = 'force-static';
-export const fetchCache = 'force-cache';
+import Banner from "@/components/banner"
+import { 
+  MarketIndicesSection, 
+  ExpertRecommendationsSection, 
+  ModelPortfolioSection 
+} from "@/components/dashboard-sections"
 
 export default function Dashboard() {
   return (

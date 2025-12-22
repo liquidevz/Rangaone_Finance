@@ -1,6 +1,11 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { Providers } from './providers'
+import Script from 'next/script'
+
+// Force dynamic rendering for all pages
+export const dynamic = 'force-dynamic'
+export const dynamicParams = true
 
 export const metadata: Metadata = {
   title: 'RangaOne Finance',
@@ -13,6 +18,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+        <link rel="preload" as="image" href="/landing-page/HeroImage.png" />
+        <link rel="preload" as="image" href="/landing-page/mobileHeroImage.png" />
+        <link rel="preload" as="image" href="/landing-page/rlogodark.png" />
       </head>
       <body suppressHydrationWarning>
         <Providers>{children}</Providers>

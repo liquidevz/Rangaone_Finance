@@ -7,10 +7,9 @@ import Image from "next/image"
 export const ImageTrailHero = () => {
   return (
     <>
-
       <MouseImageTrail
-        renderImageBuffer={50}
-        rotationRange={25}
+        renderImageBuffer={60}
+        rotationRange={20}
         images={[
           "/imgs/active/1.png",
           "/imgs/active/2.jpg",
@@ -20,13 +19,6 @@ export const ImageTrailHero = () => {
           "/imgs/active/6.png",
           "/imgs/active/7.png",
           "/imgs/active/8.png",
-          "/imgs/active/9.png",
-          "/imgs/active/10.png",
-          "/imgs/active/11.png",
-          "/imgs/active/12.jpg",
-          "/imgs/active/13.png",
-          "/imgs/active/14.png",
-          "/imgs/active/15.png",
         ]}
       >
         <section className="h-[20rem] md:h-screen bg-[#bce7ff8c] op w-screen overflow-hidden relative">

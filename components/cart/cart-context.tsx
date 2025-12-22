@@ -55,7 +55,6 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
   const cartItemCount = React.useMemo(() => {
     if (!isAuthenticated) {
       const localCount = localCartService.getLocalCartItemCount();
-      console.log("Local cart item count:", localCount);
       return localCount;
     }
     return cart?.items?.reduce((total, item) => total + item.quantity, 0) || 0;
