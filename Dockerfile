@@ -34,10 +34,13 @@ FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Load environment variables from .env file for build
+# NEXT_PUBLIC_* variables are baked into JS at build time
 ENV NODE_ENV=production \
     NODE_OPTIONS="--max-old-space-size=4096"
 
-RUN npm run build
+# Source the .env file and run build (NEXT_PUBLIC_* vars get inlined)
+RUN set -a && . ./.env && set +a && npm run build
 RUN test -d .next/standalone
 
 RUN npm prune --production && \

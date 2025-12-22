@@ -80,7 +80,7 @@ jobs:
             echo "🏷️  Build tag: $TAG"
 
             # =================================================================
-            # Build New Image
+            # Build New Image (uses .env file from repo)
             # =================================================================
             echo "🔨 Building Docker image..."
             docker build -t "$IMAGE_NAME:$TAG" -t "$IMAGE_NAME:latest" .
