@@ -10,6 +10,16 @@ export const dynamicParams = true
 export const metadata: Metadata = {
   title: 'RangaOne Finance',
   description: 'Investment Platform',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'RangaOne Finance',
+  },
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/favicon.ico',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
