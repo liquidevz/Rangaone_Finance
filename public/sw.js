@@ -5,7 +5,7 @@ const API_CACHE = 'rangaone-api-v2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
-  '/favicon.ico',
+  'public/favicon.ico',
 ];
 
 // Install event - cache static assets
