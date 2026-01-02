@@ -172,12 +172,64 @@ export default function SubscriptionSettings() {
            null
   }
 
-  const handleInvoiceDownload = (subscription: any) => {
-    const invoiceUrl = getInvoiceUrl(subscription)
-    if (invoiceUrl) {
-      window.open(invoiceUrl, '_blank', 'noopener,noreferrer')
+const handleInvoiceDownload = async (subscription: any) => {
+  const invoiceUrl = getInvoiceUrl(subscription)
+  if (!invoiceUrl) return
+
+  try {
+    // Show loading toast
+    toast({
+      title: "Downloading...",
+      description: "Preparing your invoice for download.",
+    })
+
+    // Fetch the PDF
+    const response = await fetch(invoiceUrl)
+    
+    if (!response.ok) {
+      throw new Error('Failed to download invoice')
     }
+
+    // Get the blob
+    const blob = await response.blob()
+    
+    // Create a download link
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.style.display = 'none'
+    a.href = url
+    
+    // Extract filename from Content-Disposition header or use default
+    const contentDisposition = response.headers.get('Content-Disposition')
+    let filename = 'invoice.pdf'
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/)
+      if (filenameMatch) {
+        filename = filenameMatch[1]
+      }
+    }
+    
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    
+    // Cleanup
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+    
+    toast({
+      title: "Success",
+      description: "Invoice downloaded successfully!",
+    })
+  } catch (error) {
+    console.error('Download failed:', error)
+    toast({
+      title: "Download Failed",
+      description: "Failed to download invoice. Please try again.",
+      variant: "destructive",
+    })
   }
+}
 
   if (loading) {
     return (
