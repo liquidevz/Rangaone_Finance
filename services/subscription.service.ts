@@ -2,6 +2,7 @@ import { authService } from "./auth.service";
 import { get, post } from "@/lib/axios";
 import { bundleService } from "./bundle.service";
 import { externalSubscribeService } from "./external-subscribe.service";
+import { queryClient } from "@/lib/query-client";
 
 // Interface definitions
 interface UserSubscription {
@@ -78,6 +79,13 @@ export const subscriptionService = {
     this._subscriptionCache = null;
     this._accessCache = null;
     this._cacheExpiry = 0;
+    
+    // Also clear query cache for subscription-related queries
+    if (typeof window !== 'undefined') {
+      queryClient.invalidateQueries('subscription');
+      queryClient.invalidateQueries('access');
+      queryClient.invalidateQueries('/api/user/subscriptions');
+    }
   },
 
   setCurrentEmandateId(emandateId: string) {
@@ -421,7 +429,7 @@ export const subscriptionService = {
 
       this._subscriptionCache = allSubscriptions;
       this._accessCache = accessData;
-      this._cacheExpiry = now + 60000;
+      this._cacheExpiry = now + 5000; // 5 seconds cache to prevent stale data
       
       return { 
         subscriptions: allSubscriptions, 

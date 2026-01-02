@@ -79,6 +79,16 @@ export default function SubscriptionSettings() {
       setLoading(false)
     }
     loadData()
+
+    // Refresh subscription data when tab becomes visible
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchSubscriptionData()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [])
 
   const handleRefresh = async () => {

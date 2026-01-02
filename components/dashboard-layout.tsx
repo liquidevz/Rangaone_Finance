@@ -10,6 +10,7 @@ import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth/auth-context";
 import { useCart } from "@/components/cart/cart-context";
+import { useSubscriptionRefresh } from "@/hooks/use-subscription-refresh";
 
 const Sidebar = dynamic(() => import("@/components/sidebar"), { ssr: false });
 const GlobalSearch = dynamic(() => import("@/components/global-search").then(mod => ({ default: mod.GlobalSearch })), { ssr: false });
@@ -27,6 +28,9 @@ export default function DashboardLayout({
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
   const { cartItemCount } = useCart();
+  
+  // Auto-refresh subscriptions when tab becomes visible
+  useSubscriptionRefresh();
   
   const router = useRouter();
 

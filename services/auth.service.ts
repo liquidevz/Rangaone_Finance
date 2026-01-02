@@ -129,6 +129,14 @@ export const authService = {
       // Don't throw error, just log it
     }
     
+    // Clear subscription cache on logout
+    try {
+      const { subscriptionService } = await import('./subscription.service');
+      subscriptionService.clearCache();
+    } catch (err) {
+      console.error("Failed to clear subscription cache:", err);
+    }
+    
     // Always clear local tokens regardless of API call result
     authService.clearTokens();
   },
