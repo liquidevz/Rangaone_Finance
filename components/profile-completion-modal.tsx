@@ -36,19 +36,15 @@ export function ProfileCompletionModal({ open, onOpenChange, onProfileComplete, 
   const { refreshUser } = useAuth()
 
   useEffect(() => {
-    console.log("ProfileCompletionModal - open state:", open);
     if (open) {
-      console.log("ProfileCompletionModal - loading profile...");
       loadProfile()
     }
   }, [open])
 
   const loadProfile = async () => {
     try {
-      console.log("ProfileCompletionModal - loading profile data...");
       setLoading(true)
       const profileData = await userService.getProfile()
-      console.log("ProfileCompletionModal - profile data loaded:", profileData);
       setProfile(profileData)
       setFormData({
         fullName: profileData.fullName || "",
@@ -56,12 +52,6 @@ export function ProfileCompletionModal({ open, onOpenChange, onProfileComplete, 
         pandetails: profileData.pandetails || "",
         dateofBirth: profileData.dateofBirth || ""
       })
-      console.log("ProfileCompletionModal - form data set:", {
-        fullName: profileData.fullName || "",
-        phone: profileData.phone || "",
-        pandetails: profileData.pandetails || "",
-        missingFields: profileData.missingFields
-      });
     } catch (error) {
       console.error("ProfileCompletionModal - failed to load profile:", error);
       toast({
@@ -191,7 +181,6 @@ export function ProfileCompletionModal({ open, onOpenChange, onProfileComplete, 
 
     try {
       setSaving(true)
-      console.log('Sending profile data:', formData);
       
       await userService.updateProfile(formData)
       await refreshUser() // Refresh auth context
@@ -199,7 +188,6 @@ export function ProfileCompletionModal({ open, onOpenChange, onProfileComplete, 
         title: "Profile Updated",
         description: "Your profile has been completed successfully"
       })
-      console.log('Profile updated successfully');
       onProfileComplete()
       onOpenChange(false)
     } catch (error: any) {

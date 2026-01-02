@@ -149,7 +149,6 @@ export class LocalCartService {
       const cartData = this.getFromStorage(CART_STORAGE_KEY);
       
       if (!cartData) {
-        console.log("No cart data found in storage");
         return { items: [], lastUpdated: new Date().toISOString() };
       }
 
@@ -182,7 +181,6 @@ export class LocalCartService {
         lastUpdated: parsedCart.lastUpdated || new Date().toISOString()
       };
 
-      console.log("Successfully loaded cart from storage:", validCart);
       return validCart;
     } catch (error) {
       console.error("Failed to parse local cart data:", error);
@@ -192,7 +190,6 @@ export class LocalCartService {
         const backupData = this.getFromStorage(CART_BACKUP_KEY);
         if (backupData) {
           const backupCart = JSON.parse(backupData);
-          console.log("Loaded cart from backup");
           return backupCart;
         }
       } catch (backupError) {
@@ -221,7 +218,6 @@ export class LocalCartService {
       const saved = this.setToStorage(CART_STORAGE_KEY, cartJson);
       
       if (saved) {
-        console.log("Cart saved to localStorage successfully");
         
         // Create backup (with size limit)
         if (cartJson.length < 50000) { // ~50KB limit for backup
@@ -245,7 +241,6 @@ export class LocalCartService {
     itemData: LocalCartItem["itemData"],
     planCategory?: "basic" | "premium" | "individual"
   ): LocalCart {
-    console.log("🛒 ADDING TO LOCAL CART:", portfolioId, itemData.name);
     const currentCart = this.getLocalCart();
     const existingItemIndex = currentCart.items.findIndex(
       (item) => item.portfolioId === portfolioId && item.itemType === "portfolio"
@@ -267,7 +262,6 @@ export class LocalCartService {
       });
     }
     this.saveLocalCart(currentCart);
-    console.log("🛒 LOCAL CART NOW HAS:", currentCart.items.length, "items");
     return currentCart;
   }
 
@@ -339,16 +333,13 @@ export class LocalCartService {
 
   // Clear local cart with enhanced error handling
   clearLocalCart(): void {
-    console.log("🚨 CLEARING LOCAL CART - Stack trace:", new Error().stack);
     // Don't clear during sync - only clear manually
     if (new Error().stack?.includes('syncCartOnLogin')) {
-      console.log("🚨 BLOCKED: Not clearing cart during sync");
       return;
     }
     this.removeFromStorage(CART_STORAGE_KEY);
     this.removeFromStorage(CART_BACKUP_KEY);
     this.fallbackCart = { items: [], lastUpdated: new Date().toISOString() };
-    console.log("Local cart cleared");
   }
 
   // Get local cart item count with error handling

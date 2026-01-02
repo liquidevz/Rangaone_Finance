@@ -7,7 +7,6 @@ const isProduction = process.env.NODE_ENV === 'production';
 export const logger = {
     log: (...args: any[]) => {
         if (!isProduction) {
-            console.log(...args);
         }
     },
     info: (...args: any[]) => {

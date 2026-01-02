@@ -141,7 +141,6 @@ export default function DigioConsentWindow({
         }
       } catch (error) {
         // Continue monitoring even if status check fails
-        console.log('Status check failed, continuing to monitor...');
       }
     }, 2000);
   };

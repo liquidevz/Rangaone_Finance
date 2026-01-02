@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ExternalLink } from "lucide-react";
+import { X, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { digioService } from "@/services/digio.service";
+import { useToast } from "@/components/ui/use-toast";
 
 interface DigioIframeModalProps {
   isOpen: boolean;
@@ -11,6 +13,8 @@ interface DigioIframeModalProps {
   onComplete: () => void;
   digioUrl: string;
   title?: string;
+  documentId?: string;
+  cartId?: string;
 }
 
 export const DigioIframeModal: React.FC<DigioIframeModalProps> = ({
@@ -18,9 +22,13 @@ export const DigioIframeModal: React.FC<DigioIframeModalProps> = ({
   onClose,
   onComplete,
   digioUrl,
-  title = "Complete Digio Verification"
+  title = "Complete Digio Verification",
+  documentId,
+  cartId
 }) => {
   const [isLoading, setIsLoading] = useState(true);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -36,9 +44,66 @@ export const DigioIframeModal: React.FC<DigioIframeModalProps> = ({
     setIsLoading(false);
   };
 
-  const handleComplete = () => {
-    onComplete();
-    onClose();
+  const handleComplete = async () => {
+    // Verify the signature status before completing
+    setIsVerifying(true);
+    
+    try {
+      let verified = false;
+      
+      if (cartId && documentId) {
+        // Cart flow - verify cart signature
+        verified = await digioService.verifyCartSignature(cartId, documentId);
+      } else if (documentId) {
+        // Individual product flow - check document status
+        const status = await digioService.checkSignatureStatus(documentId);
+        verified = status.completed;
+        
+        if (status.failed) {
+          toast({
+            title: "Signature Failed",
+            description: status.error || "The signing process failed. Please try again.",
+            variant: "destructive"
+          });
+          setIsVerifying(false);
+          return;
+        }
+      }
+      
+      if (verified) {
+        onComplete();
+        onClose();
+      } else {
+        // Not verified yet - show message but still allow to proceed
+        // (Digio webhooks might update status later)
+        toast({
+          title: "Verification Pending",
+          description: "Please ensure you have completed the signing process in the window above.",
+          variant: "default"
+        });
+        
+        // Give Digio some time for webhooks, then proceed anyway
+        // The backend will handle the actual verification
+        setTimeout(() => {
+          onComplete();
+          onClose();
+        }, 2000);
+      }
+    } catch (error: any) {
+      console.error("Error verifying signature:", error);
+      // On error, still allow to proceed - backend will verify
+      toast({
+        title: "Proceeding...",
+        description: "Verifying your signature...",
+        variant: "default"
+      });
+      setTimeout(() => {
+        onComplete();
+        onClose();
+      }, 1000);
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -109,6 +174,7 @@ export const DigioIframeModal: React.FC<DigioIframeModalProps> = ({
                   size="sm"
                   onClick={onClose}
                   className="text-xs sm:text-sm"
+                  disabled={isVerifying}
                 >
                   Cancel
                 </Button>
@@ -116,8 +182,16 @@ export const DigioIframeModal: React.FC<DigioIframeModalProps> = ({
                   size="sm"
                   onClick={handleComplete}
                   className="bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm"
+                  disabled={isVerifying}
                 >
-                  I'm Done
+                  {isVerifying ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    "I'm Done"
+                  )}
                 </Button>
               </div>
             </div>

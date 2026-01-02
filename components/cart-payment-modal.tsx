@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/components/auth/auth-context";
 import { useRouter } from "next/navigation";
-import { paymentService } from "@/services/payment.service";
+import { paymentService, PaymentGatewayType } from "@/services/payment.service";
 import CartAuthForm from "@/components/cart-auth-form";
 import { DigioVerificationModal } from "@/components/digio-verification-modal";
 import { paymentFlowState } from "@/lib/payment-flow-state";
@@ -15,6 +15,8 @@ import type { PaymentAgreementData } from "@/services/digio.service";
 import { CouponInput } from "@/components/coupon-input";
 import type { CouponValidationResponse } from "@/services/coupon.service";
 import { useCart } from "@/components/cart/cart-context";
+import { PaymentGatewaySelectorModal } from "@/components/payment-gateway-selector";
+import { usePaymentGateways } from "@/hooks/use-payment-gateways";
 
 interface CartPaymentModalProps {
   isOpen: boolean;
@@ -34,18 +36,8 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
   onPaymentSuccess,
 }) => {
   
-  // Debug props received
-  useEffect(() => {
-    if (isOpen) {
-      console.log("🔍 CART PAYMENT MODAL - Props received:", {
-        subscriptionType,
-        total,
-        cartItemsCount: cartItems?.length
-      });
-    }
-  }, [isOpen, subscriptionType, total, cartItems]);
   const [step, setStep] = useState<
-    "plan" | "consent" | "auth" | "pan-form" | "processing" | "success" | "error"
+    "plan" | "consent" | "auth" | "pan-form" | "gateway-select" | "processing" | "success" | "error"
   >("plan");
   const [processing, setProcessing] = useState(false);
   const [processingMsg, setProcessingMsg] = useState("Preparing secure payment…");
@@ -63,6 +55,11 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
   const [panFormLoading, setPanFormLoading] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<CouponValidationResponse["coupon"] | null>(null);
   const [finalTotal, setFinalTotal] = useState(total);
+  
+  // Payment gateway selection state
+  const [selectedGateway, setSelectedGateway] = useState<PaymentGatewayType | null>(null);
+  const [showGatewaySelector, setShowGatewaySelector] = useState(false);
+  const { gateways, hasMultipleGateways, defaultGateway, supportsEmandate } = usePaymentGateways();
 
   // Update finalTotal when total changes (e.g., when subscription type changes)
   useEffect(() => {
@@ -111,6 +108,18 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
     setShowDigio(false);
     setAgreementData(null);
     setTelegramLinks(null);
+    setSelectedGateway(null); // Reset selected gateway
+    setShowGatewaySelector(false); // Reset gateway selector
+    
+    // Clear any cached payment data to prevent reusing expired subscription IDs
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('razorpay_subscription_id');
+      sessionStorage.removeItem('razorpay_return_url');
+      sessionStorage.removeItem('cashfree_subscription_id');
+      sessionStorage.removeItem('cashfree_return_url');
+      sessionStorage.removeItem('cashfree_gateway');
+    }
+    
     paymentFlowState.clear();
     onClose();
   };
@@ -124,26 +133,209 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
 
   const handleDigioComplete = async () => {
     setShowDigio(false);
+    
+    // Verify cart eSign status with backend before proceeding (with polling)
+    const cartId = cart?._id && cart._id !== "local" ? cart._id : undefined;
+    if (cartId) {
+      setStep("processing");
+      setProcessing(true);
+      setProcessingMsg("Verifying digital signature...");
+      
+      try {
+        const { digioService } = await import("@/services/digio.service");
+        // Use cart-specific eSign verification with polling
+        const verifyResult = await digioService.verifyAndUpdateCartEsignStatus(cartId, {
+          poll: true,
+          maxAttempts: 10,
+          delayMs: 2000
+        });
+        
+        if (!verifyResult.success || !verifyResult.signed) {
+          // eSign not completed - show error or retry
+          toast({
+            title: "Signature Verification",
+            description: verifyResult.error || "Please complete the digital signature process before proceeding.",
+            variant: "destructive"
+          });
+          setProcessing(false);
+          setStep("plan");
+          return;
+        }
+        
+        // eSign completed successfully
+        toast({
+          title: "Signature Verified",
+          description: "Digital signature completed. Proceeding to payment...",
+        });
+      } catch (error) {
+        console.error("Error verifying cart eSign:", error);
+        // Continue anyway - backend will do final verification
+      }
+    }
+    
+    // If a gateway was already selected (e.g., Cashfree triggered eSign), proceed with that gateway
+    if (selectedGateway) {
+      await proceedWithPayment(selectedGateway);
+      return;
+    }
+    
+    // After eSign completion, check if we need to show gateway selector
+    // Filter gateways that support emandate for cart flow
+    const availableGateways = gateways.filter(g => supportsEmandate(g.id));
+    
+    if (availableGateways.length > 1) {
+      // Multiple gateways available - show selector
+      setShowGatewaySelector(true);
+    } else if (availableGateways.length === 1) {
+      // Only one gateway - auto-select and proceed
+      setSelectedGateway(availableGateways[0].id);
+      await proceedWithPayment(availableGateways[0].id);
+    } else {
+      // No gateways available - use default (Razorpay)
+      setSelectedGateway('razorpay');
+      await proceedWithPayment('razorpay');
+    }
+  };
+  
+  // Handle gateway selection from modal
+  const handleGatewaySelect = async (gatewayId: PaymentGatewayType) => {
+    setSelectedGateway(gatewayId);
+    setShowGatewaySelector(false);
+    await proceedWithPayment(gatewayId);
+  };
+  
+  // Proceed with payment after gateway selection
+  const proceedWithPayment = async (gateway: PaymentGatewayType) => {
     setStep("processing");
     setProcessing(true);
-    setProcessingMsg("Verifying digital signature...");
     
+    if (gateway === 'cashfree') {
+      await handleCashfreePayment();
+    } else {
+      await handleEmandatePaymentFlow();
+    }
+  };
+  
+  // Handle Cashfree cart payment flow using unified API
+  const handleCashfreePayment = async () => {
     try {
-      const cartId = cart?._id && cart._id !== "local" ? cart._id : undefined;
-      const eSignStatus = await paymentService.verifyCartESignCompletion(cartId);
+      setProcessingMsg("Creating subscription...");
       
-      if (!eSignStatus.success) {
-        throw new Error(eSignStatus.message || "eSign verification failed");
+      // Clear any old cached data before creating new subscription
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('cashfree_subscription_id');
+        sessionStorage.removeItem('cashfree_return_url');
+        sessionStorage.removeItem('cashfree_gateway');
+        sessionStorage.removeItem('cashfree_subscription_session');
       }
       
-      setProcessingMsg("Proceeding to payment...");
-      await handleEmandatePaymentFlow();
+      // Use unified cart API with gateway='cashfree'
+      const cartPayload = {
+        ...(cart?._id && cart._id !== "local" && { cartId: cart._id }),
+        interval: subscriptionType as "monthly" | "quarterly" | "yearly",
+        ...(appliedCoupon && { couponCode: appliedCoupon.code }),
+        gateway: "cashfree" as const,
+      };
+      
+      const result = await paymentService.createCartEmandate(cartPayload);
+      
+      // For Cashfree subscriptions, use SDK with subscription_session_id
+      // Backend returns subscription_session_id (subsSessionId) for mandate authorization
+      const subsSessionId = result.cashfree?.subsSessionId || 
+                          result.cashfree?.sessionId || 
+                          result.cashfree?.subscription_session_id ||
+                          (result as any).subscription_session_id;
+      
+      console.log('🔍 Cashfree API response:', result);
+      console.log('🔑 Extracted subsSessionId:', subsSessionId);
+      
+      if (!subsSessionId) {
+        console.error("❌ Missing subsSessionId in response:", result);
+        throw new Error('Missing subscription session ID. Please contact support.');
+      }
+      
+      setProcessingMsg("Opening Cashfree authorization...");
+      
+      // Store subscription info for verification after redirect
+      if (result.subscriptionId) {
+        sessionStorage.setItem('cashfree_subscription_id', result.subscriptionId);
+      }
+      sessionStorage.setItem('cashfree_subs_session_id', subsSessionId);
+      sessionStorage.setItem('cashfree_return_url', window.location.href);
+      
+      // Load Cashfree SDK and open checkout - same logic as non-cart flow
+      const { loadCashfree } = await import('@/lib/cashfree');
+      const cashfree = await loadCashfree();
+      
+      if (!cashfree) {
+        throw new Error("Failed to load Cashfree SDK");
+      }
+      
+      // Open SDK checkout - this will redirect the user
+      cashfree.subscriptionsCheckout({
+        subsSessionId: subsSessionId,
+        redirectTarget: "_self",
+      });
+      
     } catch (error: any) {
+      console.error("Cashfree cart payment error:", error);
+      
+      // Check for eSign requirement (412 error or ESIGN_REQUIRED code)
+      if (error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
+        if (cartItems?.length > 0) {
+          const data: PaymentAgreementData = {
+            customerName: (user as any)?.fullName || user?.username || "User",
+            customerEmail: user?.email || "user@example.com",
+            customerMobile: user?.phone,
+            amount: finalTotal,
+            subscriptionType: subscriptionType,
+            portfolioNames: cartItems.map(item => item.portfolio.name),
+            agreementDate: new Date().toLocaleDateString("en-IN"),
+            productType: "Portfolio",
+            productId: cartItems[0]?.portfolio._id,
+            productName: cartItems[0]?.portfolio.name,
+          } as any;
+          
+          // Store selected gateway for after eSign
+          setSelectedGateway('cashfree');
+          setAgreementData(data);
+          setShowDigio(true);
+        }
+        setProcessing(false);
+        return;
+      }
+      
+      // Check for eSign pending
+      if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_PENDING') {
+        const authUrl = error.response.data.pendingEsign?.authenticationUrl;
+        if (authUrl && cartItems?.length > 0) {
+          const data: PaymentAgreementData = {
+            customerName: (user as any)?.fullName || user?.username || "User",
+            customerEmail: user?.email || "user@example.com",
+            customerMobile: user?.phone,
+            amount: finalTotal,
+            subscriptionType: subscriptionType,
+            portfolioNames: cartItems.map(item => item.portfolio.name),
+            agreementDate: new Date().toLocaleDateString("en-IN"),
+            productType: "Portfolio",
+            productId: cartItems[0]?.portfolio._id,
+            productName: cartItems[0]?.portfolio.name,
+          } as any;
+          
+          // Store selected gateway for after eSign
+          setSelectedGateway('cashfree');
+          setAgreementData(data);
+          setShowDigio(true);
+        }
+        setProcessing(false);
+        return;
+      }
+      
       setStep("error");
       setProcessing(false);
       toast({
-        title: "eSign Verification Failed",
-        description: error?.message || "Please complete the digital signature process",
+        title: "Payment Error",
+        description: error?.message || "Could not process Cashfree payment",
         variant: "destructive",
       });
     }
@@ -170,7 +362,6 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
   }, [cartItems, user, subscriptionType, total]);
 
   const handlePaymentFlow = async () => {
-    console.log("🚀 Starting cart payment flow");
     
     try {
       // Step 1: Check PAN details first
@@ -195,17 +386,27 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
         return;
       }
       
-      // Step 2: Proceed with payment flow
-      setStep("processing");
-      setProcessing(true);
-      setProcessingMsg("Creating order...");
+      // Step 2: Show gateway selector instead of directly proceeding
+      setProcessing(false);
       
-      // Always use eMandate flow for cart payments
-      await handleEmandatePaymentFlow();
+      // Filter gateways that support emandate for cart flow
+      const availableGateways = gateways.filter(g => supportsEmandate(g.id));
+      
+      if (availableGateways.length > 1) {
+        // Multiple gateways available - show selector
+        setShowGatewaySelector(true);
+      } else if (availableGateways.length === 1) {
+        // Only one gateway - auto-select and proceed
+        setSelectedGateway(availableGateways[0].id);
+        await proceedWithPayment(availableGateways[0].id);
+      } else {
+        // No gateways with eMandate support - default to Razorpay
+        setSelectedGateway('razorpay');
+        await proceedWithPayment('razorpay');
+      }
     } catch (error: any) {
       // Check for eSign requirement
       if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_REQUIRED') {
-        console.log("🔍 eSign required - showing Digio verification");
         startDigioFlow();
         setProcessing(false);
         return;
@@ -213,7 +414,6 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
       
       // Check for eSign pending
       if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_PENDING') {
-        console.log("🔍 eSign pending - showing Digio modal");
         const authUrl = error.response.data.pendingEsign?.authenticationUrl;
         if (authUrl && cartItems?.length > 0) {
           const data: PaymentAgreementData = {
@@ -250,17 +450,20 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
       cancelRequested.current = false;
       setProcessingMsg("Creating eMandate…");
       
-      console.log("🔍 CART MODAL - Current subscriptionType:", subscriptionType);
-      console.log("🔍 CART MODAL - typeof subscriptionType:", typeof subscriptionType);
+      // Clear any old cached data before creating new subscription
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('razorpay_subscription_id');
+        sessionStorage.removeItem('razorpay_return_url');
+      }
       
-      // Create cart eMandate payload
+      // Create cart eMandate payload with unified API (gateway='razorpay')
       const cartEmandatePayload = {
         ...(cart?._id && cart._id !== "local" && { cartId: cart._id }),
-        interval: subscriptionType,
+        interval: subscriptionType as "monthly" | "quarterly" | "yearly",
         ...(appliedCoupon && { couponCode: appliedCoupon.code }),
+        gateway: "razorpay" as const,
       };
       
-      console.log("🔍 CART MODAL - Cart Emandate payload before sending:", JSON.stringify(cartEmandatePayload, null, 2));
 
       const emandate = await paymentService.createCartEmandate(cartEmandatePayload);
 
@@ -271,48 +474,77 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
       }
 
       setProcessingMsg("Opening payment gateway…");
-      await paymentService.openCheckout(
-        emandate,
-        {
-          name: (user as any)?.fullName || user?.username || "User",
-          email: user?.email || "user@example.com",
-        },
-        async () => {
-          setProcessingMsg("Verifying payment…");
-          const verify = await paymentService.verifyEmandateWithRetry(emandate.subscriptionId);
+      
+      // For Razorpay subscriptions, ALWAYS use SDK popup method (not redirect)
+      // short_url is only a fallback for cases where SDK cannot load
+      // This keeps user on our site and provides better UX
+      try {
+        // Use Razorpay SDK popup with subscription_id
+        await paymentService.openCheckout(
+          emandate,
+          {
+            name: (user as any)?.fullName || user?.username || "User",
+            email: user?.email || "user@example.com",
+          },
+          async () => {
+            setProcessingMsg("Verifying payment…");
+            const verify = await paymentService.verifyEmandateWithRetry(emandate.subscriptionId);
 
-          if (verify.success || ["active", "authenticated"].includes((verify as any).subscriptionStatus || "")) {
-            const links = (verify as any)?.telegramInviteLinks;
-            setTelegramLinks(links || []);
+            if (verify.success || ["active", "authenticated"].includes((verify as any).subscriptionStatus || "")) {
+              const links = (verify as any)?.telegramInviteLinks;
+              setTelegramLinks(links || []);
 
-            setStep("success");
-            setProcessing(false);
-            paymentFlowState.clear();
-            
-            // Call onPaymentSuccess but don't auto-close modal
-            onPaymentSuccess();
-            toast({ 
-              title: "Payment Successful", 
-              description: (verify as any)?.isCartEmandate 
-                ? `${(verify as any)?.activatedSubscriptions || cartItems.length} subscriptions activated successfully!`
-                : "Subscription activated" 
-            });
-          } else {
+              setStep("success");
+              setProcessing(false);
+              paymentFlowState.clear();
+              
+              // Call onPaymentSuccess but don't auto-close modal
+              onPaymentSuccess();
+              toast({ 
+                title: "Payment Successful", 
+                description: (verify as any)?.isCartEmandate 
+                  ? `${(verify as any)?.activatedSubscriptions || cartItems.length} subscriptions activated successfully!`
+                  : "Subscription activated" 
+              });
+            } else {
+              setStep("error");
+              setProcessing(false);
+              toast({ title: "Verification Failed", description: verify.message || "Please try again", variant: "destructive" });
+            }
+          },
+          (err) => {
             setStep("error");
             setProcessing(false);
-            toast({ title: "Verification Failed", description: verify.message || "Please try again", variant: "destructive" });
+            toast({ title: "Payment Cancelled", description: err?.message || "Payment was cancelled", variant: "destructive" });
           }
-        },
-        (err) => {
+        );
+      } catch (sdkError: any) {
+        // SDK failed to load - fallback to redirect with short_url
+        console.warn("Razorpay SDK failed, falling back to redirect:", sdkError);
+        
+        if (emandate.short_url) {
+          setProcessingMsg("Redirecting to payment page...");
+          sessionStorage.setItem('razorpay_subscription_id', emandate.subscriptionId);
+          sessionStorage.setItem('razorpay_return_url', window.location.href);
+          window.location.href = emandate.short_url;
+        } else if (emandate.authorization_url) {
+          setProcessingMsg("Redirecting to payment page...");
+          sessionStorage.setItem('razorpay_subscription_id', emandate.subscriptionId);
+          sessionStorage.setItem('razorpay_return_url', window.location.href);
+          window.location.href = emandate.authorization_url;
+        } else {
           setStep("error");
           setProcessing(false);
-          toast({ title: "Payment Cancelled", description: err?.message || "Payment was cancelled", variant: "destructive" });
+          toast({
+            title: "Payment Error",
+            description: "Failed to load payment gateway. Please try again.",
+            variant: "destructive",
+          });
         }
-      );
+      }
     } catch (error: any) {
       // Check for eSign requirement for eMandate
-      if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_REQUIRED') {
-        console.log("🔍 eSign required for eMandate - showing Digio verification");
+      if (error.response?.status === 412 || error.response?.data?.code === 'ESIGN_REQUIRED') {
         startDigioFlow();
         setProcessing(false);
         return;
@@ -320,7 +552,6 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
       
       // Check for eSign pending for eMandate
       if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_PENDING') {
-        console.log("🔍 eSign pending for eMandate - showing Digio modal");
         const authUrl = error.response.data.pendingEsign?.authenticationUrl;
         if (authUrl && cartItems?.length > 0) {
           const data: PaymentAgreementData = {
@@ -342,11 +573,27 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
         return;
       }
       
+      // Handle subscription conflict errors
+      const errorData = error?.response?.data;
+      if (errorData?.error === "Active subscription conflicts" && errorData?.details?.conflicts) {
+        const conflicts = errorData.details.conflicts;
+        const conflictNames = conflicts.map((c: any) => c.portfolioName).join(", ");
+        setStep("error");
+        setProcessing(false);
+        toast({
+          title: "Active Subscriptions Found",
+          description: `You already have active subscriptions for: ${conflictNames}. Please remove them from cart or wait until they expire.`,
+          variant: "destructive",
+          duration: 8000,
+        });
+        return;
+      }
+      
       setStep("error");
       setProcessing(false);
       toast({
         title: "Checkout Error",
-        description: error?.message || "Could not start checkout",
+        description: errorData?.error || errorData?.message || error?.message || "Could not start checkout",
         variant: "destructive",
       });
     }
@@ -923,6 +1170,19 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
           cartId={cart?._id && cart._id !== "local" ? cart._id : undefined}
         />
       )}
+      
+      {/* Payment Gateway Selector Modal */}
+      <PaymentGatewaySelectorModal
+        isOpen={showGatewaySelector}
+        onClose={() => {
+          setShowGatewaySelector(false);
+          setStep("plan");
+        }}
+        onSelect={handleGatewaySelect}
+        title="Choose Payment Method"
+        description="Select your preferred payment gateway to complete the subscription"
+        isEmandate={true}
+      />
     </>
   );
 };

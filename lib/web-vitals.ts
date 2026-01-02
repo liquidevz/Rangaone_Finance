@@ -31,7 +31,6 @@ class WebVitalsMonitor {
 
     if (process.env.NODE_ENV === 'development') {
       const emoji = metric.rating === 'good' ? '✅' : metric.rating === 'needs-improvement' ? '⚠️' : '❌';
-      console.log(`${emoji} ${metric.name}: ${metric.value.toFixed(2)}ms (${metric.rating})`);
     }
 
     // Send to analytics in production
@@ -42,7 +41,6 @@ class WebVitalsMonitor {
 
   private sendToAnalytics(metric: Metric): void {
     // Log to console in production for monitoring
-    console.log('Web Vital:', metric.name, metric.value, metric.rating);
   }
 
   getMetrics(): Map<string, number> {

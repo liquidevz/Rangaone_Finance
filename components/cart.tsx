@@ -34,7 +34,6 @@ export default function CartPage() {
   
   // Debug subscription type changes
   useEffect(() => {
-    console.log("🔍 CART - subscriptionType changed to:", subscriptionType);
   }, [subscriptionType]);
   const [couponCode, setCouponCode] = useState("")
   const [appliedCoupon, setAppliedCoupon] = useState("")
@@ -65,7 +64,6 @@ export default function CartPage() {
 
   // Debug modal state
   useEffect(() => {
-    console.log("showProfileModal state changed:", showProfileModal);
   }, [showProfileModal]);
 
 
@@ -88,7 +86,6 @@ export default function CartPage() {
           try {
             const subscribedPortfolios = await userPortfolioService.getSubscribedPortfolios()
             const activatedIds = subscribedPortfolios.map((p: any) => p._id)
-            console.log("Subscribed portfolio IDs:", activatedIds)
             setActivatedPortfolioIds(activatedIds)
           } catch (portfolioError) {
             console.error("Failed to load subscribed portfolios:", portfolioError)
@@ -287,7 +284,6 @@ export default function CartPage() {
   };
 
   const createCartBundleAndShowModal = () => {
-    console.log("🔍 CART - Opening payment modal with subscriptionType:", subscriptionType);
     setShowPaymentModal(true);
   };
 
@@ -324,13 +320,13 @@ export default function CartPage() {
       } else {
         switch (subscriptionType) {
           case "yearly":
-            price = (item.portfolio as any).yearlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "yearly")?.price || 0
+            price = (item.portfolio as any)?.yearlyemandateprice || item.portfolio?.subscriptionFee?.find((fee: any) => fee.type === "yearly")?.price || 0
             break
           case "quarterly":
-            price = (item.portfolio as any).quarterlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "quarterly")?.price || 0
+            price = (item.portfolio as any)?.quarterlyemandateprice || item.portfolio?.subscriptionFee?.find((fee: any) => fee.type === "quarterly")?.price || 0
             break
           default:
-            price = (item.portfolio as any).monthlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "monthly")?.price || 0
+            price = (item.portfolio as any)?.monthlyemandateprice || item.portfolio?.subscriptionFee?.find((fee: any) => fee.type === "monthly")?.price || 0
             break
         }
       }
@@ -475,7 +471,8 @@ export default function CartPage() {
                         
                         // Check monthly price
                         const monthlyPrice = cart?.items.reduce((total, item) => {
-                          const price = (item.portfolio as any).monthlyemandateprice || item.portfolio.subscriptionFee.find(fee => fee.type === "monthly")?.price || 0;
+                          if (!item.portfolio) return total;
+                          const price = (item.portfolio as any)?.monthlyemandateprice || item.portfolio?.subscriptionFee?.find(fee => fee.type === "monthly")?.price || 0;
                           return total + (price * item.quantity);
                         }, 0) || 0;
                         
@@ -490,7 +487,8 @@ export default function CartPage() {
                         
                         // Check quarterly price
                         const quarterlyPrice = cart?.items.reduce((total, item) => {
-                          const price = (item.portfolio as any).quarterlyemandateprice || item.portfolio.subscriptionFee.find(fee => fee.type === "quarterly")?.price || 0;
+                          if (!item.portfolio) return total;
+                          const price = (item.portfolio as any)?.quarterlyemandateprice || item.portfolio?.subscriptionFee?.find(fee => fee.type === "quarterly")?.price || 0;
                           return total + (price * item.quantity);
                         }, 0) || 0;
                         
@@ -505,14 +503,16 @@ export default function CartPage() {
                         
                         // Check yearly price
                         const yearlyPrice = cart?.items.reduce((total, item) => {
-                          const price = (item.portfolio as any).yearlyemandateprice || item.portfolio.subscriptionFee.find(fee => fee.type === "yearly")?.price || 0;
+                          if (!item.portfolio) return total;
+                          const price = (item.portfolio as any)?.yearlyemandateprice || item.portfolio?.subscriptionFee?.find(fee => fee.type === "yearly")?.price || 0;
                           return total + (price * item.quantity);
                         }, 0) || 0;
                         
                         if (yearlyPrice > 0) {
                           const quarterlyTotal = cart?.items.reduce((total, item) => {
-                            const monthlyPrice = (item.portfolio as any).quarterlyemandateprice || item.portfolio.subscriptionFee.find(fee => fee.type === "monthly")?.price || 0;
-                            const price = (item.portfolio as any).quarterlyemandateprice || item.portfolio.subscriptionFee.find(fee => fee.type === "quarterly")?.price || (monthlyPrice * 3);
+                            if (!item.portfolio) return total;
+                            const monthlyPrice = (item.portfolio as any)?.quarterlyemandateprice || item.portfolio?.subscriptionFee?.find(fee => fee.type === "monthly")?.price || 0;
+                            const price = (item.portfolio as any)?.quarterlyemandateprice || item.portfolio?.subscriptionFee?.find(fee => fee.type === "quarterly")?.price || (monthlyPrice * 3);
                             return total + (price * item.quantity);
                           }, 0) || 0;
                           
@@ -638,15 +638,15 @@ export default function CartPage() {
                         } else {
                           switch (subscriptionType) {
                             case "yearly":
-                              price = (item.portfolio as any).yearlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "yearly")?.price || 0
+                              price = (item.portfolio as any)?.yearlyemandateprice || item.portfolio?.subscriptionFee?.find((fee: any) => fee.type === "yearly")?.price || 0
                               period = "Yearly"
                               break
                             case "quarterly":
-                              price = (item.portfolio as any).quarterlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "quarterly")?.price || 0
+                              price = (item.portfolio as any)?.quarterlyemandateprice || item.portfolio?.subscriptionFee?.find((fee: any) => fee.type === "quarterly")?.price || 0
                               period = "Quarterly"
                               break
                             default:
-                              price = (item.portfolio as any).monthlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "monthly")?.price || 0
+                              price = (item.portfolio as any)?.monthlyemandateprice || item.portfolio?.subscriptionFee?.find((fee: any) => fee.type === "monthly")?.price || 0
                               period = "Monthly"
                               break
                           }
@@ -744,14 +744,11 @@ export default function CartPage() {
 
                             {/* Bundle Recommendation Banner */}
                             {(() => {
-                              console.log('Checking bundle for portfolio:', item.portfolio.name, item.portfolio._id)
-                              console.log('Available bundles:', bundleRecommendations)
                               
                               const premiumBundle = bundleRecommendations.find(bundle => 
                                 bundle.category === "premium" && bundle.portfolios.some((p: any) => p._id === item.portfolio._id)
                               )
                               
-                              console.log('Found premium bundle:', premiumBundle)
                               
                               if (premiumBundle) {
                                 return (
@@ -906,15 +903,15 @@ export default function CartPage() {
                                 } else {
                                   switch (subscriptionType) {
                                     case "yearly":
-                                      price = (item.portfolio as any).yearlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "yearly")?.price || 0
+                                      price = (item.portfolio as any)?.yearlyemandateprice || item.portfolio?.subscriptionFee?.find((fee: any) => fee.type === "yearly")?.price || 0
                                       period = "Yearly"
                                       break
                                     case "quarterly":
-                                      price = (item.portfolio as any).quarterlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "quarterly")?.price || 0
+                                      price = (item.portfolio as any)?.quarterlyemandateprice || item.portfolio?.subscriptionFee?.find((fee: any) => fee.type === "quarterly")?.price || 0
                                       period = "Quarterly"
                                       break
                                     default:
-                                      price = (item.portfolio as any).monthlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "monthly")?.price || 0
+                                      price = (item.portfolio as any)?.monthlyemandateprice || item.portfolio?.subscriptionFee?.find((fee: any) => fee.type === "monthly")?.price || 0
                                       period = "Monthly"
                                       break
                                   }
@@ -1189,15 +1186,15 @@ export default function CartPage() {
                               } else {
                                 switch (subscriptionType) {
                                   case "yearly":
-                                    price = (item.portfolio as any).yearlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "yearly")?.price || 0
+                                    price = (item.portfolio as any)?.yearlyemandateprice || item.portfolio?.subscriptionFee?.find((fee: any) => fee.type === "yearly")?.price || 0
                                     period = "Yearly"
                                     break
                                   case "quarterly":
-                                    price = (item.portfolio as any).quarterlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "quarterly")?.price || 0
+                                    price = (item.portfolio as any)?.quarterlyemandateprice || item.portfolio?.subscriptionFee?.find((fee: any) => fee.type === "quarterly")?.price || 0
                                     period = "Quarterly"
                                     break
                                   default:
-                                    price = (item.portfolio as any).monthlyemandateprice || item.portfolio.subscriptionFee.find((fee: any) => fee.type === "monthly")?.price || 0
+                                    price = (item.portfolio as any)?.monthlyemandateprice || item.portfolio?.subscriptionFee?.find((fee: any) => fee.type === "monthly")?.price || 0
                                     period = "Monthly"
                                     break
                                 }
@@ -1258,7 +1255,6 @@ export default function CartPage() {
                         variant="outline"
                         className="w-full mt-2"
                         onClick={() => {
-                          console.log("Test button clicked");
                           setShowProfileModal(true);
                         }}
                       >

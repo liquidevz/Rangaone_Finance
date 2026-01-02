@@ -8,13 +8,16 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/components/auth/auth-context";
 import { useRouter } from "next/navigation";
 import { Bundle } from "@/services/bundle.service";
-import { paymentService } from "@/services/payment.service";
+import { paymentService, PaymentGatewayType } from "@/services/payment.service";
 import CartAuthForm from "@/components/cart-auth-form";
 import { DigioVerificationModal } from "@/components/digio-verification-modal";
 import { paymentFlowState } from "@/lib/payment-flow-state";
 import { CouponInput } from "@/components/coupon-input";
 import type { CouponValidationResponse } from "@/services/coupon.service";
 import type { PaymentAgreementData } from "@/services/digio.service";
+import { PaymentGatewaySelectorModal } from "@/components/payment-gateway-selector";
+import { usePaymentGateways } from "@/hooks/use-payment-gateways";
+import { CashfreeS2SPayment } from "@/components/cashfree-s2s-payment";
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -30,9 +33,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   isEmandateFlow = false,
 }) => {
   // Use isEmandateFlow to determine which options to show
-  console.log("isEmandateFlow:", isEmandateFlow);
   const [step, setStep] = useState<
-    "plan" | "consent" | "auth" | "pan-form" | "esign" | "processing" | "success" | "error"
+    "plan" | "consent" | "auth" | "pan-form" | "esign" | "gateway-select" | "processing" | "success" | "error"
   >("plan");
   const [subscriptionType, setSubscriptionType] = useState<
     "monthly" | "quarterly"
@@ -59,6 +61,19 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     pandetails: ""
   });
   const [panFormLoading, setPanFormLoading] = useState(false);
+  
+  // Payment gateway selection state
+  const [selectedGateway, setSelectedGateway] = useState<PaymentGatewayType | null>(null);
+  const [showGatewaySelector, setShowGatewaySelector] = useState(false);
+  const { gateways, hasMultipleGateways, defaultGateway, supportsEmandate, loading: gatewaysLoading } = usePaymentGateways();
+
+  // Cashfree S2S payment state
+  const [showCashfreeS2S, setShowCashfreeS2S] = useState(false);
+  const [cashfreeS2SData, setCashfreeS2SData] = useState<{
+    subscriptionId: string;
+    amount: number;
+    productName: string;
+  } | null>(null);
 
   const cancelRequested = useRef(false);
   const continuedAfterAuthRef = useRef(false);
@@ -130,7 +145,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       
       // If user is authenticated and has saved state, skip to payment flow
       if (isAuthenticated && user && savedState.subscriptionType) {
-        console.log("✅ User authenticated with saved plan - proceeding to PAN verification");
         setStep("processing");
         setProcessing(true);
         setProcessingMsg("Checking profile...");
@@ -201,6 +215,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     setShowDigio(false);
     setTelegramLinks(null);
     setESignData(null);
+    setSelectedGateway(null); // Reset selected gateway
+    setShowGatewaySelector(false); // Reset gateway selector
     continuedAfterAuthRef.current = false;
     // Clear payment flow state when modal is closed
     paymentFlowState.clear();
@@ -223,7 +239,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
 
   const handleAuthSuccess = async () => {
-    console.log("✅ Auth success - proceeding to payment flow");
     // Update payment flow state with current selections
     paymentFlowState.update({ 
       isAuthenticated: true,
@@ -240,38 +255,202 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const handleDigioComplete = async () => {
     setShowDigio(false);
     
-    // // Verify eSign completion
-    // try {
-    //   setStep("processing");
-    //   setProcessing(true);
-    //   setProcessingMsg("Verifying eSign completion...");
-    //   
-    //   const verification = await paymentService.verifyESignCompletion("Bundle", bundle?._id || "");
-    //   
-    //   if (!verification.success) {
-    //     setStep("error");
-    //     setProcessing(false);
-    //     toast({
-    //       title: "eSign Verification Failed",
-    //       description: verification.message,
-    //       variant: "destructive",
-    //     });
-    //     return;
-    //   }
-    //   
-    //   console.log("✅ eSign verified - retrying payment API");
-    //   await continueAfterDigio();
-    // } catch (error: any) {
-    //   setStep("error");
-    //   setProcessing(false);
-    //   toast({
-    //     title: "eSign Verification Error",
-    //     description: error?.message || "Failed to verify eSign",
-    //     variant: "destructive",
-    //   });
-    // }
+    // Verify eSign status with backend before proceeding
+    if (bundle) {
+      setStep("processing");
+      setProcessing(true);
+      setProcessingMsg("Verifying digital signature...");
+      
+      try {
+        const { digioService } = await import("@/services/digio.service");
+        const verifyResult = await digioService.verifyAndUpdateEsignStatus("Bundle", bundle._id);
+        
+        if (!verifyResult.success || !verifyResult.signed) {
+          // eSign not completed - show error or retry
+          toast({
+            title: "Signature Verification",
+            description: "Please complete the digital signature process before proceeding.",
+            variant: "destructive"
+          });
+          setProcessing(false);
+          setStep("consent");
+          return;
+        }
+      } catch (error) {
+        console.error("Error verifying eSign:", error);
+        // Continue anyway - backend will do final verification
+      }
+    }
     
-    await continueAfterDigio();
+    // If a gateway was already selected (e.g., Cashfree triggered eSign), proceed with that gateway
+    if (selectedGateway) {
+      await proceedWithPayment(selectedGateway);
+      return;
+    }
+    
+    // After eSign completion, show gateway selector to let user choose
+    // Filter gateways that support emandate for this flow
+    const availableGateways = isEmandateFlow 
+      ? gateways.filter(g => supportsEmandate(g.id))
+      : gateways;
+    
+    if (availableGateways.length > 1) {
+      // Multiple gateways available - show selector
+      setShowGatewaySelector(true);
+    } else if (availableGateways.length === 1) {
+      // Only one gateway - auto-select and proceed
+      setSelectedGateway(availableGateways[0].id);
+      await proceedWithPayment(availableGateways[0].id);
+    } else {
+      // No gateways available - use default (Razorpay)
+      setSelectedGateway('razorpay');
+      await proceedWithPayment('razorpay');
+    }
+  };
+  
+  // Handle gateway selection from modal
+  const handleGatewaySelect = async (gatewayId: PaymentGatewayType) => {
+    setSelectedGateway(gatewayId);
+    setShowGatewaySelector(false);
+    await startPaymentWithGateway(gatewayId);
+  };
+  
+  // Proceed with payment after gateway selection (used by handleDigioComplete)
+  const proceedWithPayment = async (gateway: PaymentGatewayType) => {
+    if (!bundle) return;
+    
+    setStep("processing");
+    setProcessing(true);
+    
+    if (gateway === 'cashfree') {
+      await handleCashfreePayment();
+    } else {
+      await continueAfterDigio();
+    }
+  };
+  
+  // Handle Cashfree payment flow using SDK subscriptionsCheckout
+  const handleCashfreePayment = async () => {
+    if (!bundle) return;
+    
+    try {
+      setProcessingMsg("Creating subscription...");
+      
+      // Step 1: Create subscription - backend returns subsSessionId for SDK checkout
+      const result = await paymentService.createCashfreeSubscription({
+        productType: "Bundle",
+        productId: bundle._id,
+        planType: subscriptionType === "quarterly" ? "yearly" : "monthly",
+        userId: user?._id,
+        couponCode: appliedCoupon?.code,
+        purchaseMethod: 'emandate',
+      });
+      
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create subscription');
+      }
+      
+      // Get subsSessionId for SDK checkout
+      const subsSessionId = result.cashfree?.subsSessionId;
+      const subscriptionId = result.subscription?.cfSubscriptionId || result.subscription?.id || result.cashfree?.subscriptionId;
+      
+      if (!subsSessionId) {
+        console.error("❌ Missing subsSessionId in response:", result);
+        throw new Error('Missing subscription session ID. Please contact support.');
+      }
+      
+      
+      // Store subscription info for verification after redirect
+      if (subscriptionId) {
+        sessionStorage.setItem('cashfree_subscription_id', subscriptionId);
+      }
+      sessionStorage.setItem('cashfree_subs_session_id', subsSessionId);
+      sessionStorage.setItem('cashfree_return_url', window.location.href);
+      
+      // Step 2: Load Cashfree SDK and open checkout
+      setProcessingMsg("Opening Cashfree checkout...");
+      
+      const { loadCashfree } = await import("@/lib/cashfree");
+      const cashfree = await loadCashfree();
+      
+      if (!cashfree) {
+        throw new Error("Failed to load Cashfree SDK");
+      }
+      
+      
+      // Open SDK checkout - this will redirect the user
+      cashfree.subscriptionsCheckout({
+        subsSessionId: subsSessionId,
+        redirectTarget: "_self",
+      });
+      
+    } catch (error: any) {
+      console.error("Cashfree payment error:", error);
+      
+      // Check for eSign requirement (412 error or ESIGN_REQUIRED code)
+      if (error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
+        const amount = subscriptionType === "quarterly"
+          ? ((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0
+          : ((bundle as any).monthlyemandateprice as number) || bundle.monthlyPrice || 0;
+        const data: PaymentAgreementData = {
+          customerName: (user as any)?.fullName || user?.username || "User",
+          customerEmail: user?.email || "user@example.com",
+          customerMobile: user?.phone,
+          amount: amount,
+          subscriptionType: subscriptionType,
+          portfolioNames: bundle.portfolios.map((p) => p.name),
+          agreementDate: new Date().toLocaleDateString("en-IN"),
+          productType: "Bundle",
+          productId: bundle._id,
+          productName: bundle.name,
+        } as any;
+        
+        // Store selected gateway for after eSign
+        setSelectedGateway('cashfree');
+        setAgreementData(data);
+        setShowDigio(true);
+        setProcessing(false);
+        return;
+      }
+      
+      // Check for eSign pending
+      if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_PENDING') {
+        const authUrl = error.response.data.pendingEsign?.authenticationUrl;
+        if (authUrl) {
+          const amount = subscriptionType === "quarterly"
+            ? ((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0
+            : ((bundle as any).monthlyemandateprice as number) || bundle.monthlyPrice || 0;
+          const data: PaymentAgreementData = {
+            customerName: (user as any)?.fullName || user?.username || "User",
+            customerEmail: user?.email || "user@example.com",
+            customerMobile: user?.phone,
+            amount: amount,
+            subscriptionType: subscriptionType,
+            portfolioNames: bundle.portfolios.map((p) => p.name),
+            agreementDate: new Date().toLocaleDateString("en-IN"),
+            productType: "Bundle",
+            productId: bundle._id,
+            productName: bundle.name,
+          } as any;
+          
+          // Store selected gateway for after eSign
+          setSelectedGateway('cashfree');
+          setAgreementData(data);
+          setShowDigio(true);
+        }
+        setProcessing(false);
+        return;
+      }
+      
+      setStep("error");
+      setProcessing(false);
+      toast({
+        title: "Payment Error",
+        description: error?.message || "Could not process Cashfree payment",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEmandatePaymentFlow = async () => {
@@ -328,7 +507,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             emandate.subscriptionId
           );
 
-          console.log("🔍 eMandate verification response:", verify);
 
           if (
             verify.success ||
@@ -338,7 +516,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           ) {
             // Check for Telegram links in the response
             const links = (verify as any)?.telegramInviteLinks;
-            console.log("🔍 Telegram links from eMandate verification:", links);
             if (links && Array.isArray(links) && links.length > 0) {
               setTelegramLinks(links);
             }
@@ -373,7 +550,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     } catch (error: any) {
       // Check for eSign requirement (412 error)
       if (error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
-        console.log("🔍 eSign required for eMandate - showing Digio verification");
         const amount = subscriptionType === "quarterly"
           ? ((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0
           : ((bundle as any).monthlyemandateprice as number) || bundle.monthlyPrice || 0;
@@ -398,7 +574,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       
       // Check for eSign pending for eMandate
       if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_PENDING') {
-        console.log("🔍 eSign pending for eMandate - showing Digio modal");
         const authUrl = error.response.data.pendingEsign?.authenticationUrl;
         if (authUrl) {
           const amount = subscriptionType === "quarterly"
@@ -436,16 +611,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const handlePaymentFlow = async () => {
     if (!bundle) return;
 
-    console.log("🚀 Starting payment flow for bundle:", bundle.name);
     
     // Step 1: Check PAN details first
-    console.log("🔍 Step 1: Checking PAN details...");
     const panCheck = await paymentService.checkPanDetails();
-    console.log("🔍 PAN check result:", panCheck);
     
     if (!panCheck.hasPan) {
-      console.log("❌ PAN details missing - showing PAN form");
-      console.log("🔍 Profile data:", panCheck.profile);
       
       // Try to get DOB from profile or user data
       const dobFromProfile = panCheck.profile?.dateOfBirth || panCheck.profile?.dateofBirth;
@@ -457,7 +627,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         finalDob = finalDob.split('T')[0]; // Extract YYYY-MM-DD part
       }
       
-      console.log("🔍 DOB sources:", { dobFromProfile, dobFromUser, finalDob });
       
       setPanFormData({
         fullName: panCheck.profile?.fullName || (user as any)?.fullName || "",
@@ -470,7 +639,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       return;
     }
     
-    console.log("✅ PAN details found - showing video modal first");
     
     // Step 2: Show video modal before payment
     setStep("consent");
@@ -480,10 +648,50 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const proceedAfterVideo = async () => {
     if (!bundle) return;
     
+    
+    // Wait for gateways to load if still loading
+    if (gatewaysLoading) {
+      setProcessingMsg("Loading payment options...");
+      // Will be called again after gateways load
+      return;
+    }
+    
+    // Check available gateways
+    const availableGateways = isEmandateFlow 
+      ? gateways.filter(g => supportsEmandate(g.id))
+      : gateways;
+    
+    
+    // Show gateway selector when we have 2+ gateways
+    if (gateways.length >= 2 || availableGateways.length >= 2) {
+      setShowGatewaySelector(true);
+      return;
+    }
+    
+    if (availableGateways.length === 1) {
+      // Only one gateway - auto-select and proceed
+      setSelectedGateway(availableGateways[0].id);
+      await startPaymentWithGateway(availableGateways[0].id);
+    } else {
+      // No gateways available - use default (Razorpay)
+      setSelectedGateway('razorpay');
+      await startPaymentWithGateway('razorpay');
+    }
+  };
+  
+  // Start payment after gateway selection (from proceedAfterVideo)
+  const startPaymentWithGateway = async (gateway: string) => {
+    if (!bundle) return;
+    
     setStep("processing");
     setProcessing(true);
     
-    // Try payment API directly
+    if (gateway === 'cashfree') {
+      await handleCashfreePayment();
+      return;
+    }
+    
+    // Razorpay flow
     try {
       setProcessingMsg("Creating order...");
       
@@ -538,7 +746,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     } catch (error: any) {
       // Check for eSign requirement (412 error) - only for one-time payments
       if (!isEmandateFlow && error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
-        console.log("🔍 eSign required for one-time payment - showing Digio verification");
         const price = getPrice();
         const data: PaymentAgreementData = {
           customerName: (user as any)?.fullName || user?.username || "User",
@@ -561,7 +768,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       
       // Check for eSign pending - only for one-time payments
       if (!isEmandateFlow && error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_PENDING') {
-        console.log("🔍 eSign pending for one-time payment - showing Digio modal");
         const authUrl = error.response.data.pendingEsign?.authenticationUrl;
         if (authUrl) {
           const price = getPrice();
@@ -603,10 +809,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       setProcessing(true);
 
       if (isEmandateFlow) {
-        console.log("🔍 Starting eMandate flow after Digio verification");
         await handleEmandatePaymentFlow();
       } else {
-        console.log("🔍 Starting one-time payment flow after Digio verification");
         setProcessingMsg("Creating order…");
         
         const order = await paymentService.createOrder({
@@ -638,11 +842,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               signature: rp?.razorpay_signature,
             });
 
-            console.log("🔍 Payment verification response:", verify);
 
             if (verify.success) {
               const links = (verify as any)?.telegramInviteLinks;
-              console.log("🔍 Telegram links from payment verification:", links);
               if (links && Array.isArray(links) && links.length > 0) {
                 setTelegramLinks(links);
               }
@@ -1052,9 +1254,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                         throw new Error("PAN details are required");
                       }
                       
-                      console.log('Updating PAN details:', panFormData);
                       await paymentService.updatePanDetails(panFormData);
-                      console.log('PAN details updated successfully');
                       
                       // Re-check profile to confirm PAN details are saved
                       const profileCheck = await paymentService.checkPanDetails();
@@ -1530,6 +1730,47 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           onClose={() => setShowDigio(false)}
           onVerificationComplete={handleDigioComplete}
           agreementData={agreementData}
+        />
+      )}
+      
+      {/* Payment Gateway Selector Modal */}
+      <PaymentGatewaySelectorModal
+        isOpen={showGatewaySelector}
+        onClose={() => {
+          setShowGatewaySelector(false);
+          setStep("consent");
+        }}
+        onSelect={handleGatewaySelect}
+        title="Choose Payment Method"
+        description="Select your preferred payment gateway to complete the subscription"
+        isEmandate={isEmandateFlow}
+      />
+
+      {/* Cashfree S2S Payment Modal */}
+      {showCashfreeS2S && cashfreeS2SData && (
+        <CashfreeS2SPayment
+          isOpen={showCashfreeS2S}
+          onClose={() => {
+            setShowCashfreeS2S(false);
+            setCashfreeS2SData(null);
+            setStep("consent");
+          }}
+          subscriptionId={cashfreeS2SData.subscriptionId}
+          amount={cashfreeS2SData.amount}
+          productName={cashfreeS2SData.productName}
+          onSuccess={() => {
+            setShowCashfreeS2S(false);
+            // Handle success - redirect to dashboard
+            router.push('/dashboard?payment=success');
+          }}
+          onError={(error) => {
+            console.error('Cashfree S2S error:', error);
+            toast({
+              title: "Payment Error",
+              description: error,
+              variant: "destructive",
+            });
+          }}
         />
       )}
     </>

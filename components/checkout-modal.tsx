@@ -10,13 +10,16 @@ import { useAuth } from "./auth/auth-context";
 import { useCart } from "./cart/cart-context";
 import { useRouter } from "next/navigation";
 import { Bundle } from "@/services/bundle.service";
-import { paymentService, type CreateOrderResponse, type CreateEMandateResponse } from "@/services/payment.service";
+import { paymentService, type CreateOrderResponse, type CreateEMandateResponse, PaymentGatewayType } from "@/services/payment.service";
 import { DigioVerificationModal } from "@/components/digio-verification-modal";
 import type { PaymentAgreementData } from "@/services/digio.service";
 import {
   UserPortfolio,
   userPortfolioService,
 } from "@/services/user-portfolio.service";
+import { PaymentGatewaySelectorModal } from "@/components/payment-gateway-selector";
+import { usePaymentGateways } from "@/hooks/use-payment-gateways";
+import { CashfreeS2SPayment } from "@/components/cashfree-s2s-payment";
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -45,6 +48,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [pendingEmandateId, setPendingEmandateId] = useState<string | null>(null);
   const [fetchingLinks, setFetchingLinks] = useState(false);
   const pollTimerRef = useRef<any>(null);
+  
+  // Payment gateway selection state
+  const [selectedGateway, setSelectedGateway] = useState<PaymentGatewayType | null>(null);
+  const [showGatewaySelector, setShowGatewaySelector] = useState(false);
+  const { gateways, hasMultipleGateways, defaultGateway, supportsEmandate } = usePaymentGateways();
+
+  // Cashfree S2S payment state
+  const [showCashfreeS2S, setShowCashfreeS2S] = useState(false);
+  const [cashfreeS2SData, setCashfreeS2SData] = useState<{
+    subscriptionId: string;
+    amount: number;
+    productName: string;
+  } | null>(null);
   
   const { user, isAuthenticated } = useAuth();
   const { cart, refreshCart, calculateTotal: cartCalculateTotal } = useCart();
@@ -98,8 +114,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     };
 
     const finishSuccess = (verifyResponse?: any) => {
-      console.log("🔍 VERIFY RESPONSE:", verifyResponse);
-      console.log("🔍 TELEGRAM LINKS:", verifyResponse?.telegramInviteLinks);
       
       // Check for telegram links in response
       const telegramLinks = verifyResponse?.telegramInviteLinks || verifyResponse?.telegram_invite_links || [];
@@ -297,6 +311,112 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const handleDigioSuccess = async () => {
     if (!bundle) return;
     
+    setShowDigio(false);
+    
+    // Check available gateways after eSign
+    const isEmandate = subscriptionType === "yearly" || subscriptionType === "quarterly";
+    const availableGateways = isEmandate 
+      ? gateways.filter(g => supportsEmandate(g.id))
+      : gateways;
+    
+    
+    // Show gateway selector when we have 2+ gateways
+    if (gateways.length >= 2 || availableGateways.length >= 2) {
+      setShowGatewaySelector(true);
+      return;
+    }
+    
+    if (availableGateways.length === 1) {
+      // Auto-select and proceed
+      setSelectedGateway(availableGateways[0].id);
+      await proceedWithSelectedGateway(availableGateways[0].id);
+    } else {
+      // Default to Razorpay
+      setSelectedGateway('razorpay');
+      await proceedWithSelectedGateway('razorpay');
+    }
+  };
+  
+  const handleGatewaySelect = async (gatewayId: PaymentGatewayType) => {
+    setSelectedGateway(gatewayId);
+    setShowGatewaySelector(false);
+    await proceedWithSelectedGateway(gatewayId);
+  };
+  
+  const proceedWithSelectedGateway = async (gateway: PaymentGatewayType) => {
+    if (gateway === 'cashfree') {
+      await handleCashfreePayment();
+    } else {
+      await handleRazorpayEmandatePayment();
+    }
+  };
+  
+  // Handle Cashfree payment flow using SDK subscriptionsCheckout
+  const handleCashfreePayment = async () => {
+    if (!bundle) return;
+    
+    setPaymentStep("processing");
+    setLoading(true);
+    
+    try {
+      const result = await paymentService.createCashfreeSubscription({
+        productType: "Bundle",
+        productId: bundle._id,
+        planType: subscriptionType,
+        userId: user?._id,
+        purchaseMethod: 'emandate',
+      });
+      
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create subscription');
+      }
+      
+      // Get subsSessionId for SDK checkout
+      const subsSessionId = result.cashfree?.subsSessionId;
+      const subscriptionId = result.subscription?.subscriptionId || result.subscription?.id || result.cashfree?.subscriptionId;
+      
+      if (!subsSessionId) {
+        console.error("❌ Missing subsSessionId in response:", result);
+        throw new Error('Missing subscription session ID. Please contact support.');
+      }
+      
+      
+      // Store subscription info for verification after redirect
+      if (subscriptionId) {
+        sessionStorage.setItem('cashfree_subscription_id', subscriptionId);
+      }
+      sessionStorage.setItem('cashfree_subs_session_id', subsSessionId);
+      sessionStorage.setItem('cashfree_return_url', window.location.href);
+      
+      // Load Cashfree SDK and open checkout
+      const { loadCashfree } = await import("@/lib/cashfree");
+      const cashfree = await loadCashfree();
+      
+      if (!cashfree) {
+        throw new Error("Failed to load Cashfree SDK");
+      }
+      
+      
+      // Open SDK checkout - this will redirect the user
+      cashfree.subscriptionsCheckout({
+        subsSessionId: subsSessionId,
+        redirectTarget: "_self",
+      });
+      
+    } catch (error: any) {
+      setPaymentStep("error");
+      toast({ title: "Payment Failed", description: error?.message || "Failed to process Cashfree payment", variant: "destructive" });
+      setLoading(false);
+    }
+  };
+  
+  const handleRazorpayEmandatePayment = async () => {
+    if (!bundle) return;
+    
+    setPaymentStep("processing");
+    setLoading(true);
+    
     const productType: "Bundle" | "Portfolio" = "Bundle";
     const productId = bundle._id;
     
@@ -312,7 +432,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         throw new Error("Invalid eMandate response: missing subscriptionId");
       }
       
-      console.log("Opening Razorpay with subscriptionId:", emandate.subscriptionId);
       
       await paymentService.openCheckout(
         emandate,
@@ -322,7 +441,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         },
         async () => {
           const verify = await paymentService.verifyEmandateWithRetry(emandate.subscriptionId);
-          console.log("🔍 EMANDATE VERIFY RESULT:", verify);
           if (verify.success || ["active", "authenticated"].includes((verify as any).subscriptionStatus || "")) {
             const links = (verify as any)?.telegramInviteLinks || (verify as any)?.telegram_invite_links || [];
             if (links.length > 0) {
@@ -816,6 +934,46 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           handleDigioSuccess();
         }}
         agreementData={agreementData}
+      />
+    )}
+    
+    {/* Payment Gateway Selector Modal */}
+    <PaymentGatewaySelectorModal
+      isOpen={showGatewaySelector}
+      onClose={() => {
+        setShowGatewaySelector(false);
+        setPaymentStep("review");
+      }}
+      onSelect={handleGatewaySelect}
+      title="Choose Payment Method"
+      description="Select your preferred payment gateway to complete the subscription"
+      isEmandate={subscriptionType === "yearly" || subscriptionType === "quarterly"}
+    />
+
+    {/* Cashfree S2S Payment Modal */}
+    {showCashfreeS2S && cashfreeS2SData && (
+      <CashfreeS2SPayment
+        isOpen={showCashfreeS2S}
+        onClose={() => {
+          setShowCashfreeS2S(false);
+          setCashfreeS2SData(null);
+          setPaymentStep("review");
+        }}
+        subscriptionId={cashfreeS2SData.subscriptionId}
+        amount={cashfreeS2SData.amount}
+        productName={cashfreeS2SData.productName}
+        onSuccess={() => {
+          setShowCashfreeS2S(false);
+          router.push('/dashboard?payment=success');
+        }}
+        onError={(error) => {
+          console.error('Cashfree S2S error:', error);
+          toast({
+            title: "Payment Error",
+            description: error,
+            variant: "destructive",
+          });
+        }}
       />
     )}
     </>

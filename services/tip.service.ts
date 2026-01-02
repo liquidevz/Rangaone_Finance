@@ -71,7 +71,6 @@ export const tipsService = {
 
   // Fetch tip by ID
   getById: async (id: string): Promise<Tip> => {
-    console.log('🌐 Calling API endpoint:', `/api/user/tips/${id}`);
     
     try {
       const response = await axiosApi.get<Tip>(`/api/user/tips/${id}`, {
@@ -80,8 +79,6 @@ export const tipsService = {
         },
       });
       
-      console.log('✅ API Response Status:', response.status);
-      console.log('📦 API Response Data:', response.data);
       
       return response.data;
     } catch (error: any) {

@@ -64,6 +64,7 @@ export function DigioVerificationModal({
       }
       
       if (response.authenticationUrl) {
+        setDocumentId(response.documentId) // Store documentId for verification
         setDigioUrl(response.authenticationUrl)
         setShowIframe(true)
       }
@@ -83,6 +84,7 @@ export function DigioVerificationModal({
     setShowIframe(false)
     setStep("creating")
     setDigioUrl("")
+    setDocumentId(null)
     hasCreatedRef.current = false
     onClose()
   }
@@ -101,6 +103,8 @@ export function DigioVerificationModal({
           }}
           digioUrl={digioUrl}
           title="Complete Digio Verification"
+          documentId={documentId || undefined}
+          cartId={cartId}
         />
       )}
     </>

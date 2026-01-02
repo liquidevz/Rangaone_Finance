@@ -63,14 +63,12 @@ export const authService = {
   // Authentication methods
   signup: async (payload: SignupPayload): Promise<SignupResponse> => {
     try {
-      console.log("Signup payload:", payload);
       const response = await post<SignupResponse>("/auth/signup", payload, {
         headers: {
           accept: "application/json",
           "Content-Type": "application/json",
         },
       });
-      console.log("Signup response:", response);
       return response;
     } catch (error: any) {
       console.error("Signup error:", error);

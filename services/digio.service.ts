@@ -205,5 +205,106 @@ export const digioService = {
       console.error('Error verifying cart signature:', error);
       return false;
     }
+  },
+
+  // Verify and update eSign status for a cart (calls backend to sync with Digio)
+  // Supports polling with maxAttempts and delayMs parameters
+  verifyAndUpdateCartEsignStatus: async (
+    cartId: string,
+    options?: { poll?: boolean; maxAttempts?: number; delayMs?: number }
+  ): Promise<{ 
+    success: boolean; 
+    status?: string; 
+    signed?: boolean;
+    documentId?: string;
+    signedAt?: string | null;
+    error?: string;
+  }> => {
+    const { poll = false, maxAttempts = 10, delayMs = 2000 } = options || {};
+    
+    const checkStatus = async () => {
+      const response = await post('/api/digio/cart/esign/verify-status', {
+        cartId
+      }) as any;
+      
+      return {
+        success: response.success,
+        status: response.status,
+        signed: response.signed || response.status === 'signed' || response.status === 'completed',
+        documentId: response.documentId,
+        signedAt: response.signedAt,
+        error: response.error
+      };
+    };
+    
+    try {
+      if (!poll) {
+        // Single check
+        return await checkStatus();
+      }
+      
+      // Polling mode - keep checking until signed or max attempts reached
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const result = await checkStatus();
+        
+        if (result.signed) {
+          return result;
+        }
+        
+        if (result.status === 'failed' || result.status === 'expired') {
+          return {
+            ...result,
+            success: false,
+            error: `eSign ${result.status}. Please try again.`
+          };
+        }
+        
+        if (attempt < maxAttempts) {
+          // Wait before next attempt
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+      
+      // Max attempts reached without signing
+      return {
+        success: false,
+        signed: false,
+        error: 'eSign verification timed out. Please complete the signing process and try again.'
+      };
+    } catch (error: any) {
+      console.error('Error verifying cart eSign status:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to verify cart eSign status'
+      };
+    }
+  },
+
+  // Verify and update eSign status for a product (calls backend to sync with Digio)
+  verifyAndUpdateEsignStatus: async (productType: string, productId: string): Promise<{ 
+    success: boolean; 
+    status?: string; 
+    signed?: boolean;
+    error?: string;
+  }> => {
+    try {
+      const response = await post('/api/digio/esign/verify-status', {
+        productType,
+        productId
+      }) as any;
+      
+      return {
+        success: response.success,
+        status: response.status,
+        signed: response.signed || response.status === 'signed' || response.status === 'completed',
+        error: response.error
+      };
+    } catch (error: any) {
+      console.error('Error verifying eSign status:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to verify eSign status'
+      };
+    }
   }
 };

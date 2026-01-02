@@ -220,11 +220,8 @@ export default function ModelPortfolioAllRecommendationsPage() {
   // Fetch user's available portfolios
   const fetchUserPortfolios = async (): Promise<string[]> => {
     try {
-      console.log('🔍 Fetching user portfolio access...');
       const access = await subscriptionService.getSubscriptionAccess(true);
-      console.log('📊 Subscription access:', access);
       const portfolioIds = access.portfolioAccess || [];
-      console.log('✅ Portfolio IDs from subscription:', portfolioIds);
       return portfolioIds;
     } catch (error) {
       console.error('❌ Error fetching portfolio access:', error);
@@ -236,11 +233,9 @@ export default function ModelPortfolioAllRecommendationsPage() {
   const fetchTips = async () => {
     try {
       setLoading(true);
-      console.log('🔄 Fetching model portfolio tips...');
        
        // First, get user's available portfolios
        const availablePortfolioIds = await fetchUserPortfolios();
-       console.log('📋 User has access to portfolios:', availablePortfolioIds);
        setUserPortfolios(availablePortfolioIds);
        
        if (availablePortfolioIds.length === 0) {
@@ -255,7 +250,6 @@ export default function ModelPortfolioAllRecommendationsPage() {
        try {
          // First try the portfolio-specific endpoint
          const portfolioTips = await tipsService.getPortfolioTips({});
-         console.log('📊 Portfolio tips response:', portfolioTips);
          allTips = Array.isArray(portfolioTips) ? portfolioTips : [];
        } catch (portfolioError) {
          console.warn('⚠️ Portfolio tips endpoint failed, trying general tips:', portfolioError);
@@ -263,7 +257,6 @@ export default function ModelPortfolioAllRecommendationsPage() {
          // Fallback to general tips endpoint
          try {
            const generalTips = await tipsService.getAll({});
-           console.log('📊 General tips response:', generalTips);
            allTips = Array.isArray(generalTips) ? generalTips : [];
          } catch (generalError) {
            console.error('❌ Both endpoints failed:', generalError);
@@ -271,13 +264,11 @@ export default function ModelPortfolioAllRecommendationsPage() {
          }
        }
        
-       console.log('📈 Total tips fetched:', allTips.length);
        
        // Filter tips to only show those from portfolios the user has access to
        const validTips = allTips.filter(tip => {
          // Must have portfolio field
          if (!tip.portfolio) {
-           console.log('❌ Tip missing portfolio field:', tip._id);
            return false;
          }
          
@@ -286,7 +277,6 @@ export default function ModelPortfolioAllRecommendationsPage() {
          // If string, must be non-empty
          if (typeof tip.portfolio === 'string') {
            if (!tip.portfolio.trim().length) {
-             console.log('❌ Empty portfolio string for tip:', tip._id);
              return false;
            }
            portfolioId = tip.portfolio;
@@ -294,25 +284,21 @@ export default function ModelPortfolioAllRecommendationsPage() {
          // If object, must have valid _id
          else if (typeof tip.portfolio === 'object') {
            if (!tip.portfolio._id || !tip.portfolio._id.trim().length) {
-             console.log('❌ Invalid portfolio object for tip:', tip._id);
              return false;
            }
            portfolioId = tip.portfolio._id;
          }
          else {
-           console.log('❌ Invalid portfolio type for tip:', tip._id, typeof tip.portfolio);
            return false;
          }
          
          // Only include tips from portfolios the user has access to
          const hasAccess = availablePortfolioIds.includes(portfolioId);
          if (!hasAccess) {
-           console.log('❌ No access to portfolio', portfolioId, 'for tip:', tip._id);
          }
          return hasAccess;
        });
        
-       console.log('✅ Valid tips after filtering:', validTips.length);
        setTips(validTips);
        
        // Fetch stock symbols in the background (non-blocking)
@@ -591,7 +577,6 @@ export default function ModelPortfolioAllRecommendationsPage() {
     });
     
     const portfolios = Array.from(portfolioMap.entries()).map(([id, name]) => ({ id, name }));
-    console.log('Available portfolios for filter:', portfolios);
     return portfolios;
   }, [tips]);
 

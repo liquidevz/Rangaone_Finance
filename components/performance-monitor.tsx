@@ -15,7 +15,6 @@ export function PerformanceMonitor() {
     if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
       navigator.serviceWorker
         .register('/sw.js')
-        .then(() => console.log('Service Worker registered'))
         .catch((err) => console.error('Service Worker registration failed:', err));
     }
 
@@ -26,7 +25,6 @@ export function PerformanceMonitor() {
         const navObserver = new PerformanceObserver((list) => {
           for (const entry of list.getEntries()) {
             const navEntry = entry as PerformanceNavigationTiming;
-            console.log('Navigation timing:', {
               dns: navEntry.domainLookupEnd - navEntry.domainLookupStart,
               tcp: navEntry.connectEnd - navEntry.connectStart,
               ttfb: navEntry.responseStart - navEntry.requestStart,

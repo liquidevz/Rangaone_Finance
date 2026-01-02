@@ -68,7 +68,6 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     if (!isAuthenticated) {
       // Load local cart for unauthenticated users
       const localCart = localCartService.getLocalCart();
-      console.log("Local cart loaded:", localCart);
       
       if (localCart.items.length > 0) {
         const displayCart: Cart = {
@@ -88,10 +87,8 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
           createdAt: localCart.lastUpdated,
           updatedAt: localCart.lastUpdated
         };
-        console.log("Display cart created:", displayCart);
         setCart(displayCart);
       } else {
-        console.log("No local cart items found");
         setCart(null);
       }
       return;
@@ -117,7 +114,6 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
   useEffect(() => {
     const syncCartOnLogin = async () => {
       if (isAuthenticated && user) {
-        console.log("🔄 USER AUTHENTICATED - Starting cart sync");
         // Check if there's a pending portfolio to add
         const pendingPortfolioId = sessionStorage.getItem("pendingPortfolioId");
         if (pendingPortfolioId) {
@@ -127,7 +123,6 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
               quantity: 1
             });
             sessionStorage.removeItem("pendingPortfolioId");
-            console.log("Pending portfolio added to cart:", pendingPortfolioId);
           } catch (error) {
             console.error("Failed to add pending portfolio:", error);
           }
@@ -136,7 +131,6 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         // Check if there's a local cart to sync
         const localCart = localCartService.getLocalCart();
         if (localCart.items.length > 0) {
-          console.log("🔄 Syncing local cart to server:", localCart.items.length, "items");
           
           for (const item of localCart.items) {
             try {
@@ -144,15 +138,12 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
                 portfolioId: item.portfolioId,
                 quantity: 1
               });
-              console.log(`✓ Added ${item.portfolioId} to server cart`);
             } catch (error: any) {
-              console.log(`✗ Failed to add ${item.portfolioId}:`, error.message);
             }
           }
           
           // Clear local cart directly from localStorage
           localStorage.removeItem('RangaOne_local_cart');
-          console.log("🔄 Local cart cleared after sync");
         }
         await refreshCart();
       } else {

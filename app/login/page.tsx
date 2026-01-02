@@ -26,14 +26,12 @@ const clearBrowserCaches = async () => {
     if ('caches' in window) {
       const cacheNames = await caches.keys();
       await Promise.all(cacheNames.map(name => caches.delete(name)));
-      console.log('Browser caches cleared');
     }
     
     // Unregister service workers
     if ('serviceWorker' in navigator) {
       const registrations = await navigator.serviceWorker.getRegistrations();
       await Promise.all(registrations.map(reg => reg.unregister()));
-      console.log('Service workers unregistered');
     }
   } catch (error) {
     console.error('Error clearing caches:', error);

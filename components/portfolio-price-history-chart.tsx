@@ -68,14 +68,12 @@ export default function PortfolioPriceHistoryChart({
       // Check cache first
       const cachedData = cache.get<PriceHistoryData[]>(cacheKey);
       if (cachedData) {
-        console.log('📊 Using cached price history');
         setPriceHistory(cachedData);
         return;
       }
       
       const response = await axiosApi.get(`/api/portfolios/${portfolioId}/price-history?period=${apiPeriod}`);
       
-      console.log('📊 API Response:', response.data);
       
       const portfolioData = response.data.data || [];
       const benchmarkData = response.data.compareData || [];
@@ -106,7 +104,6 @@ export default function PortfolioPriceHistoryChart({
       
       const chartData = Array.from(uniqueData.values());
       
-      console.log('📈 Chart data:', chartData);
       
       // Cache for 5 minutes
       cache.set(cacheKey, chartData, 5);

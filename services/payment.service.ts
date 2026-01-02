@@ -9,6 +9,83 @@ declare global {
   }
 }
 
+// Payment Gateway Types - Dynamic, no hardcoded values
+// Gateway IDs come from the backend API (/api/payment/gateways)
+export type PaymentGatewayType = string;
+
+// Cashfree Types
+export type CashfreePurchaseMethod = 'one_time' | 'emandate';
+export type CashfreePaymentType = 'one_time' | 'recurring';
+
+export interface CashfreeSubscriptionResponse {
+  success: boolean;
+  paymentType?: CashfreePaymentType; // 'one_time' or 'recurring'
+  subscriptionId?: string;
+  sessionId?: string;
+  // One-time payment fields
+  payment_session_id?: string;
+  cf_order_id?: string;
+  order_id?: string;
+  order?: {
+    id: string;
+    amount: number;
+    currency: string;
+  };
+  // E-mandate/subscription fields
+  subscription?: {
+    id: string;
+    cashfreeSubscriptionId?: string;
+    cfSubscriptionId?: string;
+    status: string;
+    amount: number;
+    currency: string;
+    authLink?: string;
+  };
+  cashfree?: {
+    // Recurring subscription fields (from backend)
+    authorizationUrl?: string;
+    authorization_url?: string;
+    short_url?: string;
+    subscriptionId?: string;
+    cfSubscriptionId?: string;
+    subsSessionId?: string;  // For SDK subscriptionsCheckout
+    sessionId?: string;
+    subscription_session_id?: string;
+    integrationMethod?: 'url_redirect' | 'sdk_checkout' | 'sdk_subscriptions_checkout';
+    environment?: 'sandbox' | 'production';
+    sdkUrl?: string;
+    planId?: string;
+    // One-time payment fields
+    orderId?: string;
+    paymentSessionId?: string;
+    payment_session_id?: string;
+    // Legacy fields
+    authLink?: string;
+    auth_link?: string;
+    paymentLink?: string;
+    payment_link?: string;
+    status?: string;
+  };
+  integration?: {
+    method: 'url_redirect' | 'sdk_checkout';
+    userStaysOnWebsite: boolean;
+  };
+  authLink?: string;
+  message?: string;
+  error?: string;
+}
+
+export interface CashfreeVerifyResponse {
+  success: boolean;
+  subscription?: {
+    isActive: boolean;
+    status: string;
+  };
+  telegramInviteLinks?: Array<{ invite_link: string }>;
+  message?: string;
+  error?: string;
+}
+
 export interface CreateOrderPayload {
   productType: "Portfolio" | "Bundle";
   productId: string;
@@ -36,6 +113,11 @@ export interface CreateOrderResponse {
 
 export interface CreateEMandateResponse {
   subscriptionId: string; // This is actually the emandateId in the database
+  // New unified cart response fields
+  gateway?: 'razorpay' | 'cashfree';
+  authorization_url?: string;
+  short_url?: string; // Razorpay specific
+  checkout_url?: string; // Cashfree specific
 }
 
 export interface VerifyPaymentPayload {
@@ -96,7 +178,6 @@ export const paymentService = {
   // Check PAN details first
   checkPanDetails: async (): Promise<{ hasPan: boolean; profile?: any }> => {
     const token = authService.getAccessToken();
-    console.log("🔍 PAN Check - Token:", token ? "Present" : "Missing");
     
     try {
       const response = await get("/api/user/profile", {
@@ -104,15 +185,12 @@ export const paymentService = {
           Authorization: `Bearer ${token}`,
         },
       });
-      console.log("🔍 PAN Check - Profile response:", response);
-      console.log("🔍 PAN Check - Has PAN:", !!(response as any)?.pandetails);
       
       return {
         hasPan: !!(response as any)?.pandetails,
         profile: response
       };
     } catch (error) {
-      console.log("🔍 PAN Check - Error:", error);
       return { hasPan: false };
     }
   },
@@ -124,7 +202,6 @@ export const paymentService = {
     dob: string;
   }): Promise<{ success: boolean; message: string; data?: any }> => {
     const token = authService.getAccessToken();
-    console.log("🔍 Verifying PAN details:", { id_no: panData.id_no, name: panData.name, dob: panData.dob });
     
     try {
       const response = await post("/digio/pan/verify", panData, {
@@ -134,8 +211,6 @@ export const paymentService = {
         },
       });
       
-      console.log("🔍 PAN verification response:", response);
-      console.log("🔍 Response success value:", (response as any)?.success, "Type:", typeof (response as any)?.success);
       
       return {
         success: (response as any)?.success === true,
@@ -143,7 +218,6 @@ export const paymentService = {
         data: (response as any)?.data
       };
     } catch (error: any) {
-      console.log("🔍 PAN verification error:", error);
       const errorData = error.response?.data;
       return {
         success: false,
@@ -170,7 +244,6 @@ export const paymentService = {
       dateofBirth: formattedDate
     };
     
-    console.log("🔍 Updating PAN details with formatted data:", formattedData);
     
     try {
       const response = await put("/api/user/profile", formattedData, {
@@ -179,11 +252,8 @@ export const paymentService = {
           Authorization: `Bearer ${token}`,
         },
       });
-      console.log("✅ PAN details updated successfully:", response);
       return response;
     } catch (error: any) {
-      console.log("❌ PAN update error:", error);
-      console.log("❌ Error response:", error.response?.data);
       
       const errorData = error.response?.data;
       let errorMessage = errorData?.error || "Failed to update profile";
@@ -207,7 +277,6 @@ export const paymentService = {
     productName: string;
   }): Promise<{ documentId: string; authUrl?: string }> => {
     const token = authService.getAccessToken();
-    console.log("🔍 Creating eSign request with data:", eSignData);
     
     const response = await post("/api/digio/create-sign-request", {
       agreementData: {
@@ -232,7 +301,6 @@ export const paymentService = {
       },
     });
     
-    console.log("🔍 eSign request created:", response);
     return {
       documentId: (response as any).documentId,
       authUrl: (response as any).authenticationUrl
@@ -242,7 +310,6 @@ export const paymentService = {
   // Verify eSign with DID token
   verifyESignToken: async (didToken: string): Promise<{ success: boolean; message: string }> => {
     const token = authService.getAccessToken();
-    console.log("🔍 Verifying eSign token:", didToken);
     
     try {
       const response = await get(`/api/user/esign/verify?token=${didToken}`, {
@@ -251,13 +318,11 @@ export const paymentService = {
         },
       });
       
-      console.log("🔍 eSign verification response:", response);
       return {
         success: (response as any)?.success || true,
         message: (response as any)?.message || "eSign verified successfully"
       };
     } catch (error: any) {
-      console.log("🔍 eSign verification error:", error);
       return {
         success: false,
         message: error.message || "eSign verification failed"
@@ -268,7 +333,6 @@ export const paymentService = {
   // Verify eSign completion
   verifyESignCompletion: async (productType: string, productId: string): Promise<{ success: boolean; message: string }> => {
     const token = authService.getAccessToken();
-    console.log("🔍 Verifying eSign completion for:", { productType, productId });
     
     try {
       const response = await get(`/api/digio/esign/verify?productType=${productType}&productId=${productId}`, {
@@ -277,13 +341,11 @@ export const paymentService = {
         },
       });
       
-      console.log("🔍 eSign completion verification response:", response);
       return {
         success: (response as any)?.success || true,
         message: (response as any)?.message || "eSign verification completed"
       };
     } catch (error: any) {
-      console.log("🔍 eSign completion verification error:", error);
       return {
         success: false,
         message: error.response?.data?.message || error.message || "eSign verification failed"
@@ -294,7 +356,6 @@ export const paymentService = {
   // Verify cart eSign completion
   verifyCartESignCompletion: async (cartId?: string): Promise<{ success: boolean; message: string }> => {
     const token = authService.getAccessToken();
-    console.log("🔍 Verifying cart eSign completion for cartId:", cartId);
     
     try {
       const payload = cartId ? { cartId } : {};
@@ -305,13 +366,11 @@ export const paymentService = {
         },
       });
       
-      console.log("🔍 Cart eSign completion verification response:", response);
       return {
         success: (response as any)?.success || true,
         message: (response as any)?.message || "Cart eSign verification completed"
       };
     } catch (error: any) {
-      console.log("🔍 Cart eSign completion verification error:", error);
       return {
         success: false,
         message: error.response?.data?.message || error.message || "Cart eSign verification failed"
@@ -331,15 +390,12 @@ export const paymentService = {
     // if (existingOrder) {
     //   const cached = JSON.parse(existingOrder);
     //   if (Date.now() - cached.timestamp < 300000) { // 5 minutes
-    //     console.log("Preventing duplicate order creation");
     //     throw new Error("Order already in progress. Please wait or refresh the page.");
     //   }
     // }
 
-    console.log("🔍 Payment service - creating order with payload:", payload);
 
     try {
-      console.log("🔍 Creating order with payload:", payload);
       const response = await post<CreateOrderResponse>(
         "/api/subscriptions/order",
         payload,
@@ -352,7 +408,6 @@ export const paymentService = {
         }
       );
       
-      console.log("🔍 Order created successfully:", response);
       
       // Cache order creation to prevent duplicates
       localStorage.setItem(orderKey, JSON.stringify({
@@ -362,16 +417,12 @@ export const paymentService = {
       
       return response;
     } catch (error: any) {
-      console.log("🔍 Order creation error:", error);
-      console.log("🔍 Error status:", error.response?.status);
-      console.log("🔍 Error data:", error.response?.data);
       
       // Clear cache on error to allow retry
       localStorage.removeItem(orderKey);
       
       // Handle eSign requirement error specifically
       if (error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
-        console.log("🔍 eSign required - throwing enhanced error");
         throw {
           ...error,
           requiresESign: true,
@@ -393,7 +444,6 @@ export const paymentService = {
       throw new Error("Authentication required. Please login first.");
     }
 
-    console.log("Payment service - cart checkout with payload:", payload);
 
     try {
       return await post<CreateOrderResponse>(
@@ -419,7 +469,6 @@ export const paymentService = {
   cartCheckoutEmandate: async (cartData: any): Promise<CreateEMandateResponse> => {
     const token = authService.getAccessToken();
 
-    console.log("Payment service - cart checkout with eMandate", cartData);
 
     return await post<CreateEMandateResponse>(
       "/api/subscriptions/emandate",
@@ -446,16 +495,9 @@ export const paymentService = {
     if (existingVerification) {
       const cached = JSON.parse(existingVerification);
       if (Date.now() - cached.timestamp < 300000) { // 5 minutes
-        console.log("Using cached verification result");
         return cached.result;
       }
     }
-    
-    console.log("Verifying payment with payload:", {
-      orderId: payload.orderId,
-      paymentId: payload.paymentId,
-      signatureLength: payload.signature?.length || 0
-    });
 
     try {
       // Add timeout to verification request
@@ -476,7 +518,6 @@ export const paymentService = {
       );
       
       clearTimeout(timeoutId);
-      console.log("Verification response:", response);
 
       // Handle different response formats
       if (response && typeof response === 'object') {
@@ -637,9 +678,6 @@ export const paymentService = {
       return;
     }
 
-    console.log("Using Razorpay Key:", razorpayKey?.substring(0, 8) + "...");
-    console.log("Order data for Razorpay:", orderData);
-    console.log("Environment check - NEXT_PUBLIC_RAZORPAY_KEY_ID:", process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID?.substring(0, 8) + "...");
 
     // Validate required data
     const orderId =
@@ -686,7 +724,6 @@ export const paymentService = {
       },
       modal: {
         ondismiss: () => {
-          console.log("Payment modal dismissed by user");
           // Close the Razorpay modal properly
           setTimeout(() => {
             onFailure(new Error("Payment cancelled by user"));
@@ -694,23 +731,14 @@ export const paymentService = {
         },
       },
       handler: (response: any) => {
-        console.log("Payment successful:", response);
         // Close the Razorpay modal properly before calling success
         setTimeout(() => {
           onSuccess(response);
         }, 100);
       },
     };
-
-    console.log("🔍 RAZORPAY OPTIONS:", {
-      ...options,
-      key: options.key.substring(0, 8) + "...", // Hide full key in logs
-    });
     
     if ("subscriptionId" in orderData) {
-      console.log("🔍 SUBSCRIPTION ID:", orderData.subscriptionId);
-      console.log("🔍 SUBSCRIPTION ID TYPE:", typeof orderData.subscriptionId);
-      console.log("🔍 SUBSCRIPTION ID LENGTH:", orderData.subscriptionId?.length);
     }
 
     try {
@@ -754,7 +782,6 @@ export const paymentService = {
         return false;
       }
 
-      console.log("Razorpay configuration is valid");
       return true;
     } catch (error) {
       console.error("Error testing Razorpay config:", error);
@@ -773,7 +800,6 @@ export const paymentService = {
     );
     
     cacheKeys.forEach(key => localStorage.removeItem(key));
-    console.log(`Cleared ${cacheKeys.length} duplicate prevention cache entries`);
   },
 
   // Check if user has active pending transactions
@@ -799,8 +825,6 @@ export const paymentService = {
   ): Promise<CreateEMandateResponse> => {
     const token = authService.getAccessToken();
 
-    console.log("🔍 PAYMENT SERVICE - Received payload:", JSON.stringify(payload, null, 2));
-    console.log("🔍 PAYMENT SERVICE - payload.planType:", payload.planType);
 
     // Transform payload to match backend API expectations
     const emandatePayload = {
@@ -811,7 +835,6 @@ export const paymentService = {
       ...(payload.couponCode && { couponCode: payload.couponCode })
     };
 
-    console.log("🔍 EMANDATE PAYLOAD BEING SENT:", JSON.stringify(emandatePayload, null, 2));
 
     try {
       const response = await post<CreateEMandateResponse>(
@@ -826,14 +849,12 @@ export const paymentService = {
         }
       );
 
-      console.log("eMandate creation response:", response);
       
       return response;
     } catch (error: any) {
       
       // Handle eSign requirement error for eMandate as well
       if (error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
-        console.log("🔍 eMandate requires eSign - throwing enhanced error");
         throw {
           ...error,
           requiresESign: true,
@@ -849,7 +870,6 @@ export const paymentService = {
   // Verify eMandate after customer authorization
   verifyEmandate: async (subscriptionId: string): Promise<VerifyPaymentResponse> => {
     const token = authService.getAccessToken();
-    console.log("Payment service - verifying emandate for subscription:", subscriptionId);
 
     try {
       // Correct payload structure for eMandate verification
@@ -857,7 +877,6 @@ export const paymentService = {
         subscription_id: subscriptionId  // This should be the emandateId from the database
       };
 
-      console.log("eMandate verification payload:", verifyPayload);
 
       const response = await post<VerifyPaymentResponse>(
         "/api/subscriptions/emandate/verify",
@@ -871,7 +890,6 @@ export const paymentService = {
         }
       );
 
-      console.log("eMandate verification response:", response);
       
       // Refresh subscription data if verification was successful
       if (response.success) {
@@ -912,7 +930,6 @@ export const paymentService = {
       
       // Handle 404 - endpoint not found, use fallback
       if (error.response?.status === 404) {
-        console.log("eMandate verify endpoint not found, using fallback success response");
         return {
           success: true,
           message: "eMandate payment completed successfully",
@@ -944,20 +961,25 @@ export const paymentService = {
     }
   },
 
-  // Create cart eMandate for multiple products
+  // Create cart eMandate for multiple products (supports both Razorpay and Cashfree)
   createCartEmandate: async (payload: {
     cartId?: string;
     interval: "monthly" | "quarterly" | "yearly";
     couponCode?: string;
+    gateway?: "razorpay" | "cashfree";
   }): Promise<CreateEMandateResponse> => {
     const token = authService.getAccessToken();
 
-    console.log("🔍 Creating cart eMandate with payload:", payload);
 
     try {
       const response = await post<CreateEMandateResponse>(
-        "/api/subscriptions/cart/emandate",
-        payload,
+        "/api/cart/create",
+        {
+          cartId: payload.cartId,
+          interval: payload.interval,
+          ...(payload.couponCode && { couponCode: payload.couponCode }),
+          gateway: payload.gateway || "razorpay", // Default to razorpay for backward compatibility
+        },
         {
           headers: {
             accept: "application/json",
@@ -967,17 +989,38 @@ export const paymentService = {
         }
       );
 
-      console.log("Cart eMandate creation response:", response);
-      return response;
+      // Map the unified response to expected format
+      // Include all fields from the response, especially cashfree object for Cashfree subscriptions
+      return {
+        subscriptionId: (response as any).subscription_id || response.subscriptionId,
+        gateway: (response as any).gateway,
+        authorization_url: (response as any).authorization_url,
+        short_url: (response as any).short_url,
+        checkout_url: (response as any).checkout_url,
+        // Include cashfree object with subsSessionId for SDK
+        cashfree: (response as any).cashfree,
+        // Also include at root level for easier access
+        subsSessionId: (response as any).subsSessionId || (response as any).cashfree?.subsSessionId,
+        subscription_session_id: (response as any).subscription_session_id || (response as any).cashfree?.subscription_session_id,
+      };
     } catch (error: any) {
       // Handle eSign requirement error
       if (error.response?.status === 400 && error.response?.data?.error === 'eSign validation failed') {
-        console.log("🔍 Cart eMandate requires eSign - throwing enhanced error");
         throw {
           ...error,
           requiresESign: true,
           eSignError: true
         };
+      }
+      
+      // Handle eSign required (412 status)
+      if (error.response?.status === 412 || error.response?.data?.code === 'ESIGN_REQUIRED') {
+        throw error;
+      }
+      
+      // Handle invalid gateway error
+      if (error.response?.status === 400 && error.response?.data?.message?.includes('Invalid payment gateway')) {
+        throw new Error('Invalid payment gateway. Please select Razorpay or Cashfree.');
       }
       
       console.error("🚨 CART EMANDATE ERROR:", error?.response?.data?.message || error?.message);
@@ -987,7 +1030,6 @@ export const paymentService = {
 
   // Verify eMandate with timeout and duplicate prevention
   verifyEmandateWithRetry: async (subscriptionId: string, maxRetries: number = 3): Promise<VerifyPaymentResponse> => {
-    console.log(`Starting eMandate verification with retry for subscription: ${subscriptionId}`);
     
     // Check for duplicate verification attempts
     const verificationKey = `emandate_verification_${subscriptionId}`;
@@ -995,7 +1037,6 @@ export const paymentService = {
     if (existingVerification) {
       const cached = JSON.parse(existingVerification);
       if (Date.now() - cached.timestamp < 300000) { // 5 minutes
-        console.log("Using cached eMandate verification result");
         return cached.result;
       }
     }
@@ -1007,13 +1048,11 @@ export const paymentService = {
     
     while (retryCount < maxRetries && (Date.now() - startTime) < maxTotalTime) {
       retryCount++;
-      console.log(`eMandate verification attempt ${retryCount}/${maxRetries}`);
       
       try {
         const response = await paymentService.verifyEmandate(subscriptionId);
         
         if (response.success) {
-          console.log(`✅ eMandate verification successful on attempt ${retryCount}`);
           // Cache successful verification
           localStorage.setItem(verificationKey, JSON.stringify({
             result: response,
@@ -1024,14 +1063,12 @@ export const paymentService = {
         
         // If it's a "No matching subscriptions found" error and we have retries left
         if (response.message.includes("No matching subscriptions found") && retryCount < maxRetries) {
-          console.log(`Retry ${retryCount} failed, waiting ${retryDelay}ms before next attempt`);
           await new Promise(resolve => setTimeout(resolve, retryDelay));
           retryDelay = Math.min(retryDelay * 1.5, 5000); // Cap at 5 seconds
           continue;
         }
         
         // For other errors, return immediately
-        console.log(`❌ eMandate verification failed after ${retryCount} attempts`);
         return response;
         
       } catch (error: any) {
@@ -1052,5 +1089,395 @@ export const paymentService = {
       success: false,
       message: "eMandate verification timed out. Please contact support if payment was deducted."
     };
+  },
+
+  // ========================
+  // CASHFREE PAYMENT METHODS
+  // ========================
+
+  // Create Cashfree subscription/payment (supports both one-time and e-mandate)
+  createCashfreeSubscription: async (payload: {
+    productType: 'Portfolio' | 'Bundle';
+    productId: string;
+    planType: 'monthly' | 'quarterly' | 'yearly';
+    userId?: string;
+    couponCode?: string;
+    purchaseMethod?: CashfreePurchaseMethod; // 'one_time' for SDK checkout, 'emandate' for recurring
+  }): Promise<CashfreeSubscriptionResponse> => {
+    const token = authService.getAccessToken();
+
+    if (!token) {
+      throw new Error("Authentication required. Please login first.");
+    }
+
+
+    try {
+      const response = await post<CashfreeSubscriptionResponse>(
+        "/subscription/cashfree/create",
+        {
+          ...payload,
+          purchaseMethod: payload.purchaseMethod || 'emandate', // Default to e-mandate for recurring
+        },
+        {
+          headers: {
+            accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+
+      if (!response.success) {
+        // Check for eSign required - create an error with response-like structure for proper handling
+        const errorCode = (response as any).code;
+        if (errorCode === 'ESIGN_REQUIRED' || errorCode === 'ESIGN_PENDING') {
+          const error = new Error(response.error || 'Digital signature required');
+          (error as any).response = {
+            status: 412,
+            data: {
+              success: false,
+              code: errorCode,
+              error: response.error,
+              pendingEsign: (response as any).pendingEsign
+            }
+          };
+          throw error;
+        }
+        throw new Error(response.error || 'Failed to create Cashfree subscription');
+      }
+
+      return response;
+    } catch (error: any) {
+      console.error("🚨 Cashfree subscription error:", error?.response?.data || error?.message);
+      
+      // Handle gateway disabled error
+      if (error.response?.data?.code === 'GATEWAY_DISABLED') {
+        throw new Error('Cashfree payment gateway is currently disabled. Please select a different payment method.');
+      }
+      
+      throw error;
+    }
+  },
+
+  // Create Cashfree cart subscription for multiple items
+  createCashfreeCartSubscription: async (payload: {
+    cartId?: string;
+    interval: 'monthly' | 'quarterly' | 'yearly';
+    couponCode?: string;
+  }): Promise<CashfreeSubscriptionResponse> => {
+    const token = authService.getAccessToken();
+
+    if (!token) {
+      throw new Error("Authentication required. Please login first.");
+    }
+
+
+    try {
+      const response = await post<CashfreeSubscriptionResponse>(
+        "/subscription/cashfree/cart/create",
+        payload,
+        {
+          headers: {
+            accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+
+      if (!response.success) {
+        // Check for eSign required - create an error with response-like structure for proper handling
+        const errorCode = (response as any).code;
+        if (errorCode === 'ESIGN_REQUIRED' || errorCode === 'ESIGN_PENDING') {
+          const error = new Error(response.error || 'Digital signature required');
+          (error as any).response = {
+            status: 412,
+            data: {
+              success: false,
+              code: errorCode,
+              error: response.error,
+              pendingEsign: (response as any).pendingEsign
+            }
+          };
+          throw error;
+        }
+        throw new Error(response.error || 'Failed to create Cashfree cart subscription');
+      }
+
+      return response;
+    } catch (error: any) {
+      console.error("🚨 Cashfree cart subscription error:", error?.response?.data || error?.message);
+      
+      // Handle gateway disabled error
+      if (error.response?.data?.code === 'GATEWAY_DISABLED') {
+        throw new Error('Cashfree payment gateway is currently disabled. Please select a different payment method.');
+      }
+      
+      throw error;
+    }
+  },
+
+  // Verify Cashfree payment after redirect
+  verifyCashfreePayment: async (subscriptionId: string): Promise<CashfreeVerifyResponse> => {
+    const token = authService.getAccessToken();
+
+
+    try {
+      const response = await post<CashfreeVerifyResponse>(
+        "/subscription/cashfree/verify",
+        { cashfreeSubscriptionId: subscriptionId },
+        {
+          headers: {
+            accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+
+      // Refresh subscription data if verification was successful
+      if (response.success && response.subscription?.isActive) {
+        try {
+          const { subscriptionService } = await import('./subscription.service');
+          await subscriptionService.refreshAfterPayment();
+        } catch (error) {
+          console.error('Failed to refresh subscription data:', error);
+        }
+      }
+
+      return response;
+    } catch (error: any) {
+      console.error("🚨 Cashfree verification error:", error?.response?.data || error?.message);
+      return {
+        success: false,
+        message: error?.response?.data?.message || error?.message || 'Cashfree payment verification failed'
+      };
+    }
+  },
+
+  // Check Cashfree subscription status
+  getCashfreeSubscriptionStatus: async (subscriptionId: string): Promise<{
+    success: boolean;
+    status?: string;
+    isActive?: boolean;
+    message?: string;
+  }> => {
+    const token = authService.getAccessToken();
+
+    try {
+      const response = await get<any>(
+        `/subscription/cashfree/status/${subscriptionId}`,
+        {
+          headers: {
+            accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      return {
+        success: true,
+        status: response.status,
+        isActive: response.isActive,
+      };
+    } catch (error: any) {
+      console.error("🚨 Cashfree status check error:", error?.response?.data || error?.message);
+      return {
+        success: false,
+        message: error?.response?.data?.message || error?.message || 'Failed to check subscription status'
+      };
+    }
+  },
+
+  // Initiate Cashfree payment redirect (fallback method)
+  initiateCashfreeRedirect: (authLink: string): void => {
+    // Store current URL for return navigation if needed
+    sessionStorage.setItem('cashfree_return_url', window.location.href);
+    // Redirect to Cashfree payment page
+    window.location.href = authLink;
+  },
+
+  // Open Cashfree checkout using SDK (preferred method - modal or redirect)
+  openCashfreeCheckout: async (
+    paymentSessionId: string,
+    options?: {
+      redirectTarget?: '_self' | '_blank' | '_top' | '_modal';
+      onSuccess?: (result: any) => void;
+      onFailure?: (error: any) => void;
+    }
+  ): Promise<any> => {
+    try {
+      // Dynamically import Cashfree SDK utility
+      const { openCashfreeCheckout } = await import('@/lib/cashfree');
+      
+      return await openCashfreeCheckout(paymentSessionId, {
+        redirectTarget: options?.redirectTarget || '_modal',
+        onSuccess: options?.onSuccess,
+        onFailure: options?.onFailure,
+      });
+    } catch (error: any) {
+      console.error('🚨 Cashfree SDK checkout error:', error);
+      options?.onFailure?.(error);
+      throw error;
+    }
+  },
+
+  // Handle payment based on selected gateway
+  processPayment: async (
+    gateway: PaymentGatewayType,
+    config: {
+      productType: 'Portfolio' | 'Bundle';
+      productId: string;
+      planType: 'monthly' | 'quarterly' | 'yearly';
+      couponCode?: string;
+      isEmandate: boolean;
+      userInfo: { name: string; email: string; userId?: string };
+    },
+    callbacks: {
+      onSuccess: (response: any) => void;
+      onFailure: (error: any) => void;
+      onRedirect?: () => void;
+    }
+  ): Promise<void> => {
+    const { productType, productId, planType, couponCode, isEmandate, userInfo } = config;
+    const { onSuccess, onFailure, onRedirect } = callbacks;
+
+    if (gateway === 'razorpay') {
+      // Use existing Razorpay flow
+      try {
+        if (isEmandate) {
+          const emandate = await paymentService.createEmandate({
+            productType,
+            productId,
+            planType,
+            couponCode,
+          });
+          
+          await paymentService.openCheckout(
+            emandate,
+            userInfo,
+            async () => {
+              const verify = await paymentService.verifyEmandateWithRetry(emandate.subscriptionId);
+              if (verify.success || ["active", "authenticated"].includes((verify as any).subscriptionStatus || "")) {
+                onSuccess(verify);
+              } else {
+                onFailure(new Error(verify.message || "eMandate verification failed"));
+              }
+            },
+            onFailure
+          );
+        } else {
+          const order = await paymentService.createOrder({
+            productType,
+            productId,
+            planType,
+            couponCode,
+          });
+          
+          await paymentService.openCheckout(
+            order,
+            userInfo,
+            async (rp) => {
+              const verify = await paymentService.verifyPayment({
+                orderId: rp.razorpay_order_id,
+                paymentId: rp.razorpay_payment_id,
+                signature: rp.razorpay_signature,
+              });
+              if (verify.success) {
+                onSuccess(verify);
+              } else {
+                onFailure(new Error(verify.message || "Payment verification failed"));
+              }
+            },
+            onFailure
+          );
+        }
+      } catch (error) {
+        onFailure(error);
+      }
+    } else if (gateway === 'cashfree') {
+      // Use Cashfree redirect flow
+      try {
+        const result = await paymentService.createCashfreeSubscription({
+          productType,
+          productId,
+          planType,
+          userId: userInfo.userId,
+          couponCode,
+        });
+
+        if (result.success && result.cashfree?.authLink) {
+          // Notify that we're about to redirect
+          onRedirect?.();
+          // Redirect to Cashfree
+          paymentService.initiateCashfreeRedirect(result.cashfree.authLink);
+        } else {
+          onFailure(new Error(result.error || 'Failed to create Cashfree subscription'));
+        }
+      } catch (error) {
+        onFailure(error);
+      }
+    }
+  },
+
+  // Process cart payment based on selected gateway (uses unified /api/cart/create endpoint)
+  processCartPayment: async (
+    gateway: PaymentGatewayType,
+    config: {
+      cartId?: string;
+      interval: 'monthly' | 'quarterly' | 'yearly';
+      couponCode?: string;
+      userInfo: { name: string; email: string };
+    },
+    callbacks: {
+      onSuccess: (response: any) => void;
+      onFailure: (error: any) => void;
+      onRedirect?: () => void;
+    }
+  ): Promise<void> => {
+    const { cartId, interval, couponCode, userInfo } = config;
+    const { onSuccess, onFailure, onRedirect } = callbacks;
+
+    try {
+      // Use unified cart API with gateway parameter
+      const result = await paymentService.createCartEmandate({
+        cartId,
+        interval,
+        couponCode,
+        gateway: gateway as 'razorpay' | 'cashfree',
+      });
+      
+      // Use authorization_url for redirect (works for both gateways)
+      const redirectUrl = result.authorization_url || result.short_url || result.checkout_url;
+      
+      if (redirectUrl) {
+        // Notify that we're about to redirect
+        onRedirect?.();
+        // Redirect to gateway's checkout page
+        window.location.href = redirectUrl;
+      } else if (gateway === 'razorpay') {
+        // Fall back to Razorpay SDK checkout if no redirect URL
+        await paymentService.openCheckout(
+          result,
+          userInfo,
+          async () => {
+            const verify = await paymentService.verifyEmandateWithRetry(result.subscriptionId);
+            if (verify.success || ["active", "authenticated"].includes((verify as any).subscriptionStatus || "")) {
+              onSuccess(verify);
+            } else {
+              onFailure(new Error(verify.message || "eMandate verification failed"));
+            }
+          },
+          onFailure
+        );
+      } else {
+        onFailure(new Error('Failed to get payment URL from server'));
+      }
+    } catch (error) {
+      onFailure(error);
+    }
   },
 };
