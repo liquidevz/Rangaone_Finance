@@ -9,7 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/components/auth/auth-context";
 import { paymentService } from "@/services/payment.service";
 
-type PaymentStatus = "loading" | "verifying" | "success" | "failed";
+type PaymentStatus = "loading" | "verifying" | "success" | "failed" | "pending";
 
 function CashfreeCallbackContent() {
   const searchParams = useSearchParams();
@@ -21,6 +21,7 @@ function CashfreeCallbackContent() {
   const [message, setMessage] = useState("");
   const [telegramLinks, setTelegramLinks] = useState<Array<{ invite_link: string }>>([]);
   const [retryCount, setRetryCount] = useState(0);
+  const [currentSubscriptionId, setCurrentSubscriptionId] = useState<string | null>(null);
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -70,10 +71,12 @@ function CashfreeCallbackContent() {
       setStatus("verifying");
       setMessage("Verifying your payment...");
 
+      // Store subscription ID for retry
+      const subId = subscriptionId || cfSubId!;
+      setCurrentSubscriptionId(subId);
+
       try {
-        const result = await paymentService.verifyCashfreePayment(
-          subscriptionId || cfSubId!
-        );
+        const result = await paymentService.verifyCashfreePayment(subId);
 
         
         // Clear stored data after verification attempt
@@ -82,6 +85,7 @@ function CashfreeCallbackContent() {
           sessionStorage.removeItem('cashfree_subs_session_id');
         }
 
+        // Check if subscription is active
         if (result.success && result.subscription?.isActive) {
           setStatus("success");
           setMessage("Payment successful! Your subscription is now active.");
@@ -102,7 +106,20 @@ function CashfreeCallbackContent() {
               router.push("/dashboard?payment=success");
             }, 3000);
           }
-        } else {
+        } 
+        // Check if payment is pending bank approval
+        else if (result.success && result.subscription?.status === "pending" && 
+                 (result.subscription?.cashfreeStatus === "BANK_APPROVAL_PENDING" || 
+                  result.subscription?.cashfreeStatus === "BANK_APPROVAL_PENDING")) {
+          setStatus("pending");
+          setMessage("Your payment is being processed. It will be activated once bank approval is complete.");
+          
+          toast({
+            title: "Payment Pending",
+            description: "Your subscription will be activated once approved by the bank.",
+          });
+        }
+        else {
           setStatus("failed");
           setMessage(result.message || result.error || "Payment verification failed");
           
@@ -128,10 +145,71 @@ function CashfreeCallbackContent() {
     handleCallback();
   }, [searchParams, authLoading, isAuthenticated, router, toast, retryCount]);
 
-  const handleRetry = () => {
-    setRetryCount(prev => prev + 1);
-    setStatus("loading");
-    setMessage("");
+  const handleRetry = async () => {
+    if (!currentSubscriptionId) {
+      toast({
+        title: "Error",
+        description: "Subscription ID not found. Please try again from the dashboard.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setStatus("verifying");
+    setMessage("Retrying verification...");
+
+    try {
+      const result = await paymentService.verifyCashfreePayment(currentSubscriptionId);
+
+      if (result.success && result.subscription?.isActive) {
+        setStatus("success");
+        setMessage("Payment successful! Your subscription is now active.");
+        
+        if (result.telegramInviteLinks && result.telegramInviteLinks.length > 0) {
+          setTelegramLinks(result.telegramInviteLinks);
+        }
+
+        toast({
+          title: "Payment Successful",
+          description: "Your subscription has been activated.",
+        });
+
+        if (!result.telegramInviteLinks || result.telegramInviteLinks.length === 0) {
+          setTimeout(() => {
+            router.push("/dashboard?payment=success");
+          }, 3000);
+        }
+      } else if (result.success && result.subscription?.status === "pending" && 
+                 (result.subscription?.cashfreeStatus === "BANK_APPROVAL_PENDING" || 
+                  result.subscription?.cashfreeStatus === "BANK_APPROVAL_PENDING")) {
+        setStatus("pending");
+        setMessage("Your payment is being processed. It will be activated once bank approval is complete.");
+        
+        toast({
+          title: "Payment Still Pending",
+          description: "Your subscription will be activated once approved by the bank.",
+        });
+      } else {
+        setStatus("failed");
+        setMessage(result.message || result.error || "Payment verification failed");
+        
+        toast({
+          title: "Verification Failed",
+          description: result.message || "Please contact support if payment was deducted",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("Retry verification error:", error);
+      setStatus("failed");
+      setMessage(error?.message || "Failed to verify payment");
+      
+      toast({
+        title: "Verification Error",
+        description: error?.message || "Please contact support",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleGoToDashboard = () => {
@@ -212,6 +290,37 @@ function CashfreeCallbackContent() {
           </div>
         )}
 
+        {/* Pending State */}
+        {status === "pending" && (
+          <div className="space-y-6">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="w-16 h-16 mx-auto rounded-full bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center"
+            >
+              <Loader2 className="w-8 h-8 text-yellow-600 dark:text-yellow-400 animate-spin" />
+            </motion.div>
+            <div>
+              <h1 className="text-xl font-semibold text-foreground">Payment Pending</h1>
+              <p className="text-muted-foreground mt-2">{message}</p>
+            </div>
+
+            <div className="space-y-3">
+              <Button onClick={handleRetry} variant="outline" className="w-full">
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Retry Verification
+              </Button>
+              <Button onClick={handleGoToDashboard} className="w-full">
+                Go Back to Dashboard
+              </Button>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Your subscription will be activated automatically once the bank approves the payment.
+            </p>
+          </div>
+        )}
+
         {/* Failed State */}
         {status === "failed" && (
           <div className="space-y-6">
@@ -232,8 +341,8 @@ function CashfreeCallbackContent() {
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Retry Verification
               </Button>
-              <Button onClick={handleTryAgain} className="w-full">
-                Try Again
+              <Button onClick={handleGoToDashboard} className="w-full">
+                Go Back to Dashboard
               </Button>
             </div>
 

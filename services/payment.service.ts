@@ -80,6 +80,8 @@ export interface CashfreeVerifyResponse {
   subscription?: {
     isActive: boolean;
     status: string;
+    cashfreeStatus?: string;
+    id?: string;
   };
   telegramInviteLinks?: Array<{ invite_link: string }>;
   message?: string;
