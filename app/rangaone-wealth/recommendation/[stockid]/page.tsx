@@ -456,7 +456,7 @@ export default function StockRecommendationPage() {
             <div className="bg-white rounded-lg p-4">
               <div className="mb-4">
                 <div className="bg-[#131859] text-white rounded-2xl px-4 py-1 inline-block border-4 border-[#2C349A]">
-                  <h3 className="text-2xl font-bold" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>Why Buy This?</h3>
+                  <h3 className="text-2xl font-bold" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>{`Why ${tipData.action} This?`}</h3>
                 </div>
               </div>
               

@@ -165,11 +165,18 @@ export default function SubscriptionSettings() {
 
   const getInvoiceUrl = (subscription: any): string | null => {
     // Only use invoice URL from API response - don't generate URLs
-    return subscription.invoiceUrl || 
+    const url = subscription.invoiceUrl || 
            subscription.invoice_url || 
            subscription.invoiceLink || 
            subscription.invoice_link ||
            null
+    
+    // Convert HTTP to HTTPS to prevent mixed content errors
+    if (url && url.startsWith('http://')) {
+      return url.replace('http://', 'https://')
+    }
+    
+    return url
   }
 
 const handleInvoiceDownload = async (subscription: any) => {

@@ -192,7 +192,7 @@ export default function WealthRecommendationPage({
         {/* Why Buy This Card (Biggest) */}
         <Card className="w-full mb-4 md:mb-6 md:mx-auto border-2 border-yellow-300 shadow-lg max-w-lg md:max-w-4xl">
           <CardHeader className="bg-blue-900 text-[#FFFFF0] px-2 md:px-6 py-1 md:py-3 rounded-t-lg">
-            <h3 className="text-sm md:text-xl font-bold text-center">Why Buy This?</h3>
+            <h3 className="text-sm md:text-xl font-bold text-center">{`Why ${action} This?`}</h3>
           </CardHeader>
           <CardContent className="p-2 md:p-6">
             <ul className="space-y-2 md:space-y-4">
