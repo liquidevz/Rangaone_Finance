@@ -14,6 +14,7 @@ import type { PaymentAgreementData } from "@/services/digio.service";
 import { PaymentGatewaySelectorModal } from "@/components/payment-gateway-selector";
 import { usePaymentGateways } from "@/hooks/use-payment-gateways";
 import { CashfreeS2SPayment } from "@/components/cashfree-s2s-payment";
+import { CashfreeModal } from "@/components/cashfree-modal";
 
 interface PortfolioPaymentModalProps {
   isOpen: boolean;
@@ -60,6 +61,10 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
     amount: number;
     productName: string;
   } | null>(null);
+  
+  // Cashfree modal state
+  const [showCashfreeModal, setShowCashfreeModal] = useState(false);
+  const [cashfreeModalData, setCashfreeModalData] = useState<{subsSessionId: string; amount: number} | null>(null);
 
   const cancelRequested = useRef(false);
   const { isAuthenticated, user } = useAuth();
@@ -221,22 +226,13 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
       sessionStorage.setItem('cashfree_subs_session_id', subsSessionId);
       sessionStorage.setItem('cashfree_return_url', window.location.href);
       
-      // Load Cashfree SDK and open checkout
-      setProcessingMsg("Opening Cashfree checkout...");
-      
-      const { loadCashfree } = await import("@/lib/cashfree");
-      const cashfree = await loadCashfree();
-      
-      if (!cashfree) {
-        throw new Error("Failed to load Cashfree SDK");
-      }
-      
-      
-      // Open SDK checkout - this will redirect the user
-      cashfree.subscriptionsCheckout({
+      // Open Cashfree modal instead of redirecting
+      setCashfreeModalData({
         subsSessionId: subsSessionId,
-        redirectTarget: "_self",
+        amount: total,
       });
+      setShowCashfreeModal(true);
+      setProcessing(false);
       
     } catch (error: any) {
       console.error("Cashfree portfolio payment error:", error);
@@ -695,13 +691,12 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
                   <div className="space-y-6">
                     <div className="bg-black rounded-lg overflow-hidden aspect-video">
                       <iframe
-                        src={`https://www.youtube.com/embed/guetyPOoThw?origin=${typeof window !== 'undefined' ? window.location.origin : ''}`}
-                        title="Digital Verification Process"
-                        className="w-full h-full"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      ></iframe>
-                    </div>
+                          src="https://www.youtube-nocookie.com/embed/guetyPOoThw?rel=0&modestbranding=1&enablejsapi=1"
+                          title="Digital Verification Process"
+                          className="w-full h-full"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          loading="lazy"
 
                     <div className="bg-white border border-gray-200 rounded-lg p-6">
                       <h4 className="text-xl font-semibold text-gray-900 mb-4">
@@ -911,6 +906,43 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
             toast({
               title: "Payment Error",
               description: error,
+              variant: "destructive",
+            });
+          }}
+        />
+      )}
+
+      {/* Cashfree Modal */}
+      {showCashfreeModal && cashfreeModalData && (
+        <CashfreeModal
+          isOpen={showCashfreeModal}
+          onClose={() => {
+            setShowCashfreeModal(false);
+            setCashfreeModalData(null);
+            setStep("consent");
+          }}
+          subsSessionId={cashfreeModalData.subsSessionId}
+          amount={cashfreeModalData.amount}
+          title="Complete Payment Authorization"
+          onSuccess={async () => {
+            setShowCashfreeModal(false);
+            setCashfreeModalData(null);
+            setStep("success");
+            
+            // Redirect to dashboard
+            setTimeout(() => {
+              onPaymentSuccess();
+              router.push('/dashboard?payment=success');
+            }, 2000);
+          }}
+          onFailure={(error) => {
+            console.error('Cashfree modal error:', error);
+            setShowCashfreeModal(false);
+            setCashfreeModalData(null);
+            setStep("error");
+            toast({
+              title: "Payment Failed",
+              description: error?.message || "Payment authorization failed. Please try again.",
               variant: "destructive",
             });
           }}

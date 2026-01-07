@@ -18,6 +18,7 @@ import type { PaymentAgreementData } from "@/services/digio.service";
 import { PaymentGatewaySelectorModal } from "@/components/payment-gateway-selector";
 import { usePaymentGateways } from "@/hooks/use-payment-gateways";
 import { CashfreeS2SPayment } from "@/components/cashfree-s2s-payment";
+import { CashfreeModal } from "@/components/cashfree-modal";
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -37,7 +38,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     "plan" | "consent" | "auth" | "pan-form" | "esign" | "gateway-select" | "processing" | "success" | "error"
   >("plan");
   const [subscriptionType, setSubscriptionType] = useState<
-    "monthly" | "quarterly"
+    "monthly" | "quarterly" | "yearly"
   >("monthly");
   const [appliedCoupon, setAppliedCoupon] = useState<CouponValidationResponse["coupon"] | null>(null);
   const [processing, setProcessing] = useState(false);
@@ -75,6 +76,13 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     productName: string;
   } | null>(null);
 
+  // Cashfree Modal state
+  const [showCashfreeModal, setShowCashfreeModal] = useState(false);
+  const [cashfreeModalData, setCashfreeModalData] = useState<{
+    subsSessionId: string;
+    amount: number;
+  } | null>(null);
+
   const cancelRequested = useRef(false);
   const continuedAfterAuthRef = useRef(false);
 
@@ -88,10 +96,13 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     if (!bundle) return 0;
     let basePrice = 0;
     if (isEmandateFlow) {
-      basePrice =
-        subscriptionType === "quarterly"
-          ? (bundle as any).quarterlyemandateprice || bundle.quarterlyPrice || 0
-          : (bundle as any).monthlyemandateprice || bundle.monthlyPrice || 0;
+      if (subscriptionType === "yearly") {
+        basePrice = (bundle as any).yearlyemandateprice || bundle.yearlyPrice || 0;
+      } else if (subscriptionType === "quarterly") {
+        basePrice = (bundle as any).quarterlyemandateprice || bundle.quarterlyPrice || 0;
+      } else {
+        basePrice = (bundle as any).monthlyemandateprice || bundle.monthlyPrice || 0;
+      }
     } else {
       basePrice = bundle.monthlyPrice || 0;
     }
@@ -191,13 +202,26 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     return Math.max(0, pct);
   };
 
+  const computeQuarterlyDiscount = () => {
+    if (!bundle) return 0;
+    const strikedPrice = (bundle as any).quarterlyPrice || 0;
+    const actualPrice = (bundle as any).quarterlyemandateprice || 0;
+    if (!strikedPrice || !actualPrice) return 0;
+    const pct = Math.round(((strikedPrice - actualPrice) / strikedPrice) * 100);
+    return Math.max(0, pct);
+  };
+
 
   const getOriginalPrice = () => {
     if (!bundle) return 0;
     if (isEmandateFlow) {
-      return subscriptionType === "quarterly"
-        ? (bundle as any).yearlyemandateprice || bundle.quarterlyPrice || 0
-        : (bundle as any).monthlyemandateprice || bundle.monthlyPrice || 0;
+      if (subscriptionType === "yearly") {
+        return (bundle as any).yearlyemandateprice || bundle.yearlyPrice || 0;
+      } else if (subscriptionType === "quarterly") {
+        return (bundle as any).quarterlyemandateprice || bundle.quarterlyPrice || 0;
+      } else {
+        return (bundle as any).monthlyemandateprice || bundle.monthlyPrice || 0;
+      }
     }
     return bundle.monthlyPrice || 0;
   };
@@ -340,7 +364,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       const result = await paymentService.createCashfreeSubscription({
         productType: "Bundle",
         productId: bundle._id,
-        planType: subscriptionType === "quarterly" ? "yearly" : "monthly",
+        planType: subscriptionType,
         userId: user?._id,
         couponCode: appliedCoupon?.code,
         purchaseMethod: 'emandate',
@@ -368,31 +392,30 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       sessionStorage.setItem('cashfree_subs_session_id', subsSessionId);
       sessionStorage.setItem('cashfree_return_url', window.location.href);
       
-      // Step 2: Load Cashfree SDK and open checkout
+      // Step 2: Open Cashfree in modal instead of redirect to avoid Safari popup blocker
       setProcessingMsg("Opening Cashfree checkout...");
+      setProcessing(false);
       
-      const { loadCashfree } = await import("@/lib/cashfree");
-      const cashfree = await loadCashfree();
-      
-      if (!cashfree) {
-        throw new Error("Failed to load Cashfree SDK");
-      }
-      
-      
-      // Open SDK checkout - this will redirect the user
-      cashfree.subscriptionsCheckout({
+      const amount = getPrice();
+      setCashfreeModalData({
         subsSessionId: subsSessionId,
-        redirectTarget: "_self",
+        amount: amount
       });
+      setShowCashfreeModal(true);
       
     } catch (error: any) {
       console.error("Cashfree payment error:", error);
       
       // Check for eSign requirement (412 error or ESIGN_REQUIRED code)
       if (error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
-        const amount = subscriptionType === "quarterly"
-          ? ((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0
-          : ((bundle as any).monthlyemandateprice as number) || bundle.monthlyPrice || 0;
+        let amount = 0;
+        if (subscriptionType === "yearly") {
+          amount = ((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0;
+        } else if (subscriptionType === "quarterly") {
+          amount = ((bundle as any).quarterlyemandateprice as number) || bundle.quarterlyPrice || 0;
+        } else {
+          amount = ((bundle as any).monthlyemandateprice as number) || bundle.monthlyPrice || 0;
+        }
         const data: PaymentAgreementData = {
           customerName: (user as any)?.fullName || user?.username || "User",
           customerEmail: user?.email || "user@example.com",
@@ -418,9 +441,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_PENDING') {
         const authUrl = error.response.data.pendingEsign?.authenticationUrl;
         if (authUrl) {
-          const amount = subscriptionType === "quarterly"
-            ? ((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0
-            : ((bundle as any).monthlyemandateprice as number) || bundle.monthlyPrice || 0;
+          let amount = 0;
+          if (subscriptionType === "yearly") {
+            amount = ((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0;
+          } else if (subscriptionType === "quarterly") {
+            amount = ((bundle as any).quarterlyemandateprice as number) || bundle.quarterlyPrice || 0;
+          } else {
+            amount = ((bundle as any).monthlyemandateprice as number) || bundle.monthlyPrice || 0;
+          }
           const data: PaymentAgreementData = {
             customerName: (user as any)?.fullName || user?.username || "User",
             customerEmail: user?.email || "user@example.com",
@@ -550,9 +578,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     } catch (error: any) {
       // Check for eSign requirement (412 error)
       if (error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
-        const amount = subscriptionType === "quarterly"
-          ? ((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0
-          : ((bundle as any).monthlyemandateprice as number) || bundle.monthlyPrice || 0;
+        let amount = 0;
+        if (subscriptionType === "yearly") {
+          amount = ((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0;
+        } else if (subscriptionType === "quarterly") {
+          amount = ((bundle as any).quarterlyemandateprice as number) || bundle.quarterlyPrice || 0;
+        } else {
+          amount = ((bundle as any).monthlyemandateprice as number) || bundle.monthlyPrice || 0;
+        }
         const data: PaymentAgreementData = {
           customerName: (user as any)?.fullName || user?.username || "User",
           customerEmail: user?.email || "user@example.com",
@@ -576,9 +609,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_PENDING') {
         const authUrl = error.response.data.pendingEsign?.authenticationUrl;
         if (authUrl) {
-          const amount = subscriptionType === "quarterly"
-            ? ((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0
-            : ((bundle as any).monthlyemandateprice as number) || bundle.monthlyPrice || 0;
+          let amount = 0;
+          if (subscriptionType === "yearly") {
+            amount = ((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0;
+          } else if (subscriptionType === "quarterly") {
+            amount = ((bundle as any).quarterlyemandateprice as number) || bundle.quarterlyPrice || 0;
+          } else {
+            amount = ((bundle as any).monthlyemandateprice as number) || bundle.monthlyPrice || 0;
+          }
           const data: PaymentAgreementData = {
             customerName: (user as any)?.fullName || user?.username || "User",
             customerEmail: user?.email || "user@example.com",
@@ -948,8 +986,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       <h4 className="font-medium text-base sm:text-lg">
                         Choose Subscription Period:
                       </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                         {/* Annual billed monthly (eMandate monthly) */}
+                        {((bundle as any).monthlyemandateprice && (bundle as any).monthlyemandateprice >= 100) && (
                         <button
                           onClick={() => {
                             setSubscriptionType("monthly");
@@ -997,8 +1036,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                             Smart pick! Pay monthly, enjoy fully.
                           </div>
                         </button>
+                        )}
 
-                        {/* Annual prepaid (yearly) */}
+                        {/* Annual billed quarterly */}
+                        {((bundle as any).quarterlyemandateprice && (bundle as any).quarterlyemandateprice >= 100) && (
                         <button
                           onClick={() => {
                             setSubscriptionType("quarterly");
@@ -1019,7 +1060,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                           >
                             <span>
                               {(() => {
-                                const pct = computeYearlyDiscount();
+                                const pct = computeQuarterlyDiscount();
                                 return pct > 0
                                   ? `Save More - ${pct}% Off`
                                   : "Best value";
@@ -1041,9 +1082,52 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                             <span className="text-base font-medium">/qr</span>
                           </div>
                           <div className="text-[11px] sm:text-xs text-gray-500 mt-1">
-                            Best value - Save more with Yearly Billing
+                            Best value - Save more with Quarterly Billing
                           </div>
                         </button>
+                        )}
+
+                        {/* Annual prepaid (yearly) */}
+                        {((bundle as any).yearlyemandateprice && (bundle as any).yearlyemandateprice >= 100) && (
+                        <button
+                          onClick={() => {
+                            setSubscriptionType("yearly");
+                            paymentFlowState.update({ subscriptionType: "yearly" });
+                          }}
+                          className={`p-4 sm:p-5 md:p-6 rounded-xl border-2 transition-all text-left relative overflow-hidden h-full flex flex-col ${
+                            subscriptionType === "yearly"
+                              ? "border-blue-500 bg-blue-50"
+                              : "border-gray-200 hover:border-gray-300"
+                          }`}
+                        >
+                          <div
+                            className={`${
+                              isPremium
+                                ? "bg-amber-400 text-amber-900"
+                                : "bg-blue-600 text-white"
+                            } absolute left-0 right-0 top-0 px-3 py-2 text-xs sm:text-sm font-semibold flex items-center justify-between`}
+                          >
+                            <span>Maximum Savings</span>
+                          </div>
+                          <div className="pt-9 sm:pt-10" />
+                          <div className="font-semibold text-base sm:text-lg md:text-xl">
+                            Annual, billed Yearly
+                          </div>
+                          <div className="text-xs sm:text-sm text-gray-600 line-through">
+                            ₹
+                            {(bundle as any).strikeYearly ||
+                              Math.round((bundle.yearlyPrice || 0))}{" "}
+                            /yr
+                          </div>
+                          <div className="mt-1 text-2xl sm:text-3xl md:text-4xl font-bold text-blue-700">
+                            ₹{(bundle as any).yearlyemandateprice || 0}
+                            <span className="text-base font-medium">/yr</span>
+                          </div>
+                          <div className="text-[11px] sm:text-xs text-gray-500 mt-1">
+                            Ultimate value - Save the most with Annual payment
+                          </div>
+                        </button>
+                        )}
                       </div>
                     </div>
                   ) : (
@@ -1122,7 +1206,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     )}
                     <p className="text-sm text-gray-500 mt-1">
                       Billed{" "}
-                      {subscriptionType === "quarterly" ? "annually" : "monthly"}
+                      {subscriptionType === "yearly" ? "annually" : subscriptionType === "quarterly" ? "quarterly" : "monthly"}
                     </p>
                   </div>
 
@@ -1147,11 +1231,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   {/* YouTube Video */}
                   <div className="bg-black rounded-lg overflow-hidden aspect-video">
                     <iframe
-                      src={`https://www.youtube.com/embed/guetyPOoThw?origin=${typeof window !== 'undefined' ? window.location.origin : ''}`}
+                      src="https://www.youtube-nocookie.com/embed/guetyPOoThw?rel=0&modestbranding=1&enablejsapi=1"
                       title="Digital Verification Process"
                       className="w-full h-full"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
+                      loading="lazy"
                     ></iframe>
                   </div>
 
@@ -1768,6 +1853,42 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             toast({
               title: "Payment Error",
               description: error,
+              variant: "destructive",
+            });
+          }}
+        />
+      )}
+
+      {/* Cashfree Modal */}
+      {showCashfreeModal && cashfreeModalData && (
+        <CashfreeModal
+          isOpen={showCashfreeModal}
+          onClose={() => {
+            setShowCashfreeModal(false);
+            setCashfreeModalData(null);
+            setStep("plan");
+          }}
+          subsSessionId={cashfreeModalData.subsSessionId}
+          amount={cashfreeModalData.amount}
+          title="Complete Payment Authorization"
+          onSuccess={async () => {
+            setShowCashfreeModal(false);
+            setCashfreeModalData(null);
+            setStep("success");
+            
+            // Verify payment and redirect
+            setTimeout(() => {
+              router.push('/dashboard?payment=success');
+            }, 2000);
+          }}
+          onFailure={(error) => {
+            console.error('Cashfree modal error:', error);
+            setShowCashfreeModal(false);
+            setCashfreeModalData(null);
+            setStep("error");
+            toast({
+              title: "Payment Failed",
+              description: error?.message || "Payment authorization failed. Please try again.",
               variant: "destructive",
             });
           }}

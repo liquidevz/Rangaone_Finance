@@ -238,7 +238,7 @@ export const isCashfreeAvailable = (): boolean => {
 export const openCashfreeSubscriptionCheckout = async (
   subsSessionId: string,
   options?: {
-    redirectTarget?: '_self' | '_blank' | '_top';
+    redirectTarget?: '_self' | '_blank' | '_top' | '_modal' | '_popup';
     onSuccess?: (result: CashfreeCheckoutResult) => void;
     onFailure?: (error: any) => void;
   }

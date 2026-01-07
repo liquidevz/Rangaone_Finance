@@ -17,6 +17,7 @@ import type { CouponValidationResponse } from "@/services/coupon.service";
 import { useCart } from "@/components/cart/cart-context";
 import { PaymentGatewaySelectorModal } from "@/components/payment-gateway-selector";
 import { usePaymentGateways } from "@/hooks/use-payment-gateways";
+import { CashfreeModal } from "@/components/cashfree-modal";
 
 interface CartPaymentModalProps {
   isOpen: boolean;
@@ -60,6 +61,10 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
   const [selectedGateway, setSelectedGateway] = useState<PaymentGatewayType | null>(null);
   const [showGatewaySelector, setShowGatewaySelector] = useState(false);
   const { gateways, hasMultipleGateways, defaultGateway, supportsEmandate } = usePaymentGateways();
+  
+  // Cashfree modal state
+  const [showCashfreeModal, setShowCashfreeModal] = useState(false);
+  const [cashfreeModalData, setCashfreeModalData] = useState<{subsSessionId: string; amount: number} | null>(null);
 
   // Update finalTotal when total changes (e.g., when subscription type changes)
   useEffect(() => {
@@ -263,19 +268,13 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
       sessionStorage.setItem('cashfree_subs_session_id', subsSessionId);
       sessionStorage.setItem('cashfree_return_url', window.location.href);
       
-      // Load Cashfree SDK and open checkout - same logic as non-cart flow
-      const { loadCashfree } = await import('@/lib/cashfree');
-      const cashfree = await loadCashfree();
-      
-      if (!cashfree) {
-        throw new Error("Failed to load Cashfree SDK");
-      }
-      
-      // Open SDK checkout - this will redirect the user
-      cashfree.subscriptionsCheckout({
+      // Open Cashfree modal instead of redirecting
+      setCashfreeModalData({
         subsSessionId: subsSessionId,
-        redirectTarget: "_self",
+        amount: finalTotal,
       });
+      setShowCashfreeModal(true);
+      setProcessing(false);
       
     } catch (error: any) {
       console.error("Cashfree cart payment error:", error);
@@ -771,11 +770,12 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                     {/* YouTube Video */}
                     <div className="bg-black rounded-lg overflow-hidden aspect-video">
                       <iframe
-                        src={`https://www.youtube.com/embed/guetyPOoThw?origin=${typeof window !== 'undefined' ? window.location.origin : ''}`}
+                        src="https://www.youtube-nocookie.com/embed/guetyPOoThw?rel=0&modestbranding=1&enablejsapi=1"
                         title="Digital Verification Process"
                         className="w-full h-full"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen
+                        loading="lazy"
                       ></iframe>
                     </div>
 
@@ -1183,6 +1183,43 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
         description="Select your preferred payment gateway to complete the subscription"
         isEmandate={true}
       />
+
+      {/* Cashfree Modal */}
+      {showCashfreeModal && cashfreeModalData && (
+        <CashfreeModal
+          isOpen={showCashfreeModal}
+          onClose={() => {
+            setShowCashfreeModal(false);
+            setCashfreeModalData(null);
+            setStep("plan");
+          }}
+          subsSessionId={cashfreeModalData.subsSessionId}
+          amount={cashfreeModalData.amount}
+          title="Complete Payment Authorization"
+          onSuccess={async () => {
+            setShowCashfreeModal(false);
+            setCashfreeModalData(null);
+            setStep("success");
+            
+            // Clear cart and redirect
+            setTimeout(() => {
+              onPaymentSuccess();
+              router.push('/dashboard?payment=success');
+            }, 2000);
+          }}
+          onFailure={(error) => {
+            console.error('Cashfree modal error:', error);
+            setShowCashfreeModal(false);
+            setCashfreeModalData(null);
+            setStep("error");
+            toast({
+              title: "Payment Failed",
+              description: error?.message || "Payment authorization failed. Please try again.",
+              variant: "destructive",
+            });
+          }}
+        />
+      )}
     </>
   );
 };

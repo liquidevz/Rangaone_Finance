@@ -137,7 +137,7 @@ export const digioService = {
   // Check document status via API
   checkDocumentStatus: async (documentId: string): Promise<DigioSignResponse> => {
     try {
-      const response = await get(`api/digio/document/status/${documentId}`) as any;
+      const response = await get(`/api/digio/document/status/${documentId}`) as any;
       if (response.success) {
         return response.data;
       } else {
