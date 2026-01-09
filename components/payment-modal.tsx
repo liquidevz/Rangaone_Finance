@@ -986,7 +986,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       <h4 className="font-medium text-base sm:text-lg">
                         Choose Subscription Period:
                       </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                         {/* Annual billed monthly (eMandate monthly) */}
                         {((bundle as any).monthlyemandateprice && (bundle as any).monthlyemandateprice >= 100) && (
                         <button
@@ -994,7 +994,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                             setSubscriptionType("monthly");
                             paymentFlowState.update({ subscriptionType: "monthly" });
                           }}
-                          className={`p-4 sm:p-5 md:p-6 rounded-xl border-2 transition-all text-left relative overflow-hidden h-full flex flex-col ${
+                          className={`flex-1 p-4 sm:p-5 md:p-6 rounded-xl border-2 transition-all text-left relative overflow-hidden h-full flex flex-col ${
                             subscriptionType === "monthly"
                               ? "border-blue-500 bg-blue-50"
                               : "border-gray-200 hover:border-gray-300"
@@ -1045,7 +1045,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                             setSubscriptionType("quarterly");
                             paymentFlowState.update({ subscriptionType: "quarterly" });
                           }}
-                          className={`p-4 sm:p-5 md:p-6 rounded-xl border-2 transition-all text-left relative overflow-hidden h-full flex flex-col ${
+                          className={`flex-1 p-4 sm:p-5 md:p-6 rounded-xl border-2 transition-all text-left relative overflow-hidden h-full flex flex-col ${
                             subscriptionType === "quarterly"
                               ? "border-blue-500 bg-blue-50"
                               : "border-gray-200 hover:border-gray-300"
@@ -1094,7 +1094,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                             setSubscriptionType("yearly");
                             paymentFlowState.update({ subscriptionType: "yearly" });
                           }}
-                          className={`p-4 sm:p-5 md:p-6 rounded-xl border-2 transition-all text-left relative overflow-hidden h-full flex flex-col ${
+                          className={`flex-1 p-4 sm:p-5 md:p-6 rounded-xl border-2 transition-all text-left relative overflow-hidden h-full flex flex-col ${
                             subscriptionType === "yearly"
                               ? "border-blue-500 bg-blue-50"
                               : "border-gray-200 hover:border-gray-300"

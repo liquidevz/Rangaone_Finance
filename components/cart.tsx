@@ -598,32 +598,6 @@ export default function CartPage() {
                         
                         return (
                           <>
-                            {/* Show warnings for unsupported billing cycles */}
-                            {monthlyUnsupported.length > 0 && (
-                              <Alert className="bg-yellow-50 border-yellow-200">
-                                <AlertCircle className="h-4 w-4 text-yellow-600" />
-                                <AlertDescription className="text-yellow-800">
-                                  <strong>Monthly billing not available</strong> for: {monthlyUnsupported.join(', ')}
-                                </AlertDescription>
-                              </Alert>
-                            )}
-                            {quarterlyUnsupported.length > 0 && (
-                              <Alert className="bg-yellow-50 border-yellow-200">
-                                <AlertCircle className="h-4 w-4 text-yellow-600" />
-                                <AlertDescription className="text-yellow-800">
-                                  <strong>Quarterly billing not available</strong> for: {quarterlyUnsupported.join(', ')}
-                                </AlertDescription>
-                              </Alert>
-                            )}
-                            {yearlyUnsupported.length > 0 && (
-                              <Alert className="bg-yellow-50 border-yellow-200">
-                                <AlertCircle className="h-4 w-4 text-yellow-600" />
-                                <AlertDescription className="text-yellow-800">
-                                  <strong>Yearly billing not available</strong> for: {yearlyUnsupported.join(', ')}
-                                </AlertDescription>
-                              </Alert>
-                            )}
-                            
                             {/* Monthly option - full width */}
                             {monthlyOptions.map((option) => (
                               <button
