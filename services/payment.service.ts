@@ -120,6 +120,14 @@ export interface CreateEMandateResponse {
   authorization_url?: string;
   short_url?: string; // Razorpay specific
   checkout_url?: string; // Cashfree specific
+  cashfree?: {
+    paymentSessionId?: string;
+    subsSessionId?: string;
+    sessionId?: string;
+    subscription_session_id?: string;
+  };
+  subsSessionId?: string;
+  subscription_session_id?: string;
 }
 
 export interface VerifyPaymentPayload {
@@ -180,14 +188,14 @@ export const paymentService = {
   // Check PAN details first
   checkPanDetails: async (): Promise<{ hasPan: boolean; profile?: any }> => {
     const token = authService.getAccessToken();
-    
+
     try {
       const response = await get("/api/user/profile", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      
+
       return {
         hasPan: !!(response as any)?.pandetails,
         profile: response
@@ -204,7 +212,7 @@ export const paymentService = {
     dob: string;
   }): Promise<{ success: boolean; message: string; data?: any }> => {
     const token = authService.getAccessToken();
-    
+
     try {
       const response = await post("/digio/pan/verify", panData, {
         headers: {
@@ -212,8 +220,8 @@ export const paymentService = {
           Authorization: `Bearer ${token}`,
         },
       });
-      
-      
+
+
       return {
         success: (response as any)?.success === true,
         message: (response as any)?.message || "PAN verification completed",
@@ -236,17 +244,17 @@ export const paymentService = {
     pandetails: string;
   }): Promise<any> => {
     const token = authService.getAccessToken();
-    
+
     // Convert date format from YYYY-MM-DD to DD/MM/YYYY
     const [year, month, day] = panData.dateofBirth.split('-');
     const formattedDate = `${day}/${month}/${year}`;
-    
+
     const formattedData = {
       ...panData,
       dateofBirth: formattedDate
     };
-    
-    
+
+
     try {
       const response = await put("/api/user/profile", formattedData, {
         headers: {
@@ -256,10 +264,10 @@ export const paymentService = {
       });
       return response;
     } catch (error: any) {
-      
+
       const errorData = error.response?.data;
       let errorMessage = errorData?.error || "Failed to update profile";
-      
+
       throw new Error(errorMessage);
     }
   },
@@ -279,7 +287,7 @@ export const paymentService = {
     productName: string;
   }): Promise<{ documentId: string; authUrl?: string }> => {
     const token = authService.getAccessToken();
-    
+
     const response = await post("/api/digio/create-sign-request", {
       agreementData: {
         customerName: eSignData.signerName,
@@ -302,7 +310,7 @@ export const paymentService = {
         Authorization: `Bearer ${token}`,
       },
     });
-    
+
     return {
       documentId: (response as any).documentId,
       authUrl: (response as any).authenticationUrl
@@ -312,14 +320,14 @@ export const paymentService = {
   // Verify eSign with DID token
   verifyESignToken: async (didToken: string): Promise<{ success: boolean; message: string }> => {
     const token = authService.getAccessToken();
-    
+
     try {
       const response = await get(`/api/user/esign/verify?token=${didToken}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      
+
       return {
         success: (response as any)?.success || true,
         message: (response as any)?.message || "eSign verified successfully"
@@ -335,14 +343,14 @@ export const paymentService = {
   // Verify eSign completion
   verifyESignCompletion: async (productType: string, productId: string): Promise<{ success: boolean; message: string }> => {
     const token = authService.getAccessToken();
-    
+
     try {
       const response = await get(`/api/digio/esign/verify?productType=${productType}&productId=${productId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      
+
       return {
         success: (response as any)?.success || true,
         message: (response as any)?.message || "eSign verification completed"
@@ -358,7 +366,7 @@ export const paymentService = {
   // Verify cart eSign completion
   verifyCartESignCompletion: async (cartId?: string): Promise<{ success: boolean; message: string }> => {
     const token = authService.getAccessToken();
-    
+
     try {
       const payload = cartId ? { cartId } : {};
       const response = await post("/api/cart/esign/verify", payload, {
@@ -367,7 +375,7 @@ export const paymentService = {
           Authorization: `Bearer ${token}`,
         },
       });
-      
+
       return {
         success: (response as any)?.success || true,
         message: (response as any)?.message || "Cart eSign verification completed"
@@ -409,20 +417,20 @@ export const paymentService = {
           },
         }
       );
-      
-      
+
+
       // Cache order creation to prevent duplicates
       localStorage.setItem(orderKey, JSON.stringify({
         orderId: response.orderId,
         timestamp: Date.now()
       }));
-      
+
       return response;
     } catch (error: any) {
-      
+
       // Clear cache on error to allow retry
       localStorage.removeItem(orderKey);
-      
+
       // Handle eSign requirement error specifically
       if (error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
         throw {
@@ -431,7 +439,7 @@ export const paymentService = {
           eSignError: true
         };
       }
-      
+
       throw error;
     }
   },
@@ -490,7 +498,7 @@ export const paymentService = {
     payload: VerifyPaymentPayload
   ): Promise<VerifyPaymentResponse> => {
     const token = authService.getAccessToken();
-    
+
     // Check for duplicate verification attempts
     const verificationKey = `verification_${payload.orderId}_${payload.paymentId}`;
     const existingVerification = localStorage.getItem(verificationKey);
@@ -505,7 +513,7 @@ export const paymentService = {
       // Add timeout to verification request
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-      
+
       const response = await post<VerifyPaymentResponse>(
         "/api/subscriptions/verify",
         payload,
@@ -518,7 +526,7 @@ export const paymentService = {
           signal: controller.signal
         }
       );
-      
+
       clearTimeout(timeoutId);
 
       // Handle different response formats
@@ -531,7 +539,7 @@ export const paymentService = {
               result: response,
               timestamp: Date.now()
             }));
-            
+
             // On success, post purchased subscriptions to external subscribe API with timeout
             try {
               const { subscriptionService } = await import('./subscription.service');
@@ -553,7 +561,7 @@ export const paymentService = {
               if (externalSubscribeService.isConfigured() && payloads.length) {
                 // Add timeout to external subscribe calls
                 const subscribePromise = externalSubscribeService.subscribeMany(payloads);
-                const timeoutPromise = new Promise((_, reject) => 
+                const timeoutPromise = new Promise((_, reject) =>
                   setTimeout(() => reject(new Error('Telegram link timeout')), 15000)
                 );
                 await Promise.race([subscribePromise, timeoutPromise]);
@@ -565,7 +573,7 @@ export const paymentService = {
           }
           return response;
         }
-        
+
         // If response doesn't have success field but has data, assume success
         if (Object.keys(response).length > 0) {
           const successResponse = {
@@ -579,24 +587,24 @@ export const paymentService = {
           return successResponse;
         }
       }
-      
+
       // If we get here, response format is unexpected
       console.warn("Unexpected verification response format:", response);
       return {
         success: true,
         message: "Payment verification completed"
       };
-      
+
     } catch (error: any) {
       console.error("Payment verification request failed:", error);
-      
+
       if (error.name === 'AbortError') {
         return {
           success: false,
           message: "Verification timed out. Please try again."
         };
       }
-      
+
       return {
         success: false,
         message: `Verification failed: ${error.message}`
@@ -635,7 +643,7 @@ export const paymentService = {
         },
       }
     );
-    
+
     // Combine both subscription arrays for backward compatibility
     return [...(response.bundleSubscriptions || []), ...(response.individualSubscriptions || [])];
   },
@@ -703,20 +711,19 @@ export const paymentService = {
     const options = {
       key: razorpayKey,
       name: "RangaOne Finwala",
-      description: `${
-        "planType" in orderData ? orderData.planType || "Monthly" : "Monthly"
-      } Subscription Payment`,
+      description: `${"planType" in orderData ? orderData.planType || "Monthly" : "Monthly"
+        } Subscription Payment`,
       ...("subscriptionId" in orderData
-        ? { 
-            subscription_id: orderData.subscriptionId,
-            recurring: 1,
-            currency: "INR"
-          }
+        ? {
+          subscription_id: orderData.subscriptionId,
+          recurring: 1,
+          currency: "INR"
+        }
         : {
-            order_id: orderData.orderId,
-            amount: orderData.amount,
-            currency: orderData.currency || "INR",
-          }),
+          order_id: orderData.orderId,
+          amount: orderData.amount,
+          currency: orderData.currency || "INR",
+        }),
       prefill: {
         name: userInfo.name,
         email: userInfo.email,
@@ -739,7 +746,7 @@ export const paymentService = {
         }, 100);
       },
     };
-    
+
     if ("subscriptionId" in orderData) {
     }
 
@@ -794,24 +801,24 @@ export const paymentService = {
   // Clear duplicate prevention caches
   clearDuplicatePreventionCaches: (): void => {
     const keys = Object.keys(localStorage);
-    const cacheKeys = keys.filter(key => 
-      key.startsWith('order_') || 
-      key.startsWith('emandate_') || 
-      key.startsWith('verification_') || 
+    const cacheKeys = keys.filter(key =>
+      key.startsWith('order_') ||
+      key.startsWith('emandate_') ||
+      key.startsWith('verification_') ||
       key.startsWith('emandate_verification_')
     );
-    
+
     cacheKeys.forEach(key => localStorage.removeItem(key));
   },
 
   // Check if user has active pending transactions
   hasPendingTransactions: (): boolean => {
     const keys = Object.keys(localStorage);
-    const pendingKeys = keys.filter(key => 
+    const pendingKeys = keys.filter(key =>
       (key.startsWith('order_') || key.startsWith('emandate_')) &&
       !key.includes('verification_')
     );
-    
+
     return pendingKeys.some(key => {
       try {
         const cached = JSON.parse(localStorage.getItem(key) || '{}');
@@ -851,10 +858,10 @@ export const paymentService = {
         }
       );
 
-      
+
       return response;
     } catch (error: any) {
-      
+
       // Handle eSign requirement error for eMandate as well
       if (error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
         throw {
@@ -863,7 +870,7 @@ export const paymentService = {
           eSignError: true
         };
       }
-      
+
       console.error("🚨 EMANDATE ERROR:", error?.response?.data?.message || error?.message);
       throw error;
     }
@@ -892,7 +899,7 @@ export const paymentService = {
         }
       );
 
-      
+
       // Refresh subscription data if verification was successful
       if (response.success) {
         try {
@@ -924,12 +931,12 @@ export const paymentService = {
           console.error('Failed to refresh subscription data:', error);
         }
       }
-      
+
       return response;
-      
+
     } catch (error: any) {
       console.error("eMandate verification failed:", error);
-      
+
       // Handle 404 - endpoint not found, use fallback
       if (error.response?.status === 404) {
         return {
@@ -938,7 +945,7 @@ export const paymentService = {
           telegramInviteLinks: [] // Empty array for now
         } as any;
       }
-      
+
       // Handle other specific HTTP status codes
       if (error.response?.status === 403) {
         return {
@@ -946,16 +953,16 @@ export const paymentService = {
           message: "eMandate verification failed: Unauthorized eMandate verification - No matching subscriptions found"
         };
       }
-      
+
       if (error.response?.status === 400) {
         return {
           success: false,
           message: "eMandate verification failed: Invalid eMandate data or setup incomplete"
         };
       }
-      
+
       const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message;
-      
+
       return {
         success: false,
         message: `eMandate verification failed: ${errorMessage}`
@@ -1014,17 +1021,17 @@ export const paymentService = {
           eSignError: true
         };
       }
-      
+
       // Handle eSign required (412 status)
       if (error.response?.status === 412 || error.response?.data?.code === 'ESIGN_REQUIRED') {
         throw error;
       }
-      
+
       // Handle invalid gateway error
       if (error.response?.status === 400 && error.response?.data?.message?.includes('Invalid payment gateway')) {
         throw new Error('Invalid payment gateway. Please select Razorpay or Cashfree.');
       }
-      
+
       console.error("🚨 CART EMANDATE ERROR:", error?.response?.data?.message || error?.message);
       throw error;
     }
@@ -1032,7 +1039,7 @@ export const paymentService = {
 
   // Verify eMandate with timeout and duplicate prevention
   verifyEmandateWithRetry: async (subscriptionId: string, maxRetries: number = 3): Promise<VerifyPaymentResponse> => {
-    
+
     // Check for duplicate verification attempts
     const verificationKey = `emandate_verification_${subscriptionId}`;
     const existingVerification = localStorage.getItem(verificationKey);
@@ -1042,18 +1049,18 @@ export const paymentService = {
         return cached.result;
       }
     }
-    
+
     let retryCount = 0;
     let retryDelay = 2000; // Start with 2 seconds
     const maxTotalTime = 60000; // Maximum 1 minute total
     const startTime = Date.now();
-    
+
     while (retryCount < maxRetries && (Date.now() - startTime) < maxTotalTime) {
       retryCount++;
-      
+
       try {
         const response = await paymentService.verifyEmandate(subscriptionId);
-        
+
         if (response.success) {
           // Cache successful verification
           localStorage.setItem(verificationKey, JSON.stringify({
@@ -1062,17 +1069,17 @@ export const paymentService = {
           }));
           return response;
         }
-        
+
         // If it's a "No matching subscriptions found" error and we have retries left
         if (response.message.includes("No matching subscriptions found") && retryCount < maxRetries) {
           await new Promise(resolve => setTimeout(resolve, retryDelay));
           retryDelay = Math.min(retryDelay * 1.5, 5000); // Cap at 5 seconds
           continue;
         }
-        
+
         // For other errors, return immediately
         return response;
-        
+
       } catch (error: any) {
         console.error(`Attempt ${retryCount} failed with error:`, error);
         if (retryCount >= maxRetries) {
@@ -1085,7 +1092,7 @@ export const paymentService = {
         retryDelay = Math.min(retryDelay * 1.5, 5000);
       }
     }
-    
+
     // Timeout reached
     return {
       success: false,
@@ -1152,12 +1159,12 @@ export const paymentService = {
       return response;
     } catch (error: any) {
       console.error("🚨 Cashfree subscription error:", error?.response?.data || error?.message);
-      
+
       // Handle gateway disabled error
       if (error.response?.data?.code === 'GATEWAY_DISABLED') {
         throw new Error('Cashfree payment gateway is currently disabled. Please select a different payment method.');
       }
-      
+
       throw error;
     }
   },
@@ -1211,12 +1218,12 @@ export const paymentService = {
       return response;
     } catch (error: any) {
       console.error("🚨 Cashfree cart subscription error:", error?.response?.data || error?.message);
-      
+
       // Handle gateway disabled error
       if (error.response?.data?.code === 'GATEWAY_DISABLED') {
         throw new Error('Cashfree payment gateway is currently disabled. Please select a different payment method.');
       }
-      
+
       throw error;
     }
   },
@@ -1314,7 +1321,7 @@ export const paymentService = {
     try {
       // Dynamically import Cashfree SDK utility
       const { openCashfreeCheckout } = await import('@/lib/cashfree');
-      
+
       return await openCashfreeCheckout(paymentSessionId, {
         redirectTarget: options?.redirectTarget || '_modal',
         onSuccess: options?.onSuccess,
@@ -1357,7 +1364,7 @@ export const paymentService = {
             planType,
             couponCode,
           });
-          
+
           await paymentService.openCheckout(
             emandate,
             userInfo,
@@ -1378,7 +1385,7 @@ export const paymentService = {
             planType,
             couponCode,
           });
-          
+
           await paymentService.openCheckout(
             order,
             userInfo,
@@ -1451,10 +1458,10 @@ export const paymentService = {
         couponCode,
         gateway: gateway as 'razorpay' | 'cashfree',
       });
-      
+
       // Use authorization_url for redirect (works for both gateways)
       const redirectUrl = result.authorization_url || result.short_url || result.checkout_url;
-      
+
       if (redirectUrl) {
         // Notify that we're about to redirect
         onRedirect?.();

@@ -11,7 +11,12 @@ interface CashfreeModalProps {
   onClose: () => void;
   onSuccess: () => void;
   onFailure?: (error: any) => void;
-  subsSessionId: string;
+  // For one-time payments - uses cashfree.checkout()
+  paymentSessionId?: string;
+  // For recurring subscriptions - uses cashfree.subscriptionsCheckout()
+  subsSessionId?: string;
+  // Determines which SDK method to use: 'one_time' uses checkout(), 'recurring' uses subscriptionsCheckout()
+  paymentType: 'one_time' | 'recurring';
   amount?: number;
   title?: string;
 }
@@ -21,7 +26,9 @@ export const CashfreeModal: React.FC<CashfreeModalProps> = ({
   onClose,
   onSuccess,
   onFailure,
+  paymentSessionId,
   subsSessionId,
+  paymentType,
   amount,
   title = "Complete Payment Authorization"
 }) => {
@@ -30,9 +37,9 @@ export const CashfreeModal: React.FC<CashfreeModalProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
-    
+
     document.body.style.overflow = 'hidden';
-    
+
     return () => {
       document.body.style.overflow = 'unset';
     };
@@ -45,30 +52,65 @@ export const CashfreeModal: React.FC<CashfreeModalProps> = ({
       // Store return URL for after payment
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('cashfree_return_url', window.location.href);
-        sessionStorage.setItem('cashfree_subs_session_id', subsSessionId);
+        if (paymentType === 'one_time' && paymentSessionId) {
+          sessionStorage.setItem('cashfree_payment_session_id', paymentSessionId);
+        } else if (subsSessionId) {
+          sessionStorage.setItem('cashfree_subs_session_id', subsSessionId);
+        }
       }
 
       // Load Cashfree SDK
       const { loadCashfree } = await import('@/lib/cashfree');
       const cashfree = await loadCashfree();
-      
+
       if (!cashfree) {
         throw new Error("Failed to load Cashfree SDK");
       }
 
-      console.log('🔗 Opening Cashfree subscription checkout with subsSessionId:', subsSessionId);
-      
-      // Open Cashfree checkout - this will redirect in the same window
-      const result = await cashfree.subscriptionsCheckout({
-        subsSessionId: subsSessionId,
-        redirectTarget: "_self",
-      });
+      // Use different SDK methods based on payment type
+      if (paymentType === 'one_time' && paymentSessionId) {
+        // One-time payment - opens as modal overlay on the site
 
-      console.log('📨 Cashfree checkout result:', result);
+        const result = await cashfree.checkout({
+          paymentSessionId: paymentSessionId,
+          redirectTarget: "_modal",
+        });
 
-      // Check for errors
-      if (result.error) {
-        throw new Error(result.error.message || 'Payment initialization failed');
+        console.log('📨 Cashfree one-time checkout result:', result);
+
+        // Handle result for modal checkout
+        if (result?.error) {
+          throw new Error(result.error.message || 'Payment initialization failed');
+        }
+
+        // For modal checkout, handle success directly
+        if (result?.paymentDetails?.paymentStatus === 'SUCCESS' || result?.paymentDetails?.paymentMessage?.toLowerCase().includes('success')) {
+          onSuccess();
+          return;
+        }
+
+        // If payment completed (redirect or modal close without error)
+        if (result?.redirect) {
+          // Payment will be verified after redirect
+          return;
+        }
+
+      } else if (paymentType === 'recurring' && subsSessionId) {
+        // Recurring subscription - redirects to Cashfree page for eMandate authorization
+
+        const result = await cashfree.subscriptionsCheckout({
+          subsSessionId: subsSessionId,
+          redirectTarget: "_self",
+        });
+
+        console.log('📨 Cashfree subscription checkout result:', result);
+
+        // Check for errors
+        if (result.error) {
+          throw new Error(result.error.message || 'Payment initialization failed');
+        }
+      } else {
+        throw new Error('Invalid payment configuration: missing session ID');
       }
 
     } catch (error: any) {
@@ -146,7 +188,7 @@ export const CashfreeModal: React.FC<CashfreeModalProps> = ({
                   {isProcessing ? 'Redirecting to Payment...' : 'Ready to Proceed'}
                 </h3>
                 <p className="text-gray-600">
-                  {isProcessing 
+                  {isProcessing
                     ? 'Please wait while we redirect you to the secure payment gateway.'
                     : 'Click the button below to proceed to Cashfree\'s secure payment gateway for authorization.'
                   }

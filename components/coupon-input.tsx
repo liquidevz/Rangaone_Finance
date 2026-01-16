@@ -30,7 +30,7 @@ export const CouponInput: React.FC<CouponInputProps> = ({
 
     try {
       const response = await couponService.validateCoupon(couponCode.trim());
-      
+
       if (response.success && response.valid && response.coupon) {
         // Check minimum order value
         if (response.coupon.minOrderValue > 0 && originalAmount < response.coupon.minOrderValue) {
@@ -67,7 +67,7 @@ export const CouponInput: React.FC<CouponInputProps> = ({
     setError("");
   };
 
-  const { discountAmount, finalAmount } = appliedCoupon 
+  const { discountAmount, finalAmount } = appliedCoupon
     ? couponService.calculateDiscount(originalAmount, appliedCoupon)
     : { discountAmount: 0, finalAmount: originalAmount };
 
@@ -123,15 +123,14 @@ export const CouponInput: React.FC<CouponInputProps> = ({
             </div>
             <Button
               onClick={handleRemoveCoupon}
-              variant="ghost"
+              variant="destructive"
               size="sm"
-              className="text-red-600 hover:text-red-800"
-              title="Remove coupon"
+              className="h-8 px-3"
             >
-              <X className="h-4 w-4" />
+              Remove
             </Button>
           </div>
-          
+
           <div className="mt-3 space-y-1 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-600">Original Amount:</span>

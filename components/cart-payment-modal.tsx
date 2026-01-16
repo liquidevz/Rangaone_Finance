@@ -36,7 +36,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
   total,
   onPaymentSuccess,
 }) => {
-  
+
   const [step, setStep] = useState<
     "plan" | "consent" | "auth" | "pan-form" | "gateway-select" | "processing" | "success" | "error"
   >("plan");
@@ -56,15 +56,20 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
   const [panFormLoading, setPanFormLoading] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<CouponValidationResponse["coupon"] | null>(null);
   const [finalTotal, setFinalTotal] = useState(total);
-  
+
   // Payment gateway selection state
   const [selectedGateway, setSelectedGateway] = useState<PaymentGatewayType | null>(null);
   const [showGatewaySelector, setShowGatewaySelector] = useState(false);
   const { gateways, hasMultipleGateways, defaultGateway, supportsEmandate } = usePaymentGateways();
-  
+
   // Cashfree modal state
   const [showCashfreeModal, setShowCashfreeModal] = useState(false);
-  const [cashfreeModalData, setCashfreeModalData] = useState<{subsSessionId: string; amount: number} | null>(null);
+  const [cashfreeModalData, setCashfreeModalData] = useState<{
+    paymentSessionId?: string;
+    subsSessionId?: string;
+    paymentType: 'one_time' | 'recurring';
+    amount: number;
+  } | null>(null);
 
   // Update finalTotal when total changes (e.g., when subscription type changes)
   useEffect(() => {
@@ -85,10 +90,10 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
   const handleCouponApplied = (coupon: CouponValidationResponse["coupon"] | null) => {
     setAppliedCoupon(coupon);
     if (coupon) {
-      const discountAmount = coupon.discountType === "percentage" 
+      const discountAmount = coupon.discountType === "percentage"
         ? Math.min((total * coupon.discountValue) / 100, coupon.maxDiscountAmount || Infinity)
         : coupon.discountValue;
-      setFinalTotal(Math.max(0, total - discountAmount));
+      setFinalTotal(Math.round(Math.max(0, total - discountAmount) * 100) / 100);
     } else {
       setFinalTotal(total);
     }
@@ -96,11 +101,11 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
-    
+
     document.body.style.overflow = 'hidden';
-    
+
     setStep("plan");
-    
+
     return () => {
       document.body.style.overflow = 'unset';
     };
@@ -115,7 +120,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
     setTelegramLinks(null);
     setSelectedGateway(null); // Reset selected gateway
     setShowGatewaySelector(false); // Reset gateway selector
-    
+
     // Clear any cached payment data to prevent reusing expired subscription IDs
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('razorpay_subscription_id');
@@ -124,7 +129,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
       sessionStorage.removeItem('cashfree_return_url');
       sessionStorage.removeItem('cashfree_gateway');
     }
-    
+
     paymentFlowState.clear();
     onClose();
   };
@@ -138,14 +143,14 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
 
   const handleDigioComplete = async () => {
     setShowDigio(false);
-    
+
     // Verify cart eSign status with backend before proceeding (with polling)
     const cartId = cart?._id && cart._id !== "local" ? cart._id : undefined;
     if (cartId) {
       setStep("processing");
       setProcessing(true);
       setProcessingMsg("Verifying digital signature...");
-      
+
       try {
         const { digioService } = await import("@/services/digio.service");
         // Use cart-specific eSign verification with polling
@@ -154,7 +159,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
           maxAttempts: 10,
           delayMs: 2000
         });
-        
+
         if (!verifyResult.success || !verifyResult.signed) {
           // eSign not completed - show error or retry
           toast({
@@ -166,7 +171,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
           setStep("plan");
           return;
         }
-        
+
         // eSign completed successfully
         toast({
           title: "Signature Verified",
@@ -177,17 +182,17 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
         // Continue anyway - backend will do final verification
       }
     }
-    
+
     // If a gateway was already selected (e.g., Cashfree triggered eSign), proceed with that gateway
     if (selectedGateway) {
       await proceedWithPayment(selectedGateway);
       return;
     }
-    
+
     // After eSign completion, check if we need to show gateway selector
     // Filter gateways that support emandate for cart flow
     const availableGateways = gateways.filter(g => supportsEmandate(g.id));
-    
+
     if (availableGateways.length > 1) {
       // Multiple gateways available - show selector
       setShowGatewaySelector(true);
@@ -201,31 +206,31 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
       await proceedWithPayment('razorpay');
     }
   };
-  
+
   // Handle gateway selection from modal
   const handleGatewaySelect = async (gatewayId: PaymentGatewayType) => {
     setSelectedGateway(gatewayId);
     setShowGatewaySelector(false);
     await proceedWithPayment(gatewayId);
   };
-  
+
   // Proceed with payment after gateway selection
   const proceedWithPayment = async (gateway: PaymentGatewayType) => {
     setStep("processing");
     setProcessing(true);
-    
+
     if (gateway === 'cashfree') {
       await handleCashfreePayment();
     } else {
       await handleEmandatePaymentFlow();
     }
   };
-  
+
   // Handle Cashfree cart payment flow using unified API
   const handleCashfreePayment = async () => {
     try {
       setProcessingMsg("Creating subscription...");
-      
+
       // Clear any old cached data before creating new subscription
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('cashfree_subscription_id');
@@ -233,7 +238,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
         sessionStorage.removeItem('cashfree_gateway');
         sessionStorage.removeItem('cashfree_subscription_session');
       }
-      
+
       // Use unified cart API with gateway='cashfree'
       const cartPayload = {
         ...(cart?._id && cart._id !== "local" && { cartId: cart._id }),
@@ -241,44 +246,43 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
         ...(appliedCoupon && { couponCode: appliedCoupon.code }),
         gateway: "cashfree" as const,
       };
-      
+
       const result = await paymentService.createCartEmandate(cartPayload);
-      
-      // For Cashfree subscriptions, use SDK with subscription_session_id
-      // Backend returns subscription_session_id (subsSessionId) for mandate authorization
-      const subsSessionId = result.cashfree?.subsSessionId || 
-                          result.cashfree?.sessionId || 
-                          result.cashfree?.subscription_session_id ||
-                          (result as any).subscription_session_id;
-      
+
+      const subsSessionId = result.cashfree?.subsSessionId ||
+        result.cashfree?.sessionId ||
+        result.cashfree?.subscription_session_id ||
+        (result as any).subscription_session_id;
+
       console.log('🔍 Cashfree API response:', result);
       console.log('🔑 Extracted subsSessionId:', subsSessionId);
-      
+
       if (!subsSessionId) {
         console.error("❌ Missing subsSessionId in response:", result);
         throw new Error('Missing subscription session ID. Please contact support.');
       }
-      
+
       setProcessingMsg("Opening Cashfree authorization...");
-      
+
       // Store subscription info for verification after redirect
       if (result.subscriptionId) {
         sessionStorage.setItem('cashfree_subscription_id', result.subscriptionId);
       }
       sessionStorage.setItem('cashfree_subs_session_id', subsSessionId);
       sessionStorage.setItem('cashfree_return_url', window.location.href);
-      
+
       // Open Cashfree modal instead of redirecting
       setCashfreeModalData({
         subsSessionId: subsSessionId,
+        paymentType: 'recurring', // Cart payments always use eMandate (recurring)
         amount: finalTotal,
       });
       setShowCashfreeModal(true);
       setProcessing(false);
-      
+
     } catch (error: any) {
       console.error("Cashfree cart payment error:", error);
-      
+
       // Check for eSign requirement (412 error or ESIGN_REQUIRED code)
       if (error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
         if (cartItems?.length > 0) {
@@ -294,7 +298,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
             productId: cartItems[0]?.portfolio._id,
             productName: cartItems[0]?.portfolio.name,
           } as any;
-          
+
           // Store selected gateway for after eSign
           setSelectedGateway('cashfree');
           setAgreementData(data);
@@ -303,7 +307,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
         setProcessing(false);
         return;
       }
-      
+
       // Check for eSign pending
       if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_PENDING') {
         const authUrl = error.response.data.pendingEsign?.authenticationUrl;
@@ -320,7 +324,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
             productId: cartItems[0]?.portfolio._id,
             productName: cartItems[0]?.portfolio.name,
           } as any;
-          
+
           // Store selected gateway for after eSign
           setSelectedGateway('cashfree');
           setAgreementData(data);
@@ -329,7 +333,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
         setProcessing(false);
         return;
       }
-      
+
       setStep("error");
       setProcessing(false);
       toast({
@@ -361,7 +365,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
   }, [cartItems, user, subscriptionType, total]);
 
   const handlePaymentFlow = async () => {
-    
+
     try {
       // Step 1: Check PAN details first
       const panCheck = await paymentService.checkPanDetails();
@@ -369,11 +373,11 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
         const dobFromProfile = panCheck.profile?.dateOfBirth || panCheck.profile?.dateofBirth;
         const dobFromUser = (user as any)?.dateOfBirth || (user as any)?.dateofBirth;
         let finalDob = dobFromProfile || dobFromUser || "";
-        
+
         if (finalDob && finalDob.includes('T')) {
           finalDob = finalDob.split('T')[0];
         }
-        
+
         setPanFormData({
           fullName: panCheck.profile?.fullName || (user as any)?.fullName || "",
           dateofBirth: finalDob,
@@ -384,13 +388,13 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
         setProcessing(false);
         return;
       }
-      
+
       // Step 2: Show gateway selector instead of directly proceeding
       setProcessing(false);
-      
+
       // Filter gateways that support emandate for cart flow
       const availableGateways = gateways.filter(g => supportsEmandate(g.id));
-      
+
       if (availableGateways.length > 1) {
         // Multiple gateways available - show selector
         setShowGatewaySelector(true);
@@ -410,7 +414,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
         setProcessing(false);
         return;
       }
-      
+
       // Check for eSign pending
       if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_PENDING') {
         const authUrl = error.response.data.pendingEsign?.authenticationUrl;
@@ -433,7 +437,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
         setProcessing(false);
         return;
       }
-      
+
       setStep("error");
       setProcessing(false);
       toast({
@@ -448,13 +452,13 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
     try {
       cancelRequested.current = false;
       setProcessingMsg("Creating eMandate…");
-      
+
       // Clear any old cached data before creating new subscription
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('razorpay_subscription_id');
         sessionStorage.removeItem('razorpay_return_url');
       }
-      
+
       // Create cart eMandate payload with unified API (gateway='razorpay')
       const cartEmandatePayload = {
         ...(cart?._id && cart._id !== "local" && { cartId: cart._id }),
@@ -462,7 +466,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
         ...(appliedCoupon && { couponCode: appliedCoupon.code }),
         gateway: "razorpay" as const,
       };
-      
+
 
       const emandate = await paymentService.createCartEmandate(cartEmandatePayload);
 
@@ -473,7 +477,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
       }
 
       setProcessingMsg("Opening payment gateway…");
-      
+
       // For Razorpay subscriptions, ALWAYS use SDK popup method (not redirect)
       // short_url is only a fallback for cases where SDK cannot load
       // This keeps user on our site and provides better UX
@@ -496,14 +500,14 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
               setStep("success");
               setProcessing(false);
               paymentFlowState.clear();
-              
+
               // Call onPaymentSuccess but don't auto-close modal
               onPaymentSuccess();
-              toast({ 
-                title: "Payment Successful", 
-                description: (verify as any)?.isCartEmandate 
+              toast({
+                title: "Payment Successful",
+                description: (verify as any)?.isCartEmandate
                   ? `${(verify as any)?.activatedSubscriptions || cartItems.length} subscriptions activated successfully!`
-                  : "Subscription activated" 
+                  : "Subscription activated"
               });
             } else {
               setStep("error");
@@ -520,7 +524,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
       } catch (sdkError: any) {
         // SDK failed to load - fallback to redirect with short_url
         console.warn("Razorpay SDK failed, falling back to redirect:", sdkError);
-        
+
         if (emandate.short_url) {
           setProcessingMsg("Redirecting to payment page...");
           sessionStorage.setItem('razorpay_subscription_id', emandate.subscriptionId);
@@ -548,7 +552,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
         setProcessing(false);
         return;
       }
-      
+
       // Check for eSign pending for eMandate
       if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_PENDING') {
         const authUrl = error.response.data.pendingEsign?.authenticationUrl;
@@ -571,7 +575,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
         setProcessing(false);
         return;
       }
-      
+
       // Handle subscription conflict errors
       const errorData = error?.response?.data;
       if (errorData?.error === "Active subscription conflicts" && errorData?.details?.conflicts) {
@@ -587,7 +591,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
         });
         return;
       }
-      
+
       setStep("error");
       setProcessing(false);
       toast({
@@ -646,18 +650,18 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                 {step === "success"
                   ? "Payment Successful!"
                   : step === "error"
-                  ? "Payment Failed"
-                  : step === "processing"
-                  ? "Processing Payment"
-                  : step === "auth"
-                  ? "Login Required"
-                  : step === "consent"
-                  ? "Complete Your Digital Verification"
-                  : step === "pan-form"
-                  ? "Complete Your Profile"
-                  : step === "plan"
-                  ? "Cart Checkout"
-                  : "Cart Checkout"
+                    ? "Payment Failed"
+                    : step === "processing"
+                      ? "Processing Payment"
+                      : step === "auth"
+                        ? "Login Required"
+                        : step === "consent"
+                          ? "Complete Your Digital Verification"
+                          : step === "pan-form"
+                            ? "Complete Your Profile"
+                            : step === "plan"
+                              ? "Cart Checkout"
+                              : "Cart Checkout"
                 }
               </h2>
               <button
@@ -692,7 +696,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                               </div>
                               <div className="flex justify-between text-sm text-green-600">
                                 <span>Discount ({appliedCoupon.code}):</span>
-                                <span>-₹{(total - finalTotal).toLocaleString()}</span>
+                                <span>-₹{(Math.round((total - finalTotal) * 100) / 100).toLocaleString()}</span>
                               </div>
                             </>
                           )}
@@ -786,23 +790,23 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                       </h4>
                       <div className="prose prose-gray max-w-none">
                         <p className="text-gray-700 mb-4">
-                          As per SEBI regulations and RBI guidelines, all investment platforms must verify the identity 
-                          of their subscribers before processing any financial transactions. This digital verification 
+                          As per SEBI regulations and RBI guidelines, all investment platforms must verify the identity
+                          of their subscribers before processing any financial transactions. This digital verification
                           ensures the security of your investments and compliance with regulatory requirements.
                         </p>
                         <p className="text-gray-700 mb-4">
-                          The process is completely secure, government-approved, and takes only a few minutes to complete. 
+                          The process is completely secure, government-approved, and takes only a few minutes to complete.
                           Your personal information is encrypted and protected throughout the verification process.
                         </p>
                         <p className="text-gray-700">
-                          Once verified, you'll have seamless access to all our premium investment services and 
+                          Once verified, you'll have seamless access to all our premium investment services and
                           portfolio recommendations.
                         </p>
                       </div>
                     </div>
 
 
-                    
+
 
                   </div>
                 )}
@@ -816,7 +820,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                     </div>
                     <CartAuthForm
                       onAuthSuccess={handleAuthSuccess}
-                      onPaymentTrigger={() => {}}
+                      onPaymentTrigger={() => { }}
                       cartTotal={total}
                       cartItemCount={cartItems.length}
                     />
@@ -838,7 +842,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                         We need your PAN details to comply with regulatory requirements
                       </p>
                     </div>
-                    
+
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                       <div className="flex items-start space-x-3">
                         <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -852,11 +856,11 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                         </div>
                       </div>
                     </div>
-                    
+
                     <form className="space-y-5" onSubmit={async (e) => {
                       e.preventDefault();
                       setPanFormLoading(true);
-                      
+
                       try {
                         if (!panFormData.fullName.trim()) {
                           throw new Error("Full name is required");
@@ -870,9 +874,9 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                         if (!panFormData.pandetails.trim()) {
                           throw new Error("PAN details are required");
                         }
-                        
+
                         await paymentService.updatePanDetails(panFormData);
-                        
+
                         const profileCheck = await paymentService.checkPanDetails();
                         if (!profileCheck.hasPan) {
                           toast({
@@ -882,7 +886,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                           });
                           return;
                         }
-                        
+
                         toast({
                           title: "Profile Updated",
                           description: "Your PAN details have been verified and saved successfully",
@@ -907,12 +911,12 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                             type="text"
                             required
                             value={panFormData.fullName}
-                            onChange={(e) => setPanFormData({...panFormData, fullName: e.target.value})}
+                            onChange={(e) => setPanFormData({ ...panFormData, fullName: e.target.value })}
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                             placeholder="Enter your full name as per PAN"
                           />
                         </div>
-                        
+
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Date of Birth *
@@ -921,13 +925,13 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                             type="date"
                             required
                             value={panFormData.dateofBirth}
-                            onChange={(e) => setPanFormData({...panFormData, dateofBirth: e.target.value})}
+                            onChange={(e) => setPanFormData({ ...panFormData, dateofBirth: e.target.value })}
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                             max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
                           />
                         </div>
                       </div>
-                      
+
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Phone Number *
@@ -936,12 +940,12 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                           type="tel"
                           required
                           value={panFormData.phone}
-                          onChange={(e) => setPanFormData({...panFormData, phone: e.target.value})}
+                          onChange={(e) => setPanFormData({ ...panFormData, phone: e.target.value })}
                           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                           placeholder="Enter your phone number"
                         />
                       </div>
-                      
+
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           PAN Card Number *
@@ -950,7 +954,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                           type="text"
                           required
                           value={panFormData.pandetails}
-                          onChange={(e) => setPanFormData({...panFormData, pandetails: e.target.value.toUpperCase()})}
+                          onChange={(e) => setPanFormData({ ...panFormData, pandetails: e.target.value.toUpperCase() })}
                           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all font-mono text-lg tracking-wider"
                           placeholder="ABCDE1234F"
                           maxLength={10}
@@ -960,7 +964,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                           Format: 5 letters + 4 digits + 1 letter (e.g., ABCDE1234F)
                         </p>
                       </div>
-                      
+
                       <div className="flex gap-3 pt-2">
                         <Button
                           onClick={() => setStep("consent")}
@@ -1133,7 +1137,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
                   {isAuthenticated ? "Continue to Payment" : "Proceed to Payment"}
                 </Button>
               )}
-              
+
               {step === "consent" && (
                 <div className="flex gap-3">
                   <Button
@@ -1170,7 +1174,7 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
           cartId={cart?._id && cart._id !== "local" ? cart._id : undefined}
         />
       )}
-      
+
       {/* Payment Gateway Selector Modal */}
       <PaymentGatewaySelectorModal
         isOpen={showGatewaySelector}
@@ -1193,14 +1197,16 @@ export const CartPaymentModal: React.FC<CartPaymentModalProps> = ({
             setCashfreeModalData(null);
             setStep("plan");
           }}
+          paymentSessionId={cashfreeModalData.paymentSessionId}
           subsSessionId={cashfreeModalData.subsSessionId}
+          paymentType={cashfreeModalData.paymentType}
           amount={cashfreeModalData.amount}
-          title="Complete Payment Authorization"
+          title={cashfreeModalData.paymentType === 'one_time' ? "Complete Payment" : "Complete Payment Authorization"}
           onSuccess={async () => {
             setShowCashfreeModal(false);
             setCashfreeModalData(null);
             setStep("success");
-            
+
             // Clear cart and redirect
             setTimeout(() => {
               onPaymentSuccess();

@@ -24,14 +24,8 @@ export function PerformanceMonitor() {
         // Monitor navigation timing
         const navObserver = new PerformanceObserver((list) => {
           for (const entry of list.getEntries()) {
-            const navEntry = entry as PerformanceNavigationTiming;
-              dns: navEntry.domainLookupEnd - navEntry.domainLookupStart,
-              tcp: navEntry.connectEnd - navEntry.connectStart,
-              ttfb: navEntry.responseStart - navEntry.requestStart,
-              download: navEntry.responseEnd - navEntry.responseStart,
-              domInteractive: navEntry.domInteractive - navEntry.fetchStart,
-              domComplete: navEntry.domComplete - navEntry.fetchStart,
-            });
+            // const navEntry = entry as PerformanceNavigationTiming;
+            // console.log('Navigation Timing:', navEntry);
           }
         });
         navObserver.observe({ entryTypes: ['navigation'] });

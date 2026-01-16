@@ -8,7 +8,7 @@ interface PaymentFlowState {
   currentStep: "plan" | "consent" | "auth" | "digio" | "processing" | "success" | "error";
   timestamp: number;
   isAuthenticated: boolean;
-  subscriptionType?: "monthly" | "quarterly";
+  subscriptionType?: "monthly" | "quarterly" | "yearly";
   appliedCoupon?: CouponValidationResponse["coupon"] | null;
 }
 
@@ -34,7 +34,7 @@ export const paymentFlowState = {
       if (!saved) return null;
 
       const state: PaymentFlowState = JSON.parse(saved);
-      
+
       // Check if state has expired
       if (Date.now() - state.timestamp > FLOW_STATE_EXPIRY) {
         paymentFlowState.clear();
