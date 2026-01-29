@@ -18,6 +18,7 @@ export default function FAQContactSection() {
     name: "",
     email: "",
     represent: "BASIC",
+    mobile: "",
     message: "",
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -81,7 +82,7 @@ export default function FAQContactSection() {
       const contactData: ContactFormData = {
         name: formData.name,
         email: formData.email,
-        message: `Representation: ${formData.represent}\n\nMessage: ${formData.message}`
+        message: `Representation: ${formData.represent}\n\nMessage: ${formData.message}\n\nContact me on the following number: ${formData.mobile}`
       }
 
       await contactService.sendContactMessage(contactData)
@@ -100,6 +101,7 @@ export default function FAQContactSection() {
           name: "",
           email: "",
           represent: "BASIC",
+          mobile: "",
           message: "",
         })
       }, 3000)
@@ -271,6 +273,19 @@ export default function FAQContactSection() {
                     MODEL PORTFOLIO
                   </button>
                 </div>
+              </div>
+
+              <div className="mb-6">
+                <p className="text-lg mb-4">My mobile number is...</p>
+                <input
+                  type="tel"
+                  name="mobile"
+                  value={formData.mobile}
+                  onChange={handleChange}
+                  placeholder="Your mobile number..."
+                  className="w-full bg-[#032552] border border-[#001633] rounded-md p-3 text-[#FFFFF0] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
               </div>
 
               <div className="mb-6">
