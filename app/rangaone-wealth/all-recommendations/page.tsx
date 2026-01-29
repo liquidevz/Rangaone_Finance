@@ -875,8 +875,8 @@ export default function AllRecommendationsPage() {
                   }}
                   onClick={canAccessTip ? () => handleTipClick(tip._id) : undefined}
                 >
-                  <div className="w-full h-full bg-white rounded-[10px] py-2 px-8">
-                  <div className={cn('flex items-center justify-between', shouldBlurContent && 'blur-sm')}>
+                  <div className="w-full h-full bg-white rounded-[10px] py-2 px-8 relative">
+                  <div className={cn('flex items-center justify-between', shouldBlurContent && 'blur-md pointer-events-none')}>
                     {/* Left: Premium + Stock Name */}
                     <div className="flex items-center gap-3">
                       <div className={`p-[3px] rounded-xl inline-block shadow-sm whitespace-nowrap ${
@@ -949,7 +949,7 @@ export default function AllRecommendationsPage() {
 
                   {/* Subscription Overlay */}
                   {shouldBlurContent && (
-                    <div className="absolute inset-0 bg-white bg-opacity-95 rounded-xl flex items-center justify-center z-20">
+                    <div className="absolute inset-0 bg-black bg-opacity-10 rounded-xl flex items-center justify-center z-20">
                       <div className="text-center">
                         <p className="text-sm text-gray-600 mb-3">
                           {cardData.category === 'premium' ? 'Premium subscription required' : 'Basic subscription required'}

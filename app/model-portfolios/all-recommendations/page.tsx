@@ -745,11 +745,8 @@ export default function ModelPortfolioAllRecommendationsPage() {
                 const cardData = convertTipsToCardFormat([tip])[0];
                 const hasAccess = () => {
                   if (!subscriptionAccess) return false;
-                  if (subscriptionAccess.hasPremium) return true;
-                  if (cardData.category === 'premium') return false;
-                  if (cardData.category === 'basic') return subscriptionAccess.hasBasic;
                   if (cardData.portfolioId) return subscriptionAccess.portfolioAccess.includes(cardData.portfolioId);
-                  return true;
+                  return subscriptionAccess.hasPremium || subscriptionAccess.hasBasic;
                 };
                 const canAccessTip = hasAccess();
                 const shouldBlurContent = !canAccessTip;
@@ -764,8 +761,8 @@ export default function ModelPortfolioAllRecommendationsPage() {
                     }}
                     onClick={canAccessTip ? () => handleTipClick(tip._id, cardData.portfolioId) : undefined}
                   >
-                    <div className="w-full h-full bg-white rounded-[10px] py-2 px-8">
-                    <div className={cn('flex items-center justify-between', shouldBlurContent && 'blur-sm')}>
+                    <div className="w-full h-full bg-white rounded-[10px] py-2 px-8 relative">
+                    <div className={cn('flex items-center justify-between', shouldBlurContent && 'blur-md pointer-events-none')}>
                       {/* Left: Portfolio + Stock Name */}
                       <div className="flex items-center gap-3">
                         <div className="relative bg-gradient-to-r from-[#00B7FF] to-[#85D437] p-[3px] rounded-xl overflow-hidden">
@@ -808,7 +805,7 @@ export default function ModelPortfolioAllRecommendationsPage() {
 
                     {/* Subscription Overlay */}
                     {shouldBlurContent && (
-                      <div className="absolute inset-0 bg-white bg-opacity-95 rounded-xl flex items-center justify-center z-20">
+                      <div className="absolute inset-0 bg-black bg-opacity-10 rounded-xl flex items-center justify-center z-20">
                         <div className="text-center">
                           <p className="text-sm text-gray-600 mb-3">
                             Model Portfolio subscription required
