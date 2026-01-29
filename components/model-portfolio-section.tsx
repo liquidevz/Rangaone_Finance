@@ -83,9 +83,7 @@ export default function ModelPortfolioSection() {
     const loadPortfolios = async () => {
       try {
         setLoading(true)
-        console.log('Loading portfolios from API:', process.env.NEXT_PUBLIC_API_BASE_URL)
         const portfoliosData = await fetchPortfolios()
-        console.log('Loaded portfolios:', portfoliosData.length)
         if (portfoliosData && portfoliosData.length > 0) {
           setPortfolios(portfoliosData)
         } else {
@@ -248,7 +246,6 @@ export default function ModelPortfolioSection() {
         // Preload the audio
         audioRef.current.load()
       } catch (error) {
-        console.log('Audio initialization failed:', error)
       }
     }
   }, [])
@@ -259,10 +256,8 @@ export default function ModelPortfolioSection() {
         audioRef.current.currentTime = 0
         audioRef.current.play().catch(e => {
           // Silently fail if audio can't play (user hasn't interacted with page yet, or file missing)
-          console.log('Audio play failed (this is normal on first page load):', e)
         })
       } catch (error) {
-        console.log('Audio play error:', error)
       }
     }
   }

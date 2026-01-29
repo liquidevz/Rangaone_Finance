@@ -147,7 +147,6 @@ export default function ModelPortfoliosPage() {
             try {
               accessData = await subscriptionService.getSubscriptionAccess();
               cache.set('subscription_access', accessData, 5); // Cache for 5 minutes
-              console.log("📊 Model portfolios subscription access from API:", accessData);
             } catch (error) {
               console.error("Failed to fetch subscription access:", error);
               accessData = {
@@ -215,11 +214,9 @@ export default function ModelPortfoliosPage() {
 
   const handleAddToCart = async (portfolio: PortfolioWithMessage) => {
     try {
-      console.log("Adding portfolio to cart:", portfolio._id, portfolio.name);
 
       // Check if user is authenticated
       if (!isAuthenticated) {
-        console.log("User not authenticated, adding to local cart and redirecting to login");
         
         // Add portfolio to local cart first
         await addToCart(portfolio._id, 1, {
@@ -252,7 +249,6 @@ export default function ModelPortfoliosPage() {
           description: `${portfolio.name} has been added to your cart.`,
         });
         
-        console.log("Successfully added to cart:", portfolio._id);
       } catch (cartError: any) {
         console.error("Error in cart operation:", cartError);
         toast({
@@ -330,15 +326,6 @@ export default function ModelPortfoliosPage() {
               const hasAccess = hasPortfolioAccess(portfolio);
               const isLocked = !hasAccess;
               
-              // Debug logging for each portfolio access check
-              console.log(`🔍 Portfolio Access Check:`, {
-                portfolioId: portfolio._id,
-                portfolioName: portfolio.name,
-                hasAccess: hasAccess,
-                isInAccessArray: subscriptionAccess?.portfolioAccess.includes(portfolio._id),
-                accessArray: subscriptionAccess?.portfolioAccess,
-                isLocked: isLocked
-              });
               // Find methodology PDF link in description array
               let methodologyLink: string | undefined = undefined;
               if (Array.isArray(portfolio.description)) {

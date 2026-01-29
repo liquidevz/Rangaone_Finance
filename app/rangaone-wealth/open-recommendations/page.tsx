@@ -248,7 +248,7 @@ export default function OpenRecommendations() {
 
                 <Card className="overflow-hidden border-2 border-yellow-300 shadow-lg hover:shadow-xl transition-shadow duration-300">
                   <CardHeader className="bg-indigo-900 text-[#FFFFF0] p-4">
-                    <CardTitle className="text-xl text-center">Why Buy This?</CardTitle>
+                    <CardTitle className="text-xl text-center">{`Why ${selectedStock.action} This?`}</CardTitle>
                   </CardHeader>
                   <CardContent className="p-4 bg-gradient-to-b from-white to-gray-50">
                     <ul className="space-y-3">

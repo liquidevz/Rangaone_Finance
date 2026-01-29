@@ -243,24 +243,11 @@ export default function PortfolioDetailsPage() {
         const hasPortfolioAccess = accessData.portfolioAccess.includes(portfolioId);
         setHasAccess(hasPortfolioAccess);
         
-        console.log("📊 Individual portfolio access check:", {
-          portfolioId,
-          hasPremium: accessData.hasPremium,
-          portfolioAccess: accessData.portfolioAccess,
-          hasAccess: hasPortfolioAccess,
-          isIdInArray: accessData.portfolioAccess.includes(portfolioId),
-          arrayLength: accessData.portfolioAccess.length,
-          note: "Access based ONLY on portfolioAccess array from /api/user/subscriptions, regardless of hasPremium flag"
-        });
-        
         // Additional verification logging
         if (accessData.portfolioAccess.length > 0) {
-          console.log("🔑 User has access to these portfolio IDs (from API):", accessData.portfolioAccess);
           accessData.portfolioAccess.forEach((id, index) => {
-            console.log(`  ${index + 1}. ${id} ${id === portfolioId ? '← CURRENT PORTFOLIO' : ''}`);
           });
         } else {
-          console.log("🔒 User has no portfolio access (empty portfolioAccess array from API)");
         }
         
         if (!hasPortfolioAccess) {
@@ -413,7 +400,6 @@ export default function PortfolioDetailsPage() {
     if (!portfolio || refreshingPrices) return;
     
     setRefreshingPrices(true);
-    console.log("🔄 Manually refreshing stock prices...");
     
     try {
       // Clear cache to force fresh data
@@ -446,7 +432,6 @@ export default function PortfolioDetailsPage() {
         variant: "default",
       });
       
-      console.log("✅ Price refresh completed");
       
     } catch (error) {
       console.error("❌ Failed to refresh prices:", error);
@@ -462,7 +447,6 @@ export default function PortfolioDetailsPage() {
 
   // Fetch stock prices for holdings using the robust stock price service
   const fetchStockPrices = async (holdings: Holding[], portfolioData: Portfolio): Promise<HoldingWithPrice[]> => {
-    console.log("🔍 Fetching live stock prices for", holdings.length, "holdings");
     
     if (!holdings || holdings.length === 0) {
       console.warn("⚠️ No holdings provided to fetchStockPrices");
@@ -487,7 +471,6 @@ export default function PortfolioDetailsPage() {
 
     try {
       // Fetch prices for all symbols using the stock price service
-      console.log("📊 Fetching prices for symbols:", symbols);
       const priceResults = await stockPriceService.getMultipleStockPrices(symbols);
       
       // Map results back to holdings
@@ -511,7 +494,6 @@ export default function PortfolioDetailsPage() {
           change = priceData.change;
           changePercent = priceData.changePercent;
             
-          console.log(`✅ Applied exact live price for ${holding.symbol}: ₹${currentPrice}, Change: ${changePercent}%, Weight: ${exactWeight}%`);
         } else {
           console.warn(`⚠️ Failed to get price for ${holding.symbol}:`, priceResponse?.error || "No data");
         }
@@ -529,7 +511,6 @@ export default function PortfolioDetailsPage() {
       });
 
       const successCount = updatedHoldings.filter(h => h.currentPrice !== undefined).length;
-      console.log(`📈 Stock price fetch completed. Success: ${successCount}/${holdings.length}`);
       
       return updatedHoldings;
 
@@ -562,26 +543,13 @@ export default function PortfolioDetailsPage() {
 
   // Validate and clean holdings data from backend
   const validateHoldingsData = (holdings: any[], portfolioId: string): Holding[] => {
-    console.log(`🔍 Validating holdings data for portfolio ${portfolioId}`);
-    console.log("📊 Raw holdings data structure:", holdings);
     
     if (!holdings || !Array.isArray(holdings)) {
       console.warn("⚠️ Invalid holdings data structure:", holdings);
       return [];
     }
 
-    // Log each holding for debugging
-    holdings.forEach((holding: any, index: number) => {
-      console.log(`📋 Holding ${index + 1}:`, {
-        symbol: holding.symbol,
-        weight: holding.weight,
-        sector: holding.sector,
-        status: holding.status,
-        price: holding.price,
-        portfolioId: holding.portfolioId, // Check if this field exists
-        _id: holding._id // Check if this field exists
-      });
-    });
+    // Validate each holding
 
     const validHoldings: Holding[] = holdings
       .filter((holding: any) => {
@@ -610,11 +578,9 @@ export default function PortfolioDetailsPage() {
         quantity: holding.quantity || 0
       }));
 
-    console.log(`✅ Validated ${validHoldings.length} holdings out of ${holdings.length} total`);
     
     // Check for potential data mixing issues
     const totalWeight = validHoldings.reduce((sum, holding) => sum + holding.weight, 0);
-    console.log(`📊 Total weight across all holdings: ${totalWeight.toFixed(2)}%`);
     
     if (totalWeight > 100) {
       console.warn("⚠️ WARNING: Total weight exceeds 100% - possible data mixing from different portfolios!");
@@ -634,12 +600,10 @@ export default function PortfolioDetailsPage() {
       // Check cache first
       const cachedData = cache.get<PriceHistoryData[]>(cacheKey);
       if (cachedData) {
-        console.log('📊 Using cached price history');
         setPriceHistory(cachedData);
         return;
       }
       
-      console.log(`🔍 Fetching: ${portfolioId}, period: ${apiPeriod}`);
       
       const response = await axiosApi.get(`/api/portfolios/${portfolioId}/price-history?period=${apiPeriod}`);
       
@@ -765,7 +729,6 @@ export default function PortfolioDetailsPage() {
     
     setPnlLoading(true);
     try {
-      console.log('🔄 Calculating P&L from price history API...');
       
       // Fetch latest price history data for P&L calculations
       const [dailyData, allData] = await Promise.all([
@@ -776,11 +739,6 @@ export default function PortfolioDetailsPage() {
       const dailyHistory = dailyData.data?.data || [];
       const fullHistory = allData.data?.data || [];
 
-      console.log('📊 P&L API Response:', {
-        dailyDataPoints: dailyHistory.length,
-        fullDataPoints: fullHistory.length
-      });
-
       if (dailyHistory.length >= 2) {
         const today = dailyHistory[dailyHistory.length - 1];
         const yesterday = dailyHistory[dailyHistory.length - 2];
@@ -788,7 +746,6 @@ export default function PortfolioDetailsPage() {
         const dailyChange = today.value - yesterday.value;
         const dailyPercent = yesterday.value > 0 ? (dailyChange / yesterday.value) * 100 : 0;
         
-        console.log('📈 Daily P&L:', { today: today.value, yesterday: yesterday.value, change: dailyChange, percent: dailyPercent });
         
         setChartDataPnl(prev => ({
           ...prev,
@@ -806,7 +763,6 @@ export default function PortfolioDetailsPage() {
         const inceptionChange = latest.value - inception.value;
         const inceptionPercent = inception.value > 0 ? (inceptionChange / inception.value) * 100 : 0;
         
-        console.log('📊 Since Inception P&L:', { latest: latest.value, inception: inception.value, change: inceptionChange, percent: inceptionPercent });
         
         setChartDataPnl(prev => ({
           ...prev,
@@ -831,10 +787,8 @@ export default function PortfolioDetailsPage() {
   const fetchPortfolioTips = async (portfolioId: string) => {
     try {
       setTipsLoading(true);
-      console.log("🔍 Fetching portfolio tips for ID:", portfolioId);
       
       const tips = await tipsService.getPortfolioTips({ portfolioId });
-      console.log("📋 Portfolio tips fetched:", tips);
       
       setPortfolioTips(tips || []);
     } catch (error) {
@@ -856,7 +810,6 @@ export default function PortfolioDetailsPage() {
       
       try {
         setLoading(true);
-        console.log("Loading portfolio data for ID:", portfolioId);
         
         // Check cache first
         const cacheKey = `portfolio_${portfolioId}`;
@@ -864,12 +817,10 @@ export default function PortfolioDetailsPage() {
         
         let portfolioResponse: any;
         if (cachedPortfolio) {
-          console.log("Using cached portfolio data");
           portfolioResponse = cachedPortfolio;
         } else {
           // Fetch portfolio details
           portfolioResponse = await portfolioService.getById(portfolioId);
-          console.log("Portfolio response received:", portfolioResponse);
           // Cache for 10 minutes
           cache.set(cacheKey, portfolioResponse, 10);
         }
@@ -891,7 +842,6 @@ export default function PortfolioDetailsPage() {
         
         // Check for holdings and fetch live prices
         if (portfolioData.holdings && portfolioData.holdings.length > 0) {
-          console.log("Holdings found:", portfolioData.holdings.length, "holdings");
           
           // Validate and clean holdings data from backend
           const validatedHoldings = validateHoldingsData(portfolioData.holdings, portfolioId);
@@ -901,7 +851,6 @@ export default function PortfolioDetailsPage() {
             const cachedPrices = cache.get<HoldingWithPrice[]>(pricesCacheKey);
             
             if (cachedPrices) {
-              console.log("Using cached holdings prices");
               setHoldingsWithPrices(cachedPrices);
             } else {
               const holdingsWithLivePrices = await fetchStockPrices(validatedHoldings, portfolioData);
@@ -1007,7 +956,6 @@ export default function PortfolioDetailsPage() {
       const currentValue = holding.currentValue || 0;
       const marketCap = holding.stockCapType || 'Mid cap';
       
-      console.log(`📊 ${holding.symbol}: Backend values - Quantity: ${quantity}, Investment: ₹${actualInvestment}, Current Value: ₹${currentValue}, Market Cap: ${marketCap}`);
       
       return {
         ...holding,
@@ -1038,7 +986,6 @@ export default function PortfolioDetailsPage() {
     const apiCashBalance = (portfolio as any)?.cashBalance;
     const finalCashBalance = typeof apiCashBalance === 'number' ? apiCashBalance : 0;
     
-    console.log(`💰 Using API Cash Balance: ₹${finalCashBalance}`);
     
     // Total portfolio value with EXACT precision
     const exactTotalPortfolioValue = parseFloat((actualHoldingsValue + finalCashBalance).toFixed(2));
@@ -2078,14 +2025,12 @@ export default function PortfolioDetailsPage() {
                 ];
                 
                 const uniqueTypes = Array.from(new Set(allLinks.map(link => link.linkType).filter(Boolean)));
-                console.log('Available link types:', uniqueTypes);
                 
                 const filteredLinks = allLinks.filter(link => {
                   if (reportFilter === 'all') return true;
                   return link.linkType?.toLowerCase() === reportFilter.toLowerCase();
                 });
                 
-                console.log('Filtered links:', filteredLinks);
                 
                 return filteredLinks.length > 0 ? (
                   filteredLinks.map((link: any, index: number) => {

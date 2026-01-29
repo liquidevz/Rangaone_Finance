@@ -80,7 +80,6 @@ export default function ExpertRecommendations() {
           
           // If no data due to permissions, try public endpoint
           if (!portfoliosData || portfoliosData.length === 0) {
-            console.log("No authenticated portfolios, trying public endpoint")
             portfoliosData = await portfolioService.getPublic()
           }
         } catch (portfolioError) {
@@ -95,8 +94,6 @@ export default function ExpertRecommendations() {
         
         setPortfolios(portfoliosData || [])
         setSubscriptionAccess(accessData)
-        console.log("Fetched portfolios:", portfoliosData)
-        console.log("Subscription access:", accessData)
       } catch (error) {
         console.error("Failed to fetch initial data:", error)
         setError("Failed to load data")
@@ -127,7 +124,6 @@ export default function ExpertRecommendations() {
             const portfolioTips = await tipsService.getByPortfolioId(portfolio._id)
             allTips = [...allTips, ...portfolioTips]
           } catch (tipError) {
-            console.log(`Could not fetch tips for portfolio ${portfolio.name}:`, tipError)
             // Continue with other portfolios
           }
         }
@@ -138,26 +134,20 @@ export default function ExpertRecommendations() {
         if (subscriptionAccess?.hasPremium) {
           // Premium users see all tips (basic and premium)
           filteredTips = allTips
-          console.log("Premium user - showing all tips")
         } else if (subscriptionAccess?.hasBasic) {
           // Basic users see only basic category tips
           filteredTips = allTips.filter(tip => tip.category === 'basic' || !tip.category)
-          console.log("Basic user - showing basic tips only")
         } else if (subscriptionAccess?.portfolioAccess && subscriptionAccess.portfolioAccess.length > 0) {
           // Individual portfolio subscribers see tips from their portfolios only
           filteredTips = allTips.filter(tip => {
             const portfolioId = typeof tip.portfolio === 'string' ? tip.portfolio : tip.portfolio?._id
             return subscriptionAccess.portfolioAccess.includes(portfolioId)
           })
-          console.log("Individual portfolio user - showing specific portfolio tips")
         } else {
           // No subscription - show only basic tips
           filteredTips = allTips.filter(tip => tip.category === 'basic' || !tip.category)
-          console.log("No subscription - showing basic tips only")
         }
         
-        console.log("All tips fetched:", allTips.length)
-        console.log("Filtered tips for user:", filteredTips.length)
         setModelPortfolioTips(filteredTips)
         
         if (filteredTips.length === 0) {

@@ -36,7 +36,6 @@ class StockSymbolCacheService {
           }
         });
         
-        console.log(`📋 Loaded ${this.cache.size} cached stock symbols from session storage`);
       }
       this.isInitialized = true;
     } catch (error) {
@@ -54,7 +53,6 @@ class StockSymbolCacheService {
       
       const cacheObject = Object.fromEntries(this.cache);
       sessionStorage.setItem(this.CACHE_KEY, JSON.stringify(cacheObject));
-      console.log(`💾 Saved ${this.cache.size} stock symbols to session storage`);
     } catch (error) {
       console.error("❌ Failed to save stock symbol cache to session storage:", error);
     }
@@ -100,7 +98,6 @@ class StockSymbolCacheService {
     
     if (!stockIds?.length) return results;
 
-    console.log(`🔍 Getting symbols for ${stockIds.length} stock IDs`);
 
     // Clean stock IDs
     const cleanStockIds = stockIds
@@ -121,7 +118,6 @@ class StockSymbolCacheService {
       }
     });
 
-    console.log(`📋 Found ${cachedSymbols.size} cached symbols, fetching ${idsToFetch.length} new ones`);
 
     // Fetch missing symbols in parallel
     if (idsToFetch.length > 0) {
@@ -151,7 +147,6 @@ class StockSymbolCacheService {
       });
     }
 
-    console.log(`✅ Retrieved ${results.size} symbols (${cachedSymbols.size} from cache, ${results.size - cachedSymbols.size} newly fetched)`);
     
     return results;
   }
@@ -161,7 +156,6 @@ class StockSymbolCacheService {
    */
   private async fetchSymbolFromAPI(stockId: string): Promise<string | null> {
     try {
-      console.log(`🔍 Fetching symbol for stock ID: ${stockId}`);
       
       const response = await stockPriceService.getStockPriceById(stockId);
       
@@ -175,7 +169,6 @@ class StockSymbolCacheService {
         this.cache.set(stockId, symbolData);
         this.saveToSessionStorage();
         
-        console.log(`✅ Cached symbol for ${stockId}: ${symbolData.symbol}`);
         return symbolData.symbol;
       } else {
         console.warn(`⚠️ Failed to fetch symbol for ${stockId}:`, response.error);
@@ -221,7 +214,6 @@ class StockSymbolCacheService {
     if (typeof window !== "undefined") {
       sessionStorage.removeItem(this.CACHE_KEY);
     }
-    console.log("🗑️ Cleared all cached stock symbols");
   }
 
   /**

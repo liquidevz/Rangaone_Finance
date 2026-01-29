@@ -48,11 +48,8 @@ export const portfolioService = {
       console.error("Failed to fetch portfolios:", error);
       
       if (error.response?.status === 401) {
-        console.log("Unauthorized - user needs to log in");
       } else if (error.response?.status === 400) {
-        console.log("Invalid query parameters");
       } else if (error.response?.status === 500) {
-        console.log("Internal server error");
       }
       
       return [];
@@ -83,21 +80,13 @@ export const portfolioService = {
         headers 
       });
       
-      console.log(`📊 Fetched portfolio details for ${portfolioId}`, {
-        authenticated: !!token,
-        hasAccess: !response.data.message
-      });
-      
       return response.data;
     } catch (error: any) {
       console.error(`Failed to fetch portfolio ${portfolioId}:`, error);
       
       if (error.response?.status === 404) {
-        console.log("Portfolio not found");
       } else if (error.response?.status === 401) {
-        console.log("Unauthorized - user needs to log in");  
       } else if (error.response?.status === 500) {
-        console.log("Internal server error");
       }
       
       return null;
@@ -157,7 +146,6 @@ export const portfolioService = {
         throw new Error('No authentication token available');
       }
 
-      console.log(`🔍 Fetching price history for portfolio ${portfolioId}, period: ${period}`);
       
       const response = await axiosApi.get(`/api/portfolios/${portfolioId}/price-history?period=${period}`, {
         headers: {
@@ -166,7 +154,6 @@ export const portfolioService = {
         },
       });
 
-      console.log('📈 Price history API response:', response.data);
       return response.data;
     } catch (error: any) {
       console.error('❌ Failed to fetch price history:', error.response?.data || error.message);
@@ -195,51 +182,28 @@ export const portfolioService = {
    * Debug function to test portfolio API endpoints
    */
   debugPortfolioData: async (): Promise<void> => {
-    console.log("=== PORTFOLIO DEBUG ===");
     
     try {
       const token = authService.getAccessToken();
-      console.log("Auth token available:", !!token);
       
       // Test the /api/user/portfolios endpoint
-      console.log("Testing /api/user/portfolios endpoint...");
       const portfolios = await portfolioService.getAll();
-      console.log("📊 Portfolio API response:");
-      console.log("Total portfolios:", portfolios.length);
       
       if (portfolios.length > 0) {
         const accessibleCount = portfolios.filter(p => portfolioService.hasAccess(p)).length;
         const restrictedCount = portfolios.filter(p => !portfolioService.hasAccess(p)).length;
-        
-        console.log("Accessible portfolios:", accessibleCount);
-        console.log("Restricted portfolios:", restrictedCount);
-        
-        console.log("Sample portfolio structure:", {
-          id: portfolios[0]._id,
-          name: portfolios[0].name,
-          hasAccess: portfolioService.hasAccess(portfolios[0]),
-          category: portfolios[0].PortfolioCategory,
-          message: portfolios[0].message || 'None'
-        });
       }
       
       // Test portfolio detail endpoint if we have portfolios
       if (portfolios.length > 0) {
-        console.log("Testing portfolio detail endpoint...");
         const firstPortfolio = portfolios[0];
         const detailPortfolio = await portfolioService.getById(firstPortfolio._id);
-        console.log("📋 Portfolio detail:", {
-          found: !!detailPortfolio,
-          hasAccess: detailPortfolio ? portfolioService.hasAccess(detailPortfolio) : false,
-          holdingsCount: detailPortfolio?.holdings?.length || 0
-        });
       }
       
     } catch (error: any) {
       console.error("❌ Debug failed:", error);
     }
 
-    console.log("=== END PORTFOLIO DEBUG ===");
   },
 
   // Legacy methods for backward compatibility

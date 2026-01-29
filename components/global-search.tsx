@@ -164,7 +164,6 @@ export function GlobalSearch() {
       const { get } = await import('@/lib/axios')
       const data: any = await get(`/api/search/suggestions?q=${encodeURIComponent(searchQuery)}`)
 
-      console.log('Suggestions response:', data)
 
       if (data.success && data.suggestions?.length > 0) {
         setSuggestions(data.suggestions)

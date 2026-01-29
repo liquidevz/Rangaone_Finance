@@ -75,12 +75,8 @@ export const userPortfolioService = {
       
       // If not authenticated, use public API endpoint
       const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.rangaone.finance";
-      console.log('API Base URL:', apiUrl);
-      console.log('Fetching portfolios from:', apiUrl + '/api/user/portfolios');
       
       const response = await axiosApi.get<UserPortfolio[]>("/api/user/portfolios");
-      console.log('Portfolios response status:', response.status);
-      console.log('Portfolios response data length:', response.data?.length || 0);
       return response.data;
     } catch (error: any) {
       console.error("Failed to fetch portfolios:", {
@@ -124,11 +120,9 @@ export const userPortfolioService = {
       const subscribedPortfolios = response.data.filter((portfolio: any) => {
         // If portfolio has full details (no "message" field), it means user has access
         const isSubscribed = !portfolio.message || portfolio.message !== "Subscribe to view complete details";
-        console.log(`Portfolio ${portfolio._id} (${portfolio.name}): ${isSubscribed ? 'Subscribed' : 'Not subscribed'}`);
         return isSubscribed;
       });
 
-      console.log("Total portfolios:", response.data.length, "Subscribed portfolios:", subscribedPortfolios.length);
       return subscribedPortfolios;
     } catch (error: any) {
       console.error("Failed to fetch subscribed portfolios:", error);

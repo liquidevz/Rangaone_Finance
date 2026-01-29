@@ -7,10 +7,14 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/components/auth/auth-context";
 import { useRouter } from "next/navigation";
-import { paymentService } from "@/services/payment.service";
+import { paymentService, PaymentGatewayType } from "@/services/payment.service";
 import CartAuthForm from "@/components/cart-auth-form";
 import { DigioVerificationModal } from "@/components/digio-verification-modal";
 import type { PaymentAgreementData } from "@/services/digio.service";
+import { PaymentGatewaySelectorModal } from "@/components/payment-gateway-selector";
+import { usePaymentGateways } from "@/hooks/use-payment-gateways";
+import { CashfreeS2SPayment } from "@/components/cashfree-s2s-payment";
+import { CashfreeModal } from "@/components/cashfree-modal";
 
 interface PortfolioPaymentModalProps {
   isOpen: boolean;
@@ -30,7 +34,7 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
   onPaymentSuccess,
 }) => {
   const [step, setStep] = useState<
-    "consent" | "auth" | "pan-form" | "processing" | "success" | "error"
+    "consent" | "auth" | "pan-form" | "gateway-select" | "processing" | "success" | "error"
   >("consent");
   const [processing, setProcessing] = useState(false);
   const [processingMsg, setProcessingMsg] = useState("Preparing secure payment…");
@@ -45,6 +49,28 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
   const [panFormLoading, setPanFormLoading] = useState(false);
   const [digioCompleted, setDigioCompleted] = useState(false);
 
+  // Payment gateway selection state
+  const [selectedGateway, setSelectedGateway] = useState<PaymentGatewayType | null>(null);
+  const [showGatewaySelector, setShowGatewaySelector] = useState(false);
+  const { gateways, hasMultipleGateways, defaultGateway, supportsEmandate } = usePaymentGateways();
+
+  // Cashfree S2S payment state
+  const [showCashfreeS2S, setShowCashfreeS2S] = useState(false);
+  const [cashfreeS2SData, setCashfreeS2SData] = useState<{
+    subscriptionId: string;
+    amount: number;
+    productName: string;
+  } | null>(null);
+
+  // Cashfree modal state
+  const [showCashfreeModal, setShowCashfreeModal] = useState(false);
+  const [cashfreeModalData, setCashfreeModalData] = useState<{
+    paymentSessionId?: string;
+    subsSessionId?: string;
+    paymentType: 'one_time' | 'recurring';
+    amount: number;
+  } | null>(null);
+
   const cancelRequested = useRef(false);
   const { isAuthenticated, user } = useAuth();
   const router = useRouter();
@@ -54,15 +80,15 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
-    
+
     document.body.style.overflow = 'hidden';
-    
+
     if (isAuthenticated && user) {
       setStep("consent");
     } else {
       setStep("auth");
     }
-    
+
     return () => {
       document.body.style.overflow = 'unset';
     };
@@ -74,6 +100,8 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
     setProcessing(false);
     setShowDigio(false);
     setDigioCompleted(false);
+    setSelectedGateway(null); // Reset selected gateway
+    setShowGatewaySelector(false); // Reset gateway selector
     onClose();
   };
 
@@ -84,30 +112,249 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
   const handleDigioComplete = async () => {
     setShowDigio(false);
     setDigioCompleted(true);
-    
-    // Wait longer for Digio to process on backend
+
+    // Verify eSign status with backend before proceeding
+    if (cartItems && cartItems.length > 0) {
+      setStep("processing");
+      setProcessing(true);
+      setProcessingMsg("Verifying digital signature...");
+
+      try {
+        const { digioService } = await import("@/services/digio.service");
+        const productId = cartItems[0]?.portfolio._id;
+        const verifyResult = await digioService.verifyAndUpdateEsignStatus("Portfolio", productId);
+
+        if (!verifyResult.success || !verifyResult.signed) {
+          // eSign not completed - show error or retry
+          toast({
+            title: "Signature Verification",
+            description: "Please complete the digital signature process before proceeding.",
+            variant: "destructive"
+          });
+          setProcessing(false);
+          setStep("consent");
+          return;
+        }
+      } catch (error) {
+        console.error("Error verifying eSign:", error);
+        // Continue anyway - backend will do final verification
+      }
+    }
+
+    // If a gateway was already selected (e.g., Cashfree triggered eSign), proceed with that gateway
+    if (selectedGateway) {
+      await proceedWithPayment(selectedGateway);
+      return;
+    }
+
+    // After eSign completion, check if we need to show gateway selector
+    // Filter gateways that support emandate for this flow
+    const availableGateways = isEmandateFlow
+      ? gateways.filter(g => supportsEmandate(g.id))
+      : gateways;
+
+
+    // Show gateway selector when we have 2+ gateways
+    if (gateways.length >= 2 || availableGateways.length >= 2) {
+      setShowGatewaySelector(true);
+      return;
+    }
+
+    if (availableGateways.length === 1) {
+      // Only one gateway - auto-select and proceed
+      setSelectedGateway(availableGateways[0].id);
+      await proceedWithPayment(availableGateways[0].id);
+    } else {
+      // No gateways available - use default (Razorpay)
+      setSelectedGateway('razorpay');
+      await proceedWithPayment('razorpay');
+    }
+  };
+
+  // Handle gateway selection from modal
+  const handleGatewaySelect = async (gatewayId: PaymentGatewayType) => {
+    setSelectedGateway(gatewayId);
+    setShowGatewaySelector(false);
+    await proceedWithPayment(gatewayId);
+  };
+
+  // Proceed with payment after gateway selection
+  const proceedWithPayment = async (gateway: PaymentGatewayType) => {
     setStep("processing");
     setProcessing(true);
     setProcessingMsg("Processing digital signature...");
-    
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    
-    await continueAfterDigio();
+
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    if (gateway === 'cashfree') {
+      await handleCashfreePayment();
+    } else {
+      await continueAfterDigio();
+    }
+  };
+
+  // Handle Cashfree portfolio payment flow - supports both one-time (monthly) and recurring (quarterly/yearly)
+  const handleCashfreePayment = async () => {
+    try {
+      setProcessingMsg("Creating payment...");
+
+      const productId = cartItems[0]?.portfolio._id || "";
+      const productName = cartItems[0]?.portfolio.name || "Portfolio";
+
+      // Determine payment method: one_time for monthly, emandate for quarterly/yearly
+      const purchaseMethod = isEmandateFlow ? 'emandate' : 'one_time';
+
+      console.log('🔄 Creating Cashfree portfolio payment with purchaseMethod:', purchaseMethod);
+
+      const result = await paymentService.createCashfreeSubscription({
+        productType: "Portfolio",
+        productId: productId,
+        planType: subscriptionType,
+        userId: user?._id,
+        purchaseMethod: purchaseMethod,
+      });
+
+      console.log('📦 Cashfree portfolio API response:', result);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create payment');
+      }
+
+      const paymentType = result.paymentType || (isEmandateFlow ? 'recurring' : 'one_time');
+
+      // Handle based on payment type from response
+      if (paymentType === 'one_time') {
+        // One-time payment - use paymentSessionId
+        const paymentSessionId = result.cashfree?.paymentSessionId ||
+          result.cashfree?.payment_session_id ||
+          result.payment_session_id;
+
+        if (!paymentSessionId) {
+          console.error("❌ Missing paymentSessionId in response:", result);
+          throw new Error('Missing payment session ID. Please contact support.');
+        }
+
+        console.log('💳 One-time payment - paymentSessionId:', paymentSessionId);
+
+        sessionStorage.setItem('cashfree_payment_session_id', paymentSessionId);
+        sessionStorage.setItem('cashfree_return_url', window.location.href);
+
+        setCashfreeModalData({
+          paymentSessionId: paymentSessionId,
+          paymentType: 'one_time',
+          amount: total,
+        });
+        setShowCashfreeModal(true);
+        setProcessing(false);
+
+      } else {
+        // Recurring subscription - use subsSessionId
+        const subsSessionId = result.cashfree?.subsSessionId;
+        const subscriptionId = result.subscription?.cfSubscriptionId || result.subscription?.id || result.cashfree?.subscriptionId;
+
+        if (!subsSessionId) {
+          console.error("❌ Missing subsSessionId in response:", result);
+          throw new Error('Missing subscription session ID. Please contact support.');
+        }
+
+        console.log('🔄 Recurring subscription - subsSessionId:', subsSessionId);
+
+        // Store subscription info for verification after redirect
+        if (subscriptionId) {
+          sessionStorage.setItem('cashfree_subscription_id', subscriptionId);
+        }
+        sessionStorage.setItem('cashfree_subs_session_id', subsSessionId);
+        sessionStorage.setItem('cashfree_return_url', window.location.href);
+
+        setCashfreeModalData({
+          subsSessionId: subsSessionId,
+          paymentType: 'recurring',
+          amount: total,
+        });
+        setShowCashfreeModal(true);
+        setProcessing(false);
+      }
+
+    } catch (error: any) {
+      console.error("Cashfree portfolio payment error:", error);
+
+      // Check for eSign requirement (412 error or ESIGN_REQUIRED code)
+      if (error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
+        if (cartItems?.length > 0) {
+          const productId = cartItems[0]?.portfolio._id || "";
+          const productName = cartItems[0]?.portfolio.name || "Portfolio";
+          const data: PaymentAgreementData = {
+            customerName: (user as any)?.fullName || user?.username || "User",
+            customerEmail: user?.email || "user@example.com",
+            customerMobile: user?.phone,
+            amount: total,
+            subscriptionType: subscriptionType,
+            portfolioNames: cartItems.map(item => item.portfolio.name),
+            agreementDate: new Date().toLocaleDateString("en-IN"),
+            productType: "Portfolio",
+            productId: productId,
+            productName: productName,
+          } as any;
+
+          // Store selected gateway for after eSign
+          setSelectedGateway('cashfree');
+          setAgreementData(data);
+          setShowDigio(true);
+        }
+        setProcessing(false);
+        return;
+      }
+
+      // Check for eSign pending
+      if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_PENDING') {
+        const authUrl = error.response.data.pendingEsign?.authenticationUrl;
+        if (authUrl && cartItems?.length > 0) {
+          const productId = cartItems[0]?.portfolio._id || "";
+          const productName = cartItems[0]?.portfolio.name || "Portfolio";
+          const data: PaymentAgreementData = {
+            customerName: (user as any)?.fullName || user?.username || "User",
+            customerEmail: user?.email || "user@example.com",
+            customerMobile: user?.phone,
+            amount: total,
+            subscriptionType: subscriptionType,
+            portfolioNames: cartItems.map(item => item.portfolio.name),
+            agreementDate: new Date().toLocaleDateString("en-IN"),
+            productType: "Portfolio",
+            productId: productId,
+            productName: productName,
+          } as any;
+
+          // Store selected gateway for after eSign
+          setSelectedGateway('cashfree');
+          setAgreementData(data);
+          setShowDigio(true);
+        }
+        setProcessing(false);
+        return;
+      }
+
+      setStep("error");
+      setProcessing(false);
+      toast({
+        title: "Payment Error",
+        description: error?.message || "Could not process Cashfree payment",
+        variant: "destructive",
+      });
+    }
   };
 
   const handlePaymentFlow = async () => {
-    console.log("🚀 Starting portfolio payment flow");
-    
+
     const panCheck = await paymentService.checkPanDetails();
     if (!panCheck.hasPan) {
       const dobFromProfile = panCheck.profile?.dateOfBirth || panCheck.profile?.dateofBirth;
       const dobFromUser = (user as any)?.dateOfBirth || (user as any)?.dateofBirth;
       let finalDob = dobFromProfile || dobFromUser || "";
-      
+
       if (finalDob && finalDob.includes('T')) {
         finalDob = finalDob.split('T')[0];
       }
-      
+
       setPanFormData({
         fullName: panCheck.profile?.fullName || (user as any)?.fullName || "",
         dateofBirth: finalDob,
@@ -118,13 +365,13 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
       setProcessing(false);
       return;
     }
-    
+
     setStep("processing");
     setProcessing(true);
-    
+
     try {
       setProcessingMsg("Creating order...");
-      
+
       if (isEmandateFlow) {
         await handleEmandatePaymentFlow();
       } else {
@@ -132,7 +379,7 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
           planType: subscriptionType,
           subscriptionType: "premium",
         });
-        
+
         setProcessingMsg("Opening payment gateway...");
         await paymentService.openCheckout(
           order,
@@ -147,7 +394,7 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
               paymentId: rp?.razorpay_payment_id,
               signature: rp?.razorpay_signature,
             });
-            
+
             if (verify.success) {
               setStep("success");
               setProcessing(false);
@@ -180,16 +427,15 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
           productId: cartItems[0]?.portfolio._id || "",
           productName: "Portfolio Subscription",
         } as any;
-        
+
         setAgreementData(data);
         setShowDigio(true);
         setProcessing(false);
         return;
       }
-      
+
       // Check for eSign pending
       if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_PENDING') {
-        console.log("🔍 eSign pending - showing Digio modal");
         const authUrl = error.response.data.pendingEsign?.authenticationUrl;
         if (authUrl) {
           const data: PaymentAgreementData = {
@@ -210,7 +456,7 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
         setProcessing(false);
         return;
       }
-      
+
       setStep("error");
       setProcessing(false);
       toast({
@@ -224,16 +470,14 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
   const handleEmandatePaymentFlow = async () => {
     try {
       setProcessingMsg("Creating eMandate…");
-      
+
       const emandatePayload = {
         productType: "Portfolio" as const,
         productId: cartItems[0]?.portfolio._id || "",
         emandateType: subscriptionType
       };
 
-      console.log("🚀 Creating eMandate with payload:", emandatePayload);
       const emandate = await paymentService.createEmandate(emandatePayload);
-      console.log("✅ eMandate created successfully:", emandate);
 
       setProcessingMsg("Opening payment gateway…");
       await paymentService.openCheckout(
@@ -277,16 +521,15 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
           productId: cartItems[0]?.portfolio._id || "",
           productName: "Portfolio Subscription",
         } as any;
-        
+
         setAgreementData(data);
         setShowDigio(true);
         setProcessing(false);
         return;
       }
-      
+
       // Check for eSign pending for eMandate
       if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_PENDING') {
-        console.log("🔍 eSign pending for eMandate - showing Digio modal");
         const authUrl = error.response.data.pendingEsign?.authenticationUrl;
         if (authUrl) {
           const data: PaymentAgreementData = {
@@ -307,7 +550,7 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
         setProcessing(false);
         return;
       }
-      
+
       setStep("error");
       setProcessing(false);
       toast({
@@ -328,26 +571,22 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
         // Verify eSign status first
         try {
           const productId = cartItems[0]?.portfolio._id || "";
-          console.log("🔍 Verifying eSign status for:", { productType: "Portfolio", productId });
-          
+
           const eSignStatus = await paymentService.verifyESignCompletion("Portfolio", productId);
-          console.log("✅ eSign verification result:", eSignStatus);
-          
+
           if (!eSignStatus.success) {
             throw new Error("eSign verification failed: " + eSignStatus.message);
           }
-          
+
           setProcessingMsg("Creating eMandate…");
-          
+
           const emandatePayload = {
             productType: "Portfolio" as const,
             productId: productId,
             emandateType: subscriptionType
           };
 
-          console.log("🚀 Creating eMandate after eSign verification:", emandatePayload);
           const emandate = await paymentService.createEmandate(emandatePayload);
-          console.log("✅ eMandate created successfully:", emandate);
 
           setProcessingMsg("Opening payment gateway…");
           await paymentService.openCheckout(
@@ -389,7 +628,7 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
         }
       } else {
         setProcessingMsg("Creating order…");
-        
+
         const order = await paymentService.cartCheckout({
           planType: subscriptionType,
           subscriptionType: "premium",
@@ -467,16 +706,16 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
                 {step === "success"
                   ? "Payment Successful!"
                   : step === "error"
-                  ? "Payment Failed"
-                  : step === "processing"
-                  ? "Processing Payment"
-                  : step === "auth"
-                  ? "Login Required"
-                  : step === "consent"
-                  ? "Complete Your Digital Verification"
-                  : step === "pan-form"
-                  ? "Complete Your Profile"
-                  : "Portfolio Purchase"
+                    ? "Payment Failed"
+                    : step === "processing"
+                      ? "Processing Payment"
+                      : step === "auth"
+                        ? "Login Required"
+                        : step === "consent"
+                          ? "Complete Your Digital Verification"
+                          : step === "pan-form"
+                            ? "Complete Your Profile"
+                            : "Portfolio Purchase"
                 }
               </h2>
               <button
@@ -493,11 +732,12 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
                   <div className="space-y-6">
                     <div className="bg-black rounded-lg overflow-hidden aspect-video">
                       <iframe
-                        src={`https://www.youtube.com/embed/guetyPOoThw?origin=${typeof window !== 'undefined' ? window.location.origin : ''}`}
+                        src="https://www.youtube-nocookie.com/embed/guetyPOoThw?rel=0&modestbranding=1&enablejsapi=1"
                         title="Digital Verification Process"
                         className="w-full h-full"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen
+                        loading="lazy"
                       ></iframe>
                     </div>
 
@@ -507,7 +747,7 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
                       </h4>
                       <div className="prose prose-gray max-w-none">
                         <p className="text-gray-700 mb-4">
-                          As per SEBI regulations and RBI guidelines, all investment platforms must verify the identity 
+                          As per SEBI regulations and RBI guidelines, all investment platforms must verify the identity
                           of their subscribers before processing any financial transactions.
                         </p>
                         <p className="text-gray-700">
@@ -542,7 +782,7 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
                     </div>
                     <CartAuthForm
                       onAuthSuccess={handleAuthSuccess}
-                      onPaymentTrigger={() => {}}
+                      onPaymentTrigger={() => { }}
                       cartTotal={total}
                       cartItemCount={cartItems.length}
                     />
@@ -555,11 +795,11 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
                       <h3 className="text-xl font-semibold mb-2 text-gray-900">Complete Your Profile</h3>
                       <p className="text-gray-600 text-sm">We need your PAN details to comply with regulatory requirements</p>
                     </div>
-                    
+
                     <form className="space-y-5" onSubmit={async (e) => {
                       e.preventDefault();
                       setPanFormLoading(true);
-                      
+
                       try {
                         await paymentService.updatePanDetails(panFormData);
                         toast({ title: "Profile Updated", description: "Your PAN details have been verified and saved successfully" });
@@ -575,7 +815,7 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
                           type="text"
                           required
                           value={panFormData.fullName}
-                          onChange={(e) => setPanFormData({...panFormData, fullName: e.target.value})}
+                          onChange={(e) => setPanFormData({ ...panFormData, fullName: e.target.value })}
                           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           placeholder="Full Name"
                         />
@@ -583,30 +823,30 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
                           type="date"
                           required
                           value={panFormData.dateofBirth}
-                          onChange={(e) => setPanFormData({...panFormData, dateofBirth: e.target.value})}
+                          onChange={(e) => setPanFormData({ ...panFormData, dateofBirth: e.target.value })}
                           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
-                      
+
                       <input
                         type="tel"
                         required
                         value={panFormData.phone}
-                        onChange={(e) => setPanFormData({...panFormData, phone: e.target.value})}
+                        onChange={(e) => setPanFormData({ ...panFormData, phone: e.target.value })}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Phone Number"
                       />
-                      
+
                       <input
                         type="text"
                         required
                         value={panFormData.pandetails}
-                        onChange={(e) => setPanFormData({...panFormData, pandetails: e.target.value.toUpperCase()})}
+                        onChange={(e) => setPanFormData({ ...panFormData, pandetails: e.target.value.toUpperCase() })}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="PAN Card Number"
                         maxLength={10}
                       />
-                      
+
                       <div className="flex gap-3 pt-2">
                         <Button type="button" onClick={() => setStep("consent")} variant="outline" className="flex-1" disabled={panFormLoading}>
                           Back
@@ -672,6 +912,85 @@ export const PortfolioPaymentModal: React.FC<PortfolioPaymentModalProps> = ({
           onClose={() => setShowDigio(false)}
           onVerificationComplete={handleDigioComplete}
           agreementData={agreementData}
+        />
+      )}
+
+      {/* Payment Gateway Selector Modal */}
+      <PaymentGatewaySelectorModal
+        isOpen={showGatewaySelector}
+        onClose={() => {
+          setShowGatewaySelector(false);
+          setStep("consent");
+        }}
+        onSelect={handleGatewaySelect}
+        title="Choose Payment Method"
+        description="Select your preferred payment gateway to complete the subscription"
+        isEmandate={isEmandateFlow}
+      />
+
+      {/* Cashfree S2S Payment Modal */}
+      {showCashfreeS2S && cashfreeS2SData && (
+        <CashfreeS2SPayment
+          isOpen={showCashfreeS2S}
+          onClose={() => {
+            setShowCashfreeS2S(false);
+            setCashfreeS2SData(null);
+            setStep("consent");
+          }}
+          subscriptionId={cashfreeS2SData.subscriptionId}
+          amount={cashfreeS2SData.amount}
+          productName={cashfreeS2SData.productName}
+          onSuccess={() => {
+            setShowCashfreeS2S(false);
+            onPaymentSuccess();
+          }}
+          onError={(error) => {
+            console.error('Cashfree S2S error:', error);
+            toast({
+              title: "Payment Error",
+              description: error,
+              variant: "destructive",
+            });
+          }}
+        />
+      )}
+
+      {/* Cashfree Modal */}
+      {showCashfreeModal && cashfreeModalData && (
+        <CashfreeModal
+          isOpen={showCashfreeModal}
+          onClose={() => {
+            setShowCashfreeModal(false);
+            setCashfreeModalData(null);
+            setStep("consent");
+          }}
+          paymentSessionId={cashfreeModalData.paymentSessionId}
+          subsSessionId={cashfreeModalData.subsSessionId}
+          paymentType={cashfreeModalData.paymentType}
+          amount={cashfreeModalData.amount}
+          title={cashfreeModalData.paymentType === 'one_time' ? "Complete Payment" : "Complete Payment Authorization"}
+          onSuccess={async () => {
+            setShowCashfreeModal(false);
+            setCashfreeModalData(null);
+            setStep("success");
+
+            // Redirect to dashboard
+            setTimeout(() => {
+              onPaymentSuccess();
+              router.push('/dashboard?payment=success');
+            }, 2000);
+          }}
+          onFailure={(error) => {
+            console.error('Cashfree modal error:', error);
+            setShowCashfreeModal(false);
+            setCashfreeModalData(null);
+            setStep("error");
+            toast({
+              title: "Payment Failed",
+              description: error?.message || "Payment authorization failed. Please try again.",
+              variant: "destructive",
+            });
+          }}
         />
       )}
     </>

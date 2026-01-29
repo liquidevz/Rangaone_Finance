@@ -8,13 +8,17 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/components/auth/auth-context";
 import { useRouter } from "next/navigation";
 import { Bundle } from "@/services/bundle.service";
-import { paymentService } from "@/services/payment.service";
+import { paymentService, PaymentGatewayType } from "@/services/payment.service";
 import CartAuthForm from "@/components/cart-auth-form";
 import { DigioVerificationModal } from "@/components/digio-verification-modal";
 import { paymentFlowState } from "@/lib/payment-flow-state";
 import { CouponInput } from "@/components/coupon-input";
 import type { CouponValidationResponse } from "@/services/coupon.service";
 import type { PaymentAgreementData } from "@/services/digio.service";
+import { PaymentGatewaySelectorModal } from "@/components/payment-gateway-selector";
+import { usePaymentGateways } from "@/hooks/use-payment-gateways";
+import { CashfreeS2SPayment } from "@/components/cashfree-s2s-payment";
+import { CashfreeModal } from "@/components/cashfree-modal";
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -30,12 +34,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   isEmandateFlow = false,
 }) => {
   // Use isEmandateFlow to determine which options to show
-  console.log("isEmandateFlow:", isEmandateFlow);
   const [step, setStep] = useState<
-    "plan" | "consent" | "auth" | "pan-form" | "esign" | "processing" | "success" | "error"
+    "plan" | "consent" | "auth" | "pan-form" | "esign" | "gateway-select" | "processing" | "success" | "error"
   >("plan");
   const [subscriptionType, setSubscriptionType] = useState<
-    "monthly" | "quarterly"
+    "monthly" | "quarterly" | "yearly"
   >("monthly");
   const [appliedCoupon, setAppliedCoupon] = useState<CouponValidationResponse["coupon"] | null>(null);
   const [processing, setProcessing] = useState(false);
@@ -60,8 +63,34 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   });
   const [panFormLoading, setPanFormLoading] = useState(false);
 
+  // Payment gateway selection state
+  const [selectedGateway, setSelectedGateway] = useState<PaymentGatewayType | null>(null);
+  const [showGatewaySelector, setShowGatewaySelector] = useState(false);
+  const { gateways, hasMultipleGateways, defaultGateway, supportsEmandate, loading: gatewaysLoading } = usePaymentGateways();
+
+  // Cashfree S2S payment state
+  const [showCashfreeS2S, setShowCashfreeS2S] = useState(false);
+  const [cashfreeS2SData, setCashfreeS2SData] = useState<{
+    subscriptionId: string;
+    amount: number;
+    productName: string;
+  } | null>(null);
+
+  // Cashfree Modal state
+  const [showCashfreeModal, setShowCashfreeModal] = useState(false);
+  const [cashfreeModalData, setCashfreeModalData] = useState<{
+    // For one-time payments
+    paymentSessionId?: string;
+    // For recurring subscriptions
+    subsSessionId?: string;
+    // Payment type determines which SDK method to use
+    paymentType: 'one_time' | 'recurring';
+    amount: number;
+  } | null>(null);
+
   const cancelRequested = useRef(false);
   const continuedAfterAuthRef = useRef(false);
+  const hasRestoredRef = useRef(false);
 
   const { isAuthenticated, user, isLoading } = useAuth();
   const router = useRouter();
@@ -73,19 +102,24 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     if (!bundle) return 0;
     let basePrice = 0;
     if (isEmandateFlow) {
-      basePrice =
-        subscriptionType === "quarterly"
-          ? (bundle as any).quarterlyemandateprice || bundle.quarterlyPrice || 0
-          : (bundle as any).monthlyemandateprice || bundle.monthlyPrice || 0;
+      if (subscriptionType === "yearly") {
+        basePrice = (bundle as any).yearlyemandateprice || bundle.yearlyPrice || 0;
+      } else if (subscriptionType === "quarterly") {
+        basePrice = (bundle as any).quarterlyemandateprice || bundle.quarterlyPrice || 0;
+      } else {
+        basePrice = (bundle as any).monthlyemandateprice || bundle.monthlyPrice || 0;
+      }
     } else {
       basePrice = bundle.monthlyPrice || 0;
     }
 
     if (appliedCoupon) {
-      const discountAmount = appliedCoupon.discountType === "percentage" 
+      const discountAmount = appliedCoupon.discountType === "percentage"
         ? Math.min((basePrice * appliedCoupon.discountValue) / 100, appliedCoupon.maxDiscountAmount || Infinity)
         : appliedCoupon.discountValue;
-      return Math.max(0, basePrice - discountAmount);
+      const finalPrice = Math.max(0, basePrice - discountAmount);
+      // Round to 2 decimal places to avoid floating point errors (e.g. 39.960000000000036)
+      return Math.round(finalPrice * 100) / 100;
     }
     return basePrice;
   }, [bundle, isEmandateFlow, subscriptionType, appliedCoupon]);
@@ -111,13 +145,61 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     setShowDigio(true);
   }, [bundle, user, subscriptionType, getPrice]);
 
+  const handlePaymentFlow = useCallback(async () => {
+    if (!bundle) return;
+
+
+    // Step 1: Check PAN details first
+    const panCheck = await paymentService.checkPanDetails();
+
+    if (!panCheck.hasPan) {
+
+      // Try to get DOB from profile or user data
+      const dobFromProfile = panCheck.profile?.dateOfBirth || panCheck.profile?.dateofBirth;
+      const dobFromUser = (user as any)?.dateOfBirth || (user as any)?.dateofBirth;
+      let finalDob = dobFromProfile || dobFromUser || "";
+
+      // Convert ISO date to YYYY-MM-DD format for HTML date input
+      if (finalDob && finalDob.includes('T')) {
+        finalDob = finalDob.split('T')[0]; // Extract YYYY-MM-DD part
+      }
+
+
+      setPanFormData({
+        fullName: panCheck.profile?.fullName || (user as any)?.fullName || "",
+        dateofBirth: finalDob,
+        phone: panCheck.profile?.phone || (user as any)?.phone || "",
+        pandetails: ""
+      });
+      setStep("pan-form");
+      setProcessing(false);
+      return;
+    }
+
+
+    // Step 2: Show video modal before payment
+    setStep("consent");
+    setProcessing(false);
+  }, [bundle, user]);
+
+  // Ensure subscriptionType is defaulted correctly if needed
+  useEffect(() => {
+    // If not eMandate flow, default to monthly if not already set or if current selection is invalid
+    if (!isEmandateFlow && !['monthly', 'quarterly', 'yearly'].includes(subscriptionType)) {
+      setSubscriptionType("monthly");
+    }
+  }, [isEmandateFlow]);
+
   // When modal opens, restore saved state and determine starting step
   useEffect(() => {
-    if (!isOpen || !bundle) return;
-    
+    if (!isOpen || !bundle) {
+      hasRestoredRef.current = false;
+      return;
+    }
+
     // Block body scroll when modal opens
     document.body.style.overflow = 'hidden';
-    
+
     const savedState = paymentFlowState.get();
     if (savedState && savedState.bundleId === bundle._id) {
       // Restore saved plan selection
@@ -127,10 +209,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       if (savedState.appliedCoupon) {
         setAppliedCoupon(savedState.appliedCoupon);
       }
-      
+
       // If user is authenticated and has saved state, skip to payment flow
-      if (isAuthenticated && user && savedState.subscriptionType) {
-        console.log("✅ User authenticated with saved plan - proceeding to PAN verification");
+      if (isAuthenticated && user && savedState.subscriptionType && !hasRestoredRef.current) {
+        hasRestoredRef.current = true;
         setStep("processing");
         setProcessing(true);
         setProcessingMsg("Checking profile...");
@@ -138,7 +220,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         return;
       }
     }
-    
+
     setStep("plan");
     paymentFlowState.save({
       bundleId: bundle._id,
@@ -148,13 +230,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       subscriptionType,
       appliedCoupon
     });
-    
+
     continuedAfterAuthRef.current = false;
-    
+
     // Cleanup function to restore body scroll
     return () => {
       document.body.style.overflow = 'unset';
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, bundle, isEmandateFlow, isAuthenticated, user]);
 
 
@@ -177,13 +260,26 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     return Math.max(0, pct);
   };
 
+  const computeQuarterlyDiscount = () => {
+    if (!bundle) return 0;
+    const strikedPrice = (bundle as any).quarterlyPrice || 0;
+    const actualPrice = (bundle as any).quarterlyemandateprice || 0;
+    if (!strikedPrice || !actualPrice) return 0;
+    const pct = Math.round(((strikedPrice - actualPrice) / strikedPrice) * 100);
+    return Math.max(0, pct);
+  };
+
 
   const getOriginalPrice = () => {
     if (!bundle) return 0;
     if (isEmandateFlow) {
-      return subscriptionType === "quarterly"
-        ? (bundle as any).yearlyemandateprice || bundle.quarterlyPrice || 0
-        : (bundle as any).monthlyemandateprice || bundle.monthlyPrice || 0;
+      if (subscriptionType === "yearly") {
+        return (bundle as any).yearlyemandateprice || bundle.yearlyPrice || 0;
+      } else if (subscriptionType === "quarterly") {
+        return (bundle as any).quarterlyemandateprice || bundle.quarterlyPrice || 0;
+      } else {
+        return (bundle as any).monthlyemandateprice || bundle.monthlyPrice || 0;
+      }
     }
     return bundle.monthlyPrice || 0;
   };
@@ -201,6 +297,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     setShowDigio(false);
     setTelegramLinks(null);
     setESignData(null);
+    setSelectedGateway(null); // Reset selected gateway
+    setShowGatewaySelector(false); // Reset gateway selector
     continuedAfterAuthRef.current = false;
     // Clear payment flow state when modal is closed
     paymentFlowState.clear();
@@ -223,9 +321,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
 
   const handleAuthSuccess = async () => {
-    console.log("✅ Auth success - proceeding to payment flow");
     // Update payment flow state with current selections
-    paymentFlowState.update({ 
+    paymentFlowState.update({
       isAuthenticated: true,
       subscriptionType,
       appliedCoupon
@@ -239,39 +336,246 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
   const handleDigioComplete = async () => {
     setShowDigio(false);
-    
-    // // Verify eSign completion
-    // try {
-    //   setStep("processing");
-    //   setProcessing(true);
-    //   setProcessingMsg("Verifying eSign completion...");
-    //   
-    //   const verification = await paymentService.verifyESignCompletion("Bundle", bundle?._id || "");
-    //   
-    //   if (!verification.success) {
-    //     setStep("error");
-    //     setProcessing(false);
-    //     toast({
-    //       title: "eSign Verification Failed",
-    //       description: verification.message,
-    //       variant: "destructive",
-    //     });
-    //     return;
-    //   }
-    //   
-    //   console.log("✅ eSign verified - retrying payment API");
-    //   await continueAfterDigio();
-    // } catch (error: any) {
-    //   setStep("error");
-    //   setProcessing(false);
-    //   toast({
-    //     title: "eSign Verification Error",
-    //     description: error?.message || "Failed to verify eSign",
-    //     variant: "destructive",
-    //   });
-    // }
-    
-    await continueAfterDigio();
+
+    // Verify eSign status with backend before proceeding
+    if (bundle) {
+      setStep("processing");
+      setProcessing(true);
+      setProcessingMsg("Verifying digital signature...");
+
+      try {
+        const { digioService } = await import("@/services/digio.service");
+        const verifyResult = await digioService.verifyAndUpdateEsignStatus("Bundle", bundle._id);
+
+        if (!verifyResult.success || !verifyResult.signed) {
+          // eSign not completed - show error or retry
+          toast({
+            title: "Signature Verification",
+            description: "Please complete the digital signature process before proceeding.",
+            variant: "destructive"
+          });
+          setProcessing(false);
+          setStep("consent");
+          return;
+        }
+      } catch (error) {
+        console.error("Error verifying eSign:", error);
+        // Continue anyway - backend will do final verification
+      }
+    }
+
+    // If a gateway was already selected (e.g., Cashfree triggered eSign), proceed with that gateway
+    if (selectedGateway) {
+      await proceedWithPayment(selectedGateway);
+      return;
+    }
+
+    // After eSign completion, show gateway selector to let user choose
+    // Filter gateways that support emandate for this flow
+    const availableGateways = isEmandateFlow
+      ? gateways.filter(g => supportsEmandate(g.id))
+      : gateways;
+
+    if (availableGateways.length > 1) {
+      // Multiple gateways available - show selector
+      setShowGatewaySelector(true);
+    } else if (availableGateways.length === 1) {
+      // Only one gateway - auto-select and proceed
+      setSelectedGateway(availableGateways[0].id);
+      await proceedWithPayment(availableGateways[0].id);
+    } else {
+      // No gateways available - use default (Razorpay)
+      setSelectedGateway('razorpay');
+      await proceedWithPayment('razorpay');
+    }
+  };
+
+  // Handle gateway selection from modal
+  const handleGatewaySelect = async (gatewayId: PaymentGatewayType) => {
+    setSelectedGateway(gatewayId);
+    setShowGatewaySelector(false);
+    await startPaymentWithGateway(gatewayId);
+  };
+
+  // Proceed with payment after gateway selection (used by handleDigioComplete)
+  const proceedWithPayment = async (gateway: PaymentGatewayType) => {
+    if (!bundle) return;
+
+    setStep("processing");
+    setProcessing(true);
+
+    if (gateway === 'cashfree') {
+      await handleCashfreePayment();
+    } else {
+      await continueAfterDigio();
+    }
+  };
+
+  // Handle Cashfree payment flow - supports both one-time (monthly) and recurring (quarterly/yearly)
+  const handleCashfreePayment = async () => {
+    if (!bundle) return;
+
+    try {
+      setProcessingMsg("Creating payment...");
+
+      // Determine payment method: one_time for monthly, emandate for quarterly/yearly
+      const purchaseMethod = isEmandateFlow ? 'emandate' : 'one_time';
+
+      console.log('🔄 Creating Cashfree payment with purchaseMethod:', purchaseMethod, 'for plan:', subscriptionType);
+
+      // Create subscription - backend returns paymentSessionId for one-time or subsSessionId for recurring
+      const result = await paymentService.createCashfreeSubscription({
+        productType: "Bundle",
+        productId: bundle._id,
+        planType: subscriptionType,
+        userId: user?._id,
+        couponCode: appliedCoupon?.code,
+        purchaseMethod: purchaseMethod,
+      });
+
+      console.log('📦 Cashfree API response:', result);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create payment');
+      }
+
+      const amount = getPrice();
+      const paymentType = result.paymentType || (isEmandateFlow ? 'recurring' : 'one_time');
+
+      // Handle based on payment type from response
+      if (paymentType === 'one_time') {
+        // One-time payment - use paymentSessionId with checkout()
+        const paymentSessionId = result.cashfree?.paymentSessionId ||
+          result.cashfree?.payment_session_id ||
+          result.payment_session_id;
+
+        if (!paymentSessionId) {
+          console.error("❌ Missing paymentSessionId in response:", result);
+          throw new Error('Missing payment session ID. Please contact support.');
+        }
+
+        console.log('💳 One-time payment - paymentSessionId:', paymentSessionId);
+
+        // Store payment info for verification
+        sessionStorage.setItem('cashfree_payment_session_id', paymentSessionId);
+        sessionStorage.setItem('cashfree_return_url', window.location.href);
+
+        setProcessingMsg("Opening Cashfree checkout...");
+        setProcessing(false);
+
+        setCashfreeModalData({
+          paymentSessionId: paymentSessionId,
+          paymentType: 'one_time',
+          amount: amount
+        });
+        setShowCashfreeModal(true);
+
+      } else {
+        // Recurring subscription - use subsSessionId with subscriptionsCheckout()
+        const subsSessionId = result.cashfree?.subsSessionId;
+        const subscriptionId = result.subscription?.cfSubscriptionId || result.subscription?.id || result.cashfree?.subscriptionId;
+
+        if (!subsSessionId) {
+          console.error("❌ Missing subsSessionId in response:", result);
+          throw new Error('Missing subscription session ID. Please contact support.');
+        }
+
+        console.log('🔄 Recurring subscription - subsSessionId:', subsSessionId);
+
+        // Store subscription info for verification after redirect
+        if (subscriptionId) {
+          sessionStorage.setItem('cashfree_subscription_id', subscriptionId);
+        }
+        sessionStorage.setItem('cashfree_subs_session_id', subsSessionId);
+        sessionStorage.setItem('cashfree_return_url', window.location.href);
+
+        setProcessingMsg("Opening Cashfree checkout...");
+        setProcessing(false);
+
+        setCashfreeModalData({
+          subsSessionId: subsSessionId,
+          paymentType: 'recurring',
+          amount: amount
+        });
+        setShowCashfreeModal(true);
+      }
+
+    } catch (error: any) {
+      console.error("Cashfree payment error:", error);
+
+      // Check for eSign requirement (412 error or ESIGN_REQUIRED code)
+      if (error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
+        let amount = 0;
+        if (subscriptionType === "yearly") {
+          amount = ((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0;
+        } else if (subscriptionType === "quarterly") {
+          amount = ((bundle as any).quarterlyemandateprice as number) || bundle.quarterlyPrice || 0;
+        } else {
+          amount = ((bundle as any).monthlyemandateprice as number) || bundle.monthlyPrice || 0;
+        }
+        const data: PaymentAgreementData = {
+          customerName: (user as any)?.fullName || user?.username || "User",
+          customerEmail: user?.email || "user@example.com",
+          customerMobile: user?.phone,
+          amount: amount,
+          subscriptionType: subscriptionType,
+          portfolioNames: bundle.portfolios.map((p) => p.name),
+          agreementDate: new Date().toLocaleDateString("en-IN"),
+          productType: "Bundle",
+          productId: bundle._id,
+          productName: bundle.name,
+        } as any;
+
+        // Store selected gateway for after eSign
+        setSelectedGateway('cashfree');
+        setAgreementData(data);
+        setShowDigio(true);
+        setProcessing(false);
+        return;
+      }
+
+      // Check for eSign pending
+      if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_PENDING') {
+        const authUrl = error.response.data.pendingEsign?.authenticationUrl;
+        if (authUrl) {
+          let amount = 0;
+          if (subscriptionType === "yearly") {
+            amount = ((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0;
+          } else if (subscriptionType === "quarterly") {
+            amount = ((bundle as any).quarterlyemandateprice as number) || bundle.quarterlyPrice || 0;
+          } else {
+            amount = ((bundle as any).monthlyemandateprice as number) || bundle.monthlyPrice || 0;
+          }
+          const data: PaymentAgreementData = {
+            customerName: (user as any)?.fullName || user?.username || "User",
+            customerEmail: user?.email || "user@example.com",
+            customerMobile: user?.phone,
+            amount: amount,
+            subscriptionType: subscriptionType,
+            portfolioNames: bundle.portfolios.map((p) => p.name),
+            agreementDate: new Date().toLocaleDateString("en-IN"),
+            productType: "Bundle",
+            productId: bundle._id,
+            productName: bundle.name,
+          } as any;
+
+          // Store selected gateway for after eSign
+          setSelectedGateway('cashfree');
+          setAgreementData(data);
+          setShowDigio(true);
+        }
+        setProcessing(false);
+        return;
+      }
+
+      setStep("error");
+      setProcessing(false);
+      toast({
+        title: "Payment Error",
+        description: error?.message || "Could not process Cashfree payment",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEmandatePaymentFlow = async () => {
@@ -282,15 +586,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       setStep("processing");
       setProcessing(true);
       setProcessingMsg("Creating eMandate…");
-      
+
       const emandateAmount =
         subscriptionType === "quarterly"
           ? ((bundle as any).yearlyemandateprice as number) ||
-            bundle.yearlyPrice ||
-            0
+          bundle.yearlyPrice ||
+          0
           : ((bundle as any).monthlyemandateprice as number) ||
-            bundle.monthlyPrice ||
-            0;
+          bundle.monthlyPrice ||
+          0;
 
       const emandate = await paymentService.createEmandate({
         productType: "Bundle",
@@ -328,7 +632,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             emandate.subscriptionId
           );
 
-          console.log("🔍 eMandate verification response:", verify);
 
           if (
             verify.success ||
@@ -338,7 +641,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           ) {
             // Check for Telegram links in the response
             const links = (verify as any)?.telegramInviteLinks;
-            console.log("🔍 Telegram links from eMandate verification:", links);
             if (links && Array.isArray(links) && links.length > 0) {
               setTelegramLinks(links);
             }
@@ -373,10 +675,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     } catch (error: any) {
       // Check for eSign requirement (412 error)
       if (error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
-        console.log("🔍 eSign required for eMandate - showing Digio verification");
-        const amount = subscriptionType === "quarterly"
-          ? ((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0
-          : ((bundle as any).monthlyemandateprice as number) || bundle.monthlyPrice || 0;
+        let amount = 0;
+        if (subscriptionType === "yearly") {
+          amount = ((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0;
+        } else if (subscriptionType === "quarterly") {
+          amount = ((bundle as any).quarterlyemandateprice as number) || bundle.quarterlyPrice || 0;
+        } else {
+          amount = ((bundle as any).monthlyemandateprice as number) || bundle.monthlyPrice || 0;
+        }
         const data: PaymentAgreementData = {
           customerName: (user as any)?.fullName || user?.username || "User",
           customerEmail: user?.email || "user@example.com",
@@ -389,21 +695,25 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           productId: bundle._id,
           productName: bundle.name,
         } as any;
-        
+
         setAgreementData(data);
         setShowDigio(true);
         setProcessing(false);
         return;
       }
-      
+
       // Check for eSign pending for eMandate
       if (error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_PENDING') {
-        console.log("🔍 eSign pending for eMandate - showing Digio modal");
         const authUrl = error.response.data.pendingEsign?.authenticationUrl;
         if (authUrl) {
-          const amount = subscriptionType === "quarterly"
-            ? ((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0
-            : ((bundle as any).monthlyemandateprice as number) || bundle.monthlyPrice || 0;
+          let amount = 0;
+          if (subscriptionType === "yearly") {
+            amount = ((bundle as any).yearlyemandateprice as number) || bundle.yearlyPrice || 0;
+          } else if (subscriptionType === "quarterly") {
+            amount = ((bundle as any).quarterlyemandateprice as number) || bundle.quarterlyPrice || 0;
+          } else {
+            amount = ((bundle as any).monthlyemandateprice as number) || bundle.monthlyPrice || 0;
+          }
           const data: PaymentAgreementData = {
             customerName: (user as any)?.fullName || user?.username || "User",
             customerEmail: user?.email || "user@example.com",
@@ -422,7 +732,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         setProcessing(false);
         return;
       }
-      
+
       setStep("error");
       setProcessing(false);
       toast({
@@ -433,60 +743,58 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     }
   };
 
-  const handlePaymentFlow = async () => {
-    if (!bundle) return;
 
-    console.log("🚀 Starting payment flow for bundle:", bundle.name);
-    
-    // Step 1: Check PAN details first
-    console.log("🔍 Step 1: Checking PAN details...");
-    const panCheck = await paymentService.checkPanDetails();
-    console.log("🔍 PAN check result:", panCheck);
-    
-    if (!panCheck.hasPan) {
-      console.log("❌ PAN details missing - showing PAN form");
-      console.log("🔍 Profile data:", panCheck.profile);
-      
-      // Try to get DOB from profile or user data
-      const dobFromProfile = panCheck.profile?.dateOfBirth || panCheck.profile?.dateofBirth;
-      const dobFromUser = (user as any)?.dateOfBirth || (user as any)?.dateofBirth;
-      let finalDob = dobFromProfile || dobFromUser || "";
-      
-      // Convert ISO date to YYYY-MM-DD format for HTML date input
-      if (finalDob && finalDob.includes('T')) {
-        finalDob = finalDob.split('T')[0]; // Extract YYYY-MM-DD part
-      }
-      
-      console.log("🔍 DOB sources:", { dobFromProfile, dobFromUser, finalDob });
-      
-      setPanFormData({
-        fullName: panCheck.profile?.fullName || (user as any)?.fullName || "",
-        dateofBirth: finalDob,
-        phone: panCheck.profile?.phone || (user as any)?.phone || "",
-        pandetails: ""
-      });
-      setStep("pan-form");
-      setProcessing(false);
-      return;
-    }
-    
-    console.log("✅ PAN details found - showing video modal first");
-    
-    // Step 2: Show video modal before payment
-    setStep("consent");
-    setProcessing(false);
-  };
 
   const proceedAfterVideo = async () => {
     if (!bundle) return;
-    
+
+
+    // Wait for gateways to load if still loading
+    if (gatewaysLoading) {
+      setProcessingMsg("Loading payment options...");
+      // Will be called again after gateways load
+      return;
+    }
+
+    // Check available gateways
+    const availableGateways = isEmandateFlow
+      ? gateways.filter(g => supportsEmandate(g.id))
+      : gateways;
+
+
+    // Show gateway selector when we have 2+ gateways
+    if (gateways.length >= 2 || availableGateways.length >= 2) {
+      setShowGatewaySelector(true);
+      return;
+    }
+
+    if (availableGateways.length === 1) {
+      // Only one gateway - auto-select and proceed
+      setSelectedGateway(availableGateways[0].id);
+      await startPaymentWithGateway(availableGateways[0].id);
+    } else {
+      // No gateways available - use default (Razorpay)
+      setSelectedGateway('razorpay');
+      await startPaymentWithGateway('razorpay');
+    }
+  };
+
+  // Start payment after gateway selection (from proceedAfterVideo)
+  const startPaymentWithGateway = async (gateway: string) => {
+    if (!bundle) return;
+
     setStep("processing");
     setProcessing(true);
-    
-    // Try payment API directly
+
+    if (gateway === 'cashfree') {
+      await handleCashfreePayment();
+      return;
+    }
+
+    // Razorpay flow
     try {
       setProcessingMsg("Creating order...");
-      
+
       if (isEmandateFlow) {
         await handleEmandatePaymentFlow();
       } else {
@@ -497,7 +805,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           subscriptionType: (bundle.category as any) || "premium",
           couponCode: appliedCoupon?.code || undefined,
         });
-        
+
         setProcessingMsg("Opening payment gateway...");
         await paymentService.openCheckout(
           order,
@@ -512,7 +820,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               paymentId: rp?.razorpay_payment_id,
               signature: rp?.razorpay_signature,
             });
-            
+
             if (verify.success) {
               const links = (verify as any)?.telegramInviteLinks;
               if (links && Array.isArray(links) && links.length > 0) {
@@ -538,7 +846,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     } catch (error: any) {
       // Check for eSign requirement (412 error) - only for one-time payments
       if (!isEmandateFlow && error.response?.status === 412 && error.response?.data?.code === 'ESIGN_REQUIRED') {
-        console.log("🔍 eSign required for one-time payment - showing Digio verification");
         const price = getPrice();
         const data: PaymentAgreementData = {
           customerName: (user as any)?.fullName || user?.username || "User",
@@ -552,16 +859,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           productId: bundle._id,
           productName: bundle.name,
         } as any;
-        
+
         setAgreementData(data);
         setShowDigio(true);
         setProcessing(false);
         return;
       }
-      
+
       // Check for eSign pending - only for one-time payments
       if (!isEmandateFlow && error.response?.data?.success === false && error.response?.data?.code === 'ESIGN_PENDING') {
-        console.log("🔍 eSign pending for one-time payment - showing Digio modal");
         const authUrl = error.response.data.pendingEsign?.authenticationUrl;
         if (authUrl) {
           const price = getPrice();
@@ -583,7 +889,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         setProcessing(false);
         return;
       }
-      
+
       setStep("error");
       setProcessing(false);
       toast({
@@ -603,12 +909,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       setProcessing(true);
 
       if (isEmandateFlow) {
-        console.log("🔍 Starting eMandate flow after Digio verification");
         await handleEmandatePaymentFlow();
       } else {
-        console.log("🔍 Starting one-time payment flow after Digio verification");
         setProcessingMsg("Creating order…");
-        
+
         const order = await paymentService.createOrder({
           productType: "Bundle",
           productId: bundle._id,
@@ -638,11 +942,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               signature: rp?.razorpay_signature,
             });
 
-            console.log("🔍 Payment verification response:", verify);
 
             if (verify.success) {
               const links = (verify as any)?.telegramInviteLinks;
-              console.log("🔍 Telegram links from payment verification:", links);
               if (links && Array.isArray(links) && links.length > 0) {
                 setTelegramLinks(links);
               }
@@ -703,18 +1005,18 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 {step === "success"
                   ? "Payment Successful!"
                   : step === "error"
-                  ? "Payment Failed"
-                  : step === "processing"
-                  ? "Processing Payment"
-                  : step === "auth"
-                  ? "Login Required"
-                  : step === "consent"
-                  ? "Complete Your Digital Verification"
-                  : step === "pan-form"
-                  ? "Complete Your Profile"
-                  : step === "esign"
-                  ? "Complete Digio Verification"
-                  : "Choose Your Plan"
+                    ? "Payment Failed"
+                    : step === "processing"
+                      ? "Processing Payment"
+                      : step === "auth"
+                        ? "Login Required"
+                        : step === "consent"
+                          ? "Complete Your Digital Verification"
+                          : step === "pan-form"
+                            ? "Complete Your Profile"
+                            : step === "esign"
+                              ? "Complete Digio Verification"
+                              : "Choose Your Plan"
                 }
               </h2>
               <button
@@ -728,770 +1030,897 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             {/* Content - Scrollable */}
             <div className="flex-1 overflow-y-auto">
               <div className="p-4 sm:p-6">
-              {step === "plan" && (
-                <div className="space-y-6">
-                  <div className="flex flex-col items-center">
-                    <h3 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-3 text-gray-900">
-                      {bundle.name}
-                    </h3>
-                    <div
-                      className="mx-auto text-left sm:text-center text-xs sm:text-sm leading-4 sm:leading-5 text-gray-600 break-words prose prose-sm prose-gray max-w-none [&>p]:mb-1 [&>ul]:mb-1 [&>ol]:mb-1 [&>h1]:text-sm [&>h2]:text-sm [&>h3]:text-xs [&>strong]:font-semibold [&>em]:italic"
-                      dangerouslySetInnerHTML={{ __html: bundle.description }}
-                    />
-                  </div>
-
-                  {/* Subscription Type Toggle */}
-                  {isEmandateFlow ? (
-                    <div className="space-y-4">
-                      <h4 className="font-medium text-base sm:text-lg">
-                        Choose Subscription Period:
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                        {/* Annual billed monthly (eMandate monthly) */}
-                        <button
-                          onClick={() => {
-                            setSubscriptionType("monthly");
-                            paymentFlowState.update({ subscriptionType: "monthly" });
-                          }}
-                          className={`p-4 sm:p-5 md:p-6 rounded-xl border-2 transition-all text-left relative overflow-hidden h-full flex flex-col ${
-                            subscriptionType === "monthly"
-                              ? "border-blue-500 bg-blue-50"
-                              : "border-gray-200 hover:border-gray-300"
-                          }`}
-                        >
-                          <div
-                            className={`${
-                              isPremium
-                                ? "bg-amber-400 text-amber-900"
-                                : "bg-blue-600 text-white"
-                            } absolute left-0 right-0 top-0 px-3 py-2 text-xs sm:text-sm font-semibold flex items-center justify-between`}
-                          >
-                            <span>
-                              {(() => {
-                                const pct = computeMonthlyEmandateDiscount();
-                                return pct > 0
-                                  ? `Special offer - Save ${pct}%`
-                                  : "Special offer";
-                              })()}
-                            </span>
-                          </div>
-                          <div className="pt-9 sm:pt-10" />
-                          <div className="font-semibold text-base sm:text-lg md:text-xl">
-                            Annual, billed monthly
-                          </div>
-                          <div className="text-xs sm:text-sm text-gray-600 line-through">
-                            ₹
-                            {(bundle as any).strikeMonthly ||
-                              Math.round(
-                                ((bundle as any).monthlyPrice || 0) 
-                              )}{" "}
-                            /mo
-                          </div>
-                          <div className="mt-1 text-2xl sm:text-3xl md:text-4xl font-bold text-blue-700">
-                            ₹{(bundle as any).monthlyemandateprice || 0}
-                            <span className="text-base font-medium">/mo</span>
-                          </div>
-                          <div className="text-[11px] sm:text-xs text-gray-500 mt-1">
-                            Smart pick! Pay monthly, enjoy fully.
-                          </div>
-                        </button>
-
-                        {/* Annual prepaid (yearly) */}
-                        <button
-                          onClick={() => {
-                            setSubscriptionType("quarterly");
-                            paymentFlowState.update({ subscriptionType: "quarterly" });
-                          }}
-                          className={`p-4 sm:p-5 md:p-6 rounded-xl border-2 transition-all text-left relative overflow-hidden h-full flex flex-col ${
-                            subscriptionType === "quarterly"
-                              ? "border-blue-500 bg-blue-50"
-                              : "border-gray-200 hover:border-gray-300"
-                          }`}
-                        >
-                          <div
-                            className={`${
-                              isPremium
-                                ? "bg-amber-400 text-amber-900"
-                                : "bg-blue-600 text-white"
-                            } absolute left-0 right-0 top-0 px-3 py-2 text-xs sm:text-sm font-semibold flex items-center justify-between`}
-                          >
-                            <span>
-                              {(() => {
-                                const pct = computeYearlyDiscount();
-                                return pct > 0
-                                  ? `Save More - ${pct}% Off`
-                                  : "Best value";
-                              })()}
-                            </span>
-                          </div>
-                          <div className="pt-9 sm:pt-10" />
-                          <div className="font-semibold text-base sm:text-lg md:text-xl">
-                            Annual, billed Quarterly
-                          </div>
-                          <div className="text-xs sm:text-sm text-gray-600 line-through">
-                            ₹
-                            {(bundle as any).strikeYear ||
-                              Math.round((bundle.quarterlyPrice || 0))}{" "}
-                            /qr
-                          </div>
-                          <div className="mt-1 text-2xl sm:text-3xl md:text-4xl font-bold text-blue-700">
-                            ₹{(bundle as any).quarterlyemandateprice || 0}
-                            <span className="text-base font-medium">/qr</span>
-                          </div>
-                          <div className="text-[11px] sm:text-xs text-gray-500 mt-1">
-                            Best value - Save more with Yearly Billing
-                          </div>
-                        </button>
-                      </div>
+                {step === "plan" && (
+                  <div className="space-y-6">
+                    <div className="flex flex-col items-center">
+                      <h3 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-3 text-gray-900">
+                        {bundle.name}
+                      </h3>
+                      <div
+                        className="mx-auto text-left sm:text-center text-xs sm:text-sm leading-4 sm:leading-5 text-gray-600 break-words prose prose-sm prose-gray max-w-none [&>p]:mb-1 [&>ul]:mb-1 [&>ol]:mb-1 [&>h1]:text-sm [&>h2]:text-sm [&>h3]:text-xs [&>strong]:font-semibold [&>em]:italic"
+                        dangerouslySetInnerHTML={{ __html: bundle.description }}
+                      />
                     </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <h4 className="font-medium text-base sm:text-lg">
-                        Monthly Subscription:
-                      </h4>
-                      <div className="grid grid-cols-1 gap-3 sm:gap-4">
-                        <div
-                          className={`p-4 sm:p-5 md:p-6 rounded-xl border-2 border-blue-500 bg-blue-50 text-left relative overflow-hidden h-full flex flex-col`}
-                        >
-                          <div
-                            className={`${
-                              isPremium
-                                ? "bg-amber-400 text-amber-900"
-                                : "bg-blue-600 text-white"
-                            } absolute left-0 right-0 top-0 px-3 py-2 text-xs sm:text-sm font-semibold`}
-                          >
-                            <span>One-time monthly payment</span>
-                          </div>
-                          <div className="pt-9 sm:pt-10" />
-                          <div className="font-semibold text-base sm:text-lg md:text-xl">
-                            Monthly
-                          </div>
-                          <div className="mt-1 text-2xl sm:text-3xl md:text-4xl font-bold text-blue-700">
-                            ₹{bundle.monthlyPrice || 0}
-                            <span className="text-base font-medium">/mo</span>
-                          </div>
-                          <div className="text-[11px] sm:text-xs text-gray-500 mt-1">
-                            Pay once, use for one month
-                          </div>
+
+                    {/* Subscription Type Toggle */}
+                    {isEmandateFlow ? (
+                      <div className="space-y-4">
+                        <h4 className="font-medium text-base sm:text-lg">
+                          Choose Subscription Period:
+                        </h4>
+                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                          {/* Annual billed monthly (eMandate monthly) */}
+                          {((bundle as any).monthlyemandateprice && (bundle as any).monthlyemandateprice >= 100) && (
+                            <button
+                              onClick={() => {
+                                setSubscriptionType("monthly");
+                                setAppliedCoupon(null);
+                                paymentFlowState.update({ subscriptionType: "monthly", appliedCoupon: null });
+                              }}
+                              className={`flex-1 p-4 sm:p-5 md:p-6 rounded-xl border-2 transition-all text-left relative overflow-hidden h-full flex flex-col ${subscriptionType === "monthly"
+                                ? "border-blue-500 bg-blue-50"
+                                : "border-gray-200 hover:border-gray-300"
+                                }`}
+                            >
+                              <div
+                                className={`${isPremium
+                                  ? "bg-amber-400 text-amber-900"
+                                  : "bg-blue-600 text-white"
+                                  } absolute left-0 right-0 top-0 px-3 py-2 text-xs sm:text-sm font-semibold flex items-center justify-between`}
+                              >
+                                <span>
+                                  {(() => {
+                                    const pct = computeMonthlyEmandateDiscount();
+                                    return pct > 0
+                                      ? `Special offer - Save ${pct}%`
+                                      : "Special offer";
+                                  })()}
+                                </span>
+                              </div>
+                              <div className="pt-9 sm:pt-10" />
+                              <div className="font-semibold text-base sm:text-lg md:text-xl">
+                                Annual, billed monthly
+                              </div>
+                              <div className="text-xs sm:text-sm text-gray-600 line-through">
+                                ₹
+                                {(bundle as any).strikeMonthly ||
+                                  Math.round(
+                                    ((bundle as any).monthlyPrice || 0)
+                                  )}{" "}
+                                /mo
+                              </div>
+                              <div className="mt-1 text-2xl sm:text-3xl md:text-4xl font-bold text-blue-700">
+                                ₹{(bundle as any).monthlyemandateprice || 0}
+                                <span className="text-base font-medium">/mo</span>
+                              </div>
+                              <div className="text-[11px] sm:text-xs text-gray-500 mt-1">
+                                Smart pick! Pay monthly, enjoy fully.
+                              </div>
+                            </button>
+                          )}
+
+                          {/* Annual billed quarterly */}
+                          {((bundle as any).quarterlyemandateprice && (bundle as any).quarterlyemandateprice >= 100) && (
+                            <button
+                              onClick={() => {
+                                setSubscriptionType("quarterly");
+                                setAppliedCoupon(null);
+                                paymentFlowState.update({ subscriptionType: "quarterly", appliedCoupon: null });
+                              }}
+                              className={`flex-1 p-4 sm:p-5 md:p-6 rounded-xl border-2 transition-all text-left relative overflow-hidden h-full flex flex-col ${subscriptionType === "quarterly"
+                                ? "border-blue-500 bg-blue-50"
+                                : "border-gray-200 hover:border-gray-300"
+                                }`}
+                            >
+                              <div
+                                className={`${isPremium
+                                  ? "bg-amber-400 text-amber-900"
+                                  : "bg-blue-600 text-white"
+                                  } absolute left-0 right-0 top-0 px-3 py-2 text-xs sm:text-sm font-semibold flex items-center justify-between`}
+                              >
+                                <span>
+                                  {(() => {
+                                    const pct = computeQuarterlyDiscount();
+                                    return pct > 0
+                                      ? `Save More - ${pct}% Off`
+                                      : "Best value";
+                                  })()}
+                                </span>
+                              </div>
+                              <div className="pt-9 sm:pt-10" />
+                              <div className="font-semibold text-base sm:text-lg md:text-xl">
+                                Annual, billed Quarterly
+                              </div>
+                              <div className="text-xs sm:text-sm text-gray-600 line-through">
+                                ₹
+                                {(bundle as any).strikeYear ||
+                                  Math.round((bundle.quarterlyPrice || 0))}{" "}
+                                /qr
+                              </div>
+                              <div className="mt-1 text-2xl sm:text-3xl md:text-4xl font-bold text-blue-700">
+                                ₹{(bundle as any).quarterlyemandateprice || 0}
+                                <span className="text-base font-medium">/qr</span>
+                              </div>
+                              <div className="text-[11px] sm:text-xs text-gray-500 mt-1">
+                                Best value - Save more with Quarterly Billing
+                              </div>
+                            </button>
+                          )}
+
+                          {/* Annual prepaid (yearly) */}
+                          {((bundle as any).yearlyemandateprice && (bundle as any).yearlyemandateprice >= 100) && (
+                            <button
+                              onClick={() => {
+                                setSubscriptionType("yearly");
+                                setAppliedCoupon(null);
+                                paymentFlowState.update({ subscriptionType: "yearly", appliedCoupon: null });
+                              }}
+                              className={`flex-1 p-4 sm:p-5 md:p-6 rounded-xl border-2 transition-all text-left relative overflow-hidden h-full flex flex-col ${subscriptionType === "yearly"
+                                ? "border-blue-500 bg-blue-50"
+                                : "border-gray-200 hover:border-gray-300"
+                                }`}
+                            >
+                              <div
+                                className={`${isPremium
+                                  ? "bg-amber-400 text-amber-900"
+                                  : "bg-blue-600 text-white"
+                                  } absolute left-0 right-0 top-0 px-3 py-2 text-xs sm:text-sm font-semibold flex items-center justify-between`}
+                              >
+                                <span>Maximum Savings</span>
+                              </div>
+                              <div className="pt-9 sm:pt-10" />
+                              <div className="font-semibold text-base sm:text-lg md:text-xl">
+                                Annual, billed Yearly
+                              </div>
+                              <div className="text-xs sm:text-sm text-gray-600 line-through">
+                                ₹
+                                {(bundle as any).strikeYearly ||
+                                  Math.round((bundle.yearlyPrice || 0))}{" "}
+                                /yr
+                              </div>
+                              <div className="mt-1 text-2xl sm:text-3xl md:text-4xl font-bold text-blue-700">
+                                ₹{(bundle as any).yearlyemandateprice || 0}
+                                <span className="text-base font-medium">/yr</span>
+                              </div>
+                              <div className="text-[11px] sm:text-xs text-gray-500 mt-1">
+                                Ultimate value - Save the most with Annual payment
+                              </div>
+                            </button>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="space-y-4">
+                        <h4 className="font-medium text-base sm:text-lg">
+                          Choose Payment Plan:
+                        </h4>
+                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                          {/* Monthly One-time */}
+                          {((bundle as any).monthlyPrice && (bundle as any).monthlyPrice >= 100) && (
+                            <button
+                              onClick={() => {
+                                setSubscriptionType("monthly");
+                                setAppliedCoupon(null);
+                                paymentFlowState.update({ subscriptionType: "monthly", appliedCoupon: null });
+                              }}
+                              className={`flex-1 p-4 sm:p-5 md:p-6 rounded-xl border-2 transition-all text-left relative overflow-hidden h-full flex flex-col cursor-pointer ${subscriptionType === "monthly"
+                                ? "border-blue-500 bg-blue-50"
+                                : "border-gray-200 hover:border-gray-300"
+                                }`}
+                            >
+                              <div
+                                className={`${isPremium
+                                  ? "bg-amber-400 text-amber-900"
+                                  : "bg-blue-600 text-white"
+                                  } absolute left-0 right-0 top-0 px-3 py-2 text-xs sm:text-sm font-semibold`}
+                              >
+                                <span>One-time monthly payment</span>
+                              </div>
+                              <div className="pt-9 sm:pt-10" />
+                              <div className="font-semibold text-base sm:text-lg md:text-xl">
+                                Monthly
+                              </div>
+                              <div className="mt-1 text-2xl sm:text-3xl md:text-4xl font-bold text-blue-700">
+                                ₹{bundle.monthlyPrice || 0}
+                                <span className="text-base font-medium">/mo</span>
+                              </div>
+                              <div className="text-[11px] sm:text-xs text-gray-500 mt-1">
+                                Pay once, use for one month
+                              </div>
+                            </button>
+                          )}
 
-                  {/* Portfolio List */}
-                  {bundle.portfolios.length > 0 && (
-                    <div className="space-y-2">
-                      <h4 className="font-medium">
-                        Includes {bundle.portfolios.length} Portfolio
-                        {bundle.portfolios.length > 1 ? "s" : ""}:
-                      </h4>
-                      <ul className="text-sm text-gray-600 space-y-1">
-                        {bundle.portfolios
-                          .slice(0, 3)
-                          .map((portfolio, index) => (
-                            <li key={index}>• {portfolio.name}</li>
-                          ))}
-                        {bundle.portfolios.length > 3 && (
-                          <li>• And {bundle.portfolios.length - 3} more...</li>
-                        )}
-                      </ul>
-                    </div>
-                  )}
+                          {/* Quarterly One-time */}
+                          {((bundle as any).quarterlyPrice && (bundle as any).quarterlyPrice >= 100) && (
+                            <button
+                              onClick={() => {
+                                setSubscriptionType("quarterly");
+                                setAppliedCoupon(null);
+                                paymentFlowState.update({ subscriptionType: "quarterly", appliedCoupon: null });
+                              }}
+                              className={`flex-1 p-4 sm:p-5 md:p-6 rounded-xl border-2 transition-all text-left relative overflow-hidden h-full flex flex-col cursor-pointer ${subscriptionType === "quarterly"
+                                ? "border-blue-500 bg-blue-50"
+                                : "border-gray-200 hover:border-gray-300"
+                                }`}
+                            >
+                              <div
+                                className={`${isPremium
+                                  ? "bg-amber-400 text-amber-900"
+                                  : "bg-blue-600 text-white"
+                                  } absolute left-0 right-0 top-0 px-3 py-2 text-xs sm:text-sm font-semibold`}
+                              >
+                                <span>Most Popular</span>
+                              </div>
+                              <div className="pt-9 sm:pt-10" />
+                              <div className="font-semibold text-base sm:text-lg md:text-xl">
+                                Quarterly
+                              </div>
+                              <div className="mt-1 text-2xl sm:text-3xl md:text-4xl font-bold text-blue-700">
+                                ₹{bundle.quarterlyPrice || 0}
+                                <span className="text-base font-medium">/qr</span>
+                              </div>
+                              <div className="text-[11px] sm:text-xs text-gray-500 mt-1">
+                                Pay once, use for 3 months
+                              </div>
+                            </button>
+                          )}
 
-                  {/* Total */}
-                  <div className="border-t pt-4">
-                    {appliedCoupon && (
-                      <div className="flex justify-between items-center text-sm text-gray-500 mb-2">
-                        <span>Original Price</span>
-                        <span className="line-through">
-                          ₹{getOriginalPrice()}
-                        </span>
+                          {/* Yearly One-time */}
+                          {((bundle as any).yearlyPrice && (bundle as any).yearlyPrice >= 100) && (
+                            <button
+                              onClick={() => {
+                                setSubscriptionType("yearly");
+                                setAppliedCoupon(null);
+                                paymentFlowState.update({ subscriptionType: "yearly", appliedCoupon: null });
+                              }}
+                              className={`flex-1 p-4 sm:p-5 md:p-6 rounded-xl border-2 transition-all text-left relative overflow-hidden h-full flex flex-col cursor-pointer ${subscriptionType === "yearly"
+                                ? "border-blue-500 bg-blue-50"
+                                : "border-gray-200 hover:border-gray-300"
+                                }`}
+                            >
+                              <div
+                                className={`${isPremium
+                                  ? "bg-amber-400 text-amber-900"
+                                  : "bg-blue-600 text-white"
+                                  } absolute left-0 right-0 top-0 px-3 py-2 text-xs sm:text-sm font-semibold`}
+                              >
+                                <span>Best Value</span>
+                              </div>
+                              <div className="pt-9 sm:pt-10" />
+                              <div className="font-semibold text-base sm:text-lg md:text-xl">
+                                Yearly
+                              </div>
+                              <div className="mt-1 text-2xl sm:text-3xl md:text-4xl font-bold text-blue-700">
+                                ₹{bundle.yearlyPrice || 0}
+                                <span className="text-base font-medium">/yr</span>
+                              </div>
+                              <div className="text-[11px] sm:text-xs text-gray-500 mt-1">
+                                Pay once, use for 1 year
+                              </div>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                    )}
+
+                    {/* Portfolio List */}
+                    {bundle.portfolios.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="font-medium">
+                          Includes {bundle.portfolios.length} Portfolio
+                          {bundle.portfolios.length > 1 ? "s" : ""}:
+                        </h4>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          {bundle.portfolios
+                            .slice(0, 3)
+                            .map((portfolio, index) => (
+                              <li key={index}>• {portfolio.name}</li>
+                            ))}
+                          {bundle.portfolios.length > 3 && (
+                            <li>• And {bundle.portfolios.length - 3} more...</li>
+                          )}
+                        </ul>
                       </div>
                     )}
-                    <div className="flex justify-between items-center text-lg font-bold">
-                      <span>Total Amount</span>
-                      <span className="text-blue-600">₹{getPrice()}</span>
-                    </div>
-                    {appliedCoupon && (
-                      <p className="text-sm text-green-600 mt-1">
-                        You save ₹{getOriginalPrice() - getPrice()} with{" "}
-                        {appliedCoupon.code}
-                      </p>
-                    )}
-                    <p className="text-sm text-gray-500 mt-1">
-                      Billed{" "}
-                      {subscriptionType === "quarterly" ? "annually" : "monthly"}
-                    </p>
-                  </div>
 
-                  {/* Coupon Code Input */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">
-                      Coupon Code (Optional)
-                    </label>
-                    <CouponInput
-                      onCouponApplied={handleCouponApplied}
-                      originalAmount={getOriginalPrice()}
-                      disabled={processing}
-                    />
-                  </div>
-
-
-                </div>
-              )}
-
-              {step === "consent" && (
-                <div className="space-y-6">
-                  {/* YouTube Video */}
-                  <div className="bg-black rounded-lg overflow-hidden aspect-video">
-                    <iframe
-                      src={`https://www.youtube.com/embed/guetyPOoThw?origin=${typeof window !== 'undefined' ? window.location.origin : ''}`}
-                      title="Digital Verification Process"
-                      className="w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    ></iframe>
-                  </div>
-
-                  {/* Content Below Video */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-6">
-                    <h4 className="text-xl font-semibold text-gray-900 mb-4">
-                      Why Digital Verification is Required
-                    </h4>
-                    <div className="prose prose-gray max-w-none">
-                      <p className="text-gray-700 mb-4">
-                        As per SEBI regulations and RBI guidelines, all investment platforms must verify the identity 
-                        of their subscribers before processing any financial transactions. This digital verification 
-                        ensures the security of your investments and compliance with regulatory requirements.
-                      </p>
-                      <p className="text-gray-700 mb-4">
-                        The process is completely secure, government-approved, and takes only a few minutes to complete. 
-                        Your personal information is encrypted and protected throughout the verification process.
-                      </p>
-                      <p className="text-gray-700">
-                        Once verified, you'll have seamless access to all our premium investment services and 
-                        portfolio recommendations.
+                    {/* Total */}
+                    <div className="border-t pt-4">
+                      {appliedCoupon && (
+                        <div className="flex justify-between items-center text-sm text-gray-500 mb-2">
+                          <span>Original Price</span>
+                          <span className="line-through">
+                            ₹{getOriginalPrice()}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center text-lg font-bold">
+                        <span>Total Amount</span>
+                        <span className="text-blue-600">₹{getPrice()}</span>
+                      </div>
+                      {appliedCoupon && (
+                        <p className="text-sm text-green-600 mt-1">
+                          You save ₹{Number((getOriginalPrice() - getPrice()).toFixed(2))} with{" "}
+                          {appliedCoupon.code}
+                        </p>
+                      )}
+                      <p className="text-sm text-gray-500 mt-1">
+                        Billed{" "}
+                        {subscriptionType === "yearly" ? "annually" : subscriptionType === "quarterly" ? "quarterly" : "monthly"}
                       </p>
                     </div>
-                  </div>
 
-                  {/* Consent Checkbox */}
-
-
-                </div>
-              )}
-
-              {step === "auth" && (
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <h3 className="text-lg font-semibold mb-2">
-                      Login to Continue
-                    </h3>
-                    <p className="text-gray-600 text-sm">
-                      Bundle: {bundle.name}
-                    </p>
-                    <p className="text-gray-600 text-sm">
-                      Amount: ₹{getPrice()}
-                    </p>
-                  </div>
-                  <CartAuthForm
-                    onAuthSuccess={handleAuthSuccess}
-                    onPaymentTrigger={() => handlePaymentFlow()}
-                    cartTotal={getPrice()}
-                    cartItemCount={1}
-                  />
-                </div>
-              )}
-
-              {step === "pan-form" && (
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
+                    {/* Coupon Code Input */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">
+                        Coupon Code (Optional)
+                      </label>
+                      <CouponInput
+                        key={subscriptionType}
+                        onCouponApplied={handleCouponApplied}
+                        originalAmount={getOriginalPrice()}
+                        disabled={processing}
+                      />
                     </div>
-                    <h3 className="text-xl font-semibold mb-2 text-gray-900">
-                      Complete Your Profile
-                    </h3>
-                    <p className="text-gray-600 text-sm">
-                      We need your PAN details to comply with regulatory requirements
-                    </p>
+
+
                   </div>
-                  
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-start space-x-3">
-                      <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                      </svg>
-                      <div>
-                        <h4 className="text-sm font-medium text-blue-800">Why PAN is Required</h4>
-                        <p className="text-sm text-blue-700 mt-1">
-                          As per SEBI regulations, PAN verification is mandatory for all investment services. Your details are secure and encrypted.
+                )}
+
+                {step === "consent" && (
+                  <div className="space-y-6">
+                    {/* YouTube Video */}
+                    <div className="bg-black rounded-lg overflow-hidden aspect-video">
+                      <iframe
+                        width="560"
+                        height="315"
+                        src="https://www.youtube.com/embed/guetyPOoThw?si=w7GiCef2UBXzrN4H"
+                        title="YouTube video player"
+                        frameBorder="0"
+                        className="w-full h-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        allowFullScreen
+                      ></iframe>
+                    </div>
+
+                    {/* Content Below Video */}
+                    <div className="bg-white border border-gray-200 rounded-lg p-6">
+                      <h4 className="text-xl font-semibold text-gray-900 mb-4">
+                        Why Digital Verification is Required
+                      </h4>
+                      <div className="prose prose-gray max-w-none">
+                        <p className="text-gray-700 mb-4">
+                          As per SEBI regulations and RBI guidelines, all investment platforms must verify the identity
+                          of their subscribers before processing any financial transactions. This digital verification
+                          ensures the security of your investments and compliance with regulatory requirements.
+                        </p>
+                        <p className="text-gray-700 mb-4">
+                          The process is completely secure, government-approved, and takes only a few minutes to complete.
+                          Your personal information is encrypted and protected throughout the verification process.
+                        </p>
+                        <p className="text-gray-700">
+                          Once verified, you'll have seamless access to all our premium investment services and
+                          portfolio recommendations.
                         </p>
                       </div>
                     </div>
+
+                    {/* Consent Checkbox */}
+
+
                   </div>
-                  
-                  <form className="space-y-5" onSubmit={async (e) => {
-                    e.preventDefault();
-                    setPanFormLoading(true);
-                    
-                    try {
-                      // Validate form data before sending
-                      if (!panFormData.fullName.trim()) {
-                        throw new Error("Full name is required");
-                      }
-                      if (!panFormData.dateofBirth) {
-                        throw new Error("Date of birth is required");
-                      }
-                      if (!panFormData.phone.trim()) {
-                        throw new Error("Phone number is required");
-                      }
-                      if (!panFormData.pandetails.trim()) {
-                        throw new Error("PAN details are required");
-                      }
-                      
-                      console.log('Updating PAN details:', panFormData);
-                      await paymentService.updatePanDetails(panFormData);
-                      console.log('PAN details updated successfully');
-                      
-                      // Re-check profile to confirm PAN details are saved
-                      const profileCheck = await paymentService.checkPanDetails();
-                      if (!profileCheck.hasPan) {
+                )}
+
+                {step === "auth" && (
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      <h3 className="text-lg font-semibold mb-2">
+                        Login to Continue
+                      </h3>
+                      <p className="text-gray-600 text-sm">
+                        Bundle: {bundle.name}
+                      </p>
+                      <p className="text-gray-600 text-sm">
+                        Amount: ₹{getPrice()}
+                      </p>
+                    </div>
+                    <CartAuthForm
+                      onAuthSuccess={handleAuthSuccess}
+                      onPaymentTrigger={() => handlePaymentFlow()}
+                      cartTotal={getPrice()}
+                      cartItemCount={1}
+                    />
+                  </div>
+                )}
+
+                {step === "pan-form" && (
+                  <div className="space-y-6">
+                    <div className="text-center">
+                      <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-xl font-semibold mb-2 text-gray-900">
+                        Complete Your Profile
+                      </h3>
+                      <p className="text-gray-600 text-sm">
+                        We need your PAN details to comply with regulatory requirements
+                      </p>
+                    </div>
+
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-start space-x-3">
+                        <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                        <div>
+                          <h4 className="text-sm font-medium text-blue-800">Why PAN is Required</h4>
+                          <p className="text-sm text-blue-700 mt-1">
+                            As per SEBI regulations, PAN verification is mandatory for all investment services. Your details are secure and encrypted.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <form className="space-y-5" onSubmit={async (e) => {
+                      e.preventDefault();
+                      setPanFormLoading(true);
+
+                      try {
+                        // Validate form data before sending
+                        if (!panFormData.fullName.trim()) {
+                          throw new Error("Full name is required");
+                        }
+                        if (!panFormData.dateofBirth) {
+                          throw new Error("Date of birth is required");
+                        }
+                        if (!panFormData.phone.trim()) {
+                          throw new Error("Phone number is required");
+                        }
+                        if (!panFormData.pandetails.trim()) {
+                          throw new Error("PAN details are required");
+                        }
+
+                        await paymentService.updatePanDetails(panFormData);
+
+                        // Re-check profile to confirm PAN details are saved
+                        const profileCheck = await paymentService.checkPanDetails();
+                        if (!profileCheck.hasPan) {
+                          toast({
+                            title: "Profile Update Failed",
+                            description: "PAN details could not be saved. Please try again.",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+
                         toast({
-                          title: "Profile Update Failed",
-                          description: "PAN details could not be saved. Please try again.",
+                          title: "Profile Updated",
+                          description: "Your PAN details have been verified and saved successfully",
+                        });
+                        // Show video modal after PAN completion
+                        setStep("consent");
+                      } catch (error: any) {
+                        toast({
+                          title: "Update Failed",
+                          description: error.message || "Failed to update profile",
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setPanFormLoading(false);
+                      }
+                    }}>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Full Name *
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              required
+                              value={panFormData.fullName}
+                              onChange={(e) => setPanFormData({ ...panFormData, fullName: e.target.value })}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                              placeholder="Enter your full name as per PAN"
+                            />
+                            <svg className="absolute right-3 top-3 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Date of Birth *
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="date"
+                              required
+                              value={panFormData.dateofBirth}
+                              onChange={(e) => setPanFormData({ ...panFormData, dateofBirth: e.target.value })}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-100"
+                              max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Phone Number *
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="tel"
+                            required
+                            value={panFormData.phone}
+                            onChange={(e) => setPanFormData({ ...panFormData, phone: e.target.value })}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                            placeholder="Enter your phone number"
+                          />
+                          <svg className="absolute right-3 top-3 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                          </svg>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          PAN Card Number *
+                        </label>
+                        <div className="space-y-3">
+                          <div className="relative">
+                            <input
+                              type="text"
+                              required
+                              value={panFormData.pandetails}
+                              onChange={(e) => setPanFormData({ ...panFormData, pandetails: e.target.value.toUpperCase() })}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all font-mono text-lg tracking-wider"
+                              placeholder="ABCDE1234F"
+                              maxLength={10}
+                              pattern={"[A-Z]{5}[0-9]{4}[A-Z]{1}"}
+                            />
+                            <svg className="absolute right-3 top-3 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+
+                          <p className="text-xs text-gray-500">
+                            Format: 5 letters + 4 digits + 1 letter (e.g., ABCDE1234F)
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3 pt-2">
+                        <Button
+                          type="button"
+                          onClick={() => setStep("consent")}
+                          variant="outline"
+                          className="flex-1 py-3"
+                          disabled={panFormLoading}
+                        >
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                          </svg>
+                          Back
+                        </Button>
+                        <Button
+                          type="submit"
+                          className="flex-1 bg-[#001633] hover:bg-[#002244] text-white py-3 relative"
+                          disabled={panFormLoading}
+                        >
+                          {panFormLoading ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                              Verifying PAN...
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Verify & Continue
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                {step === "esign" && (
+                  <div className="space-y-6">
+                    <div className="text-center">
+                      <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-xl font-semibold mb-2 text-gray-900">
+                        Complete Digio Verification
+                      </h3>
+                      <p className="text-gray-600 text-sm mb-4">
+                        Please complete the Digio verification process and enter your DID token below
+                      </p>
+                    </div>
+
+                    {eSignData?.authUrl && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                        <p className="text-sm text-blue-700 mb-3">
+                          Click the button below to complete Digio verification:
+                        </p>
+                        <a
+                          href={eSignData.authUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                          Complete Digio
+                        </a>
+                      </div>
+                    )}
+
+                    <form className="space-y-4" onSubmit={async (e) => {
+                      e.preventDefault();
+                      const formData = new FormData(e.target as HTMLFormElement);
+                      const didToken = formData.get('didToken') as string;
+
+                      if (!didToken?.trim()) {
+                        toast({
+                          title: "DID Token Required",
+                          description: "Please enter your DID token",
                           variant: "destructive",
                         });
                         return;
                       }
-                      
-                      toast({
-                        title: "Profile Updated",
-                        description: "Your PAN details have been verified and saved successfully",
-                      });
-                      // Show video modal after PAN completion
-                      setStep("consent");
-                    } catch (error: any) {
-                      toast({
-                        title: "Update Failed",
-                        description: error.message || "Failed to update profile",
-                        variant: "destructive",
-                      });
-                    } finally {
-                      setPanFormLoading(false);
-                    }
-                  }}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Full Name *
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            required
-                            value={panFormData.fullName}
-                            onChange={(e) => setPanFormData({...panFormData, fullName: e.target.value})}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                            placeholder="Enter your full name as per PAN"
-                          />
-                          <svg className="absolute right-3 top-3 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Date of Birth *
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="date"
-                            required
-                            value={panFormData.dateofBirth}
-                            onChange={(e) => setPanFormData({...panFormData, dateofBirth: e.target.value})}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-100"
-                            max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Phone Number *
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="tel"
-                          required
-                          value={panFormData.phone}
-                          onChange={(e) => setPanFormData({...panFormData, phone: e.target.value})}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                          placeholder="Enter your phone number"
-                        />
-                        <svg className="absolute right-3 top-3 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                        </svg>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        PAN Card Number *
-                      </label>
-                      <div className="space-y-3">
-                        <div className="relative">
-                          <input
-                            type="text"
-                            required
-                            value={panFormData.pandetails}
-                            onChange={(e) => setPanFormData({...panFormData, pandetails: e.target.value.toUpperCase()})}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all font-mono text-lg tracking-wider"
-                            placeholder="ABCDE1234F"
-                            maxLength={10}
-                            pattern={"[A-Z]{5}[0-9]{4}[A-Z]{1}"}
-                          />
-                          <svg className="absolute right-3 top-3 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                        </div>
-                        
-                        <p className="text-xs text-gray-500">
-                          Format: 5 letters + 4 digits + 1 letter (e.g., ABCDE1234F)
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex gap-3 pt-2">
-                      <Button
-                        type="button"
-                        onClick={() => setStep("consent")}
-                        variant="outline"
-                        className="flex-1 py-3"
-                        disabled={panFormLoading}
-                      >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                        </svg>
-                        Back
-                      </Button>
-                      <Button
-                        type="submit"
-                        className="flex-1 bg-[#001633] hover:bg-[#002244] text-white py-3 relative"
-                        disabled={panFormLoading}
-                      >
-                        {panFormLoading ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                            Verifying PAN...
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Verify & Continue
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </form>
-                </div>
-              )}
 
-              {step === "esign" && (
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-xl font-semibold mb-2 text-gray-900">
-                      Complete Digio Verification
-                    </h3>
-                    <p className="text-gray-600 text-sm mb-4">
-                      Please complete the Digio verification process and enter your DID token below
-                    </p>
-                  </div>
-                  
-                  {eSignData?.authUrl && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                      <p className="text-sm text-blue-700 mb-3">
-                        Click the button below to complete Digio verification:
-                      </p>
-                      <a
-                        href={eSignData.authUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                        Complete Digio
-                      </a>
-                    </div>
-                  )}
-                  
-                  <form className="space-y-4" onSubmit={async (e) => {
-                    e.preventDefault();
-                    const formData = new FormData(e.target as HTMLFormElement);
-                    const didToken = formData.get('didToken') as string;
-                    
-                    if (!didToken?.trim()) {
-                      toast({
-                        title: "DID Token Required",
-                        description: "Please enter your DID token",
-                        variant: "destructive",
-                      });
-                      return;
-                    }
-                    
-                    setProcessing(true);
-                    setStep("processing");
-                    setProcessingMsg("Verifying Digio...");
-                    
-                    try {
-                      const verifyResult = await paymentService.verifyESignToken(didToken);
-                      if (verifyResult.success) {
-                        setProcessingMsg("Creating order after Digio...");
-                        const order = await paymentService.createOrder({
-                          productType: "Bundle",
-                          productId: bundle._id,
-                          planType: "monthly",
-                          subscriptionType: (bundle.category as any) || "premium",
-                          couponCode: appliedCoupon?.code || undefined,
-                        });
-                        
-                        // Continue with payment flow
-                        setProcessingMsg("Opening payment gateway…");
-                        await paymentService.openCheckout(
-                          order,
-                          {
-                            name: (user as any)?.fullName || user?.username || "User",
-                            email: user?.email || "user@example.com",
-                          },
-                          async (rp) => {
-                            setProcessingMsg("Verifying payment…");
-                            const verify = await paymentService.verifyPayment({
-                              orderId: order.orderId,
-                              paymentId: rp?.razorpay_payment_id,
-                              signature: rp?.razorpay_signature,
-                            });
-                            
-                            if (verify.success) {
-                              const links = (verify as any)?.telegramInviteLinks;
-                              if (links?.length) setTelegramLinks(links);
-                              setStep("success");
-                              setProcessing(false);
-                              paymentFlowState.clear();
-                              toast({ title: "Payment Successful", description: "Subscription activated" });
-                            } else {
+                      setProcessing(true);
+                      setStep("processing");
+                      setProcessingMsg("Verifying Digio...");
+
+                      try {
+                        const verifyResult = await paymentService.verifyESignToken(didToken);
+                        if (verifyResult.success) {
+                          setProcessingMsg("Creating order after Digio...");
+                          const order = await paymentService.createOrder({
+                            productType: "Bundle",
+                            productId: bundle._id,
+                            planType: "monthly",
+                            subscriptionType: (bundle.category as any) || "premium",
+                            couponCode: appliedCoupon?.code || undefined,
+                          });
+
+                          // Continue with payment flow
+                          setProcessingMsg("Opening payment gateway…");
+                          await paymentService.openCheckout(
+                            order,
+                            {
+                              name: (user as any)?.fullName || user?.username || "User",
+                              email: user?.email || "user@example.com",
+                            },
+                            async (rp) => {
+                              setProcessingMsg("Verifying payment…");
+                              const verify = await paymentService.verifyPayment({
+                                orderId: order.orderId,
+                                paymentId: rp?.razorpay_payment_id,
+                                signature: rp?.razorpay_signature,
+                              });
+
+                              if (verify.success) {
+                                const links = (verify as any)?.telegramInviteLinks;
+                                if (links?.length) setTelegramLinks(links);
+                                setStep("success");
+                                setProcessing(false);
+                                paymentFlowState.clear();
+                                toast({ title: "Payment Successful", description: "Subscription activated" });
+                              } else {
+                                setStep("error");
+                                setProcessing(false);
+                                toast({ title: "Verification Failed", description: verify.message || "Please try again", variant: "destructive" });
+                              }
+                            },
+                            (err) => {
                               setStep("error");
                               setProcessing(false);
-                              toast({ title: "Verification Failed", description: verify.message || "Please try again", variant: "destructive" });
+                              toast({ title: "Payment Cancelled", description: err?.message || "Payment was cancelled", variant: "destructive" });
                             }
-                          },
-                          (err) => {
-                            setStep("error");
-                            setProcessing(false);
-                            toast({ title: "Payment Cancelled", description: err?.message || "Payment was cancelled", variant: "destructive" });
-                          }
-                        );
-                      } else {
+                          );
+                        } else {
+                          setStep("error");
+                          setProcessing(false);
+                          toast({
+                            title: "Digio Verification Failed",
+                            description: verifyResult.message || "Please try again",
+                            variant: "destructive",
+                          });
+                        }
+                      } catch (error: any) {
                         setStep("error");
                         setProcessing(false);
                         toast({
-                          title: "Digio Verification Failed",
-                          description: verifyResult.message || "Please try again",
+                          title: "Verification Error",
+                          description: error.message || "Failed to verify Digio",
                           variant: "destructive",
                         });
                       }
-                    } catch (error: any) {
-                      setStep("error");
-                      setProcessing(false);
-                      toast({
-                        title: "Verification Error",
-                        description: error.message || "Failed to verify Digio",
-                        variant: "destructive",
-                      });
-                    }
-                  }}>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        DID Token *
-                      </label>
-                      <input
-                        type="text"
-                        name="didToken"
-                        required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Enter your DID token from Digio completion"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        You'll receive this token after completing the Digio process
-                      </p>
-                    </div>
-                    
-                    <div className="flex gap-3">
-                      <Button
-                        type="button"
-                        onClick={() => setStep("processing")}
-                        variant="outline"
-                        className="flex-1"
-                      >
-                        Back
-                      </Button>
-                      <Button
-                        type="submit"
-                        className="flex-1 bg-[#001633] hover:bg-[#002244] text-white"
-                      >
-                        Verify & Continue
-                      </Button>
-                    </div>
-                  </form>
-                </div>
-              )}
-
-              {step === "processing" && (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                  <h3 className="text-lg font-semibold mb-2">
-                    Processing Payment
-                  </h3>
-                  <p className="text-gray-600 mb-4">{processingMsg}</p>
-                  <p className="text-xs text-gray-500 mb-4">
-                    If the Razorpay window is open, you can close it to cancel.
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      cancelRequested.current = true;
-                      setProcessing(false);
-                      setStep("plan");
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              )}
-
-              {step === "success" && (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Check className="h-8 w-8 text-green-600" />
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2 text-green-800">
-                    Payment Successful!
-                  </h3>
-                  <p className="text-gray-600 mb-6">
-                    Your {bundle.name} subscription has been activated
-                    successfully!
-                  </p>
-                  <Button
-                    onClick={() => {
-                      handleClose();
-                      router.push("/dashboard");
-                    }}
-                    className="w-full bg-green-600 hover:bg-green-700 mb-4"
-                  >
-                    Continue to Dashboard
-                  </Button>
-
-                  {/* Telegram Links Section */}
-                  <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    {telegramLinks && telegramLinks.length > 0 ? (
-                      <>
-                        <h4 className="text-sm font-semibold text-blue-800 mb-3">
-                          🎉 Join Your Exclusive Telegram Groups:
-                        </h4>
-                        <div className="space-y-2">
-                          {telegramLinks.map((link, index) => (
-                            <a
-                              key={index}
-                              href={link.invite_link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center justify-center gap-2 w-full px-4 py-3 text-sm bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
-                            >
-                              <svg
-                                className="w-4 h-4"
-                                fill="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path d="M12 0C5.374 0 0 5.373 0 12s5.374 12 12 12 12-5.373 12-12S18.626 0 12 0zm5.568 8.16c-.169 1.858-.896 6.728-.896 6.728-.377 2.655-.377 2.655-1.377 2.655-.896 0-1.377-1.377-1.377-2.655 0-1.858.896-6.728.896-6.728C15.186 6.302 16.582 6.302 17.568 8.16zM8.432 8.16c.169 1.858.896 6.728.896 6.728.377 2.655.377 2.655 1.377 2.655.896 0 1.377-1.377 1.377-2.655 0-1.858-.896-6.728-.896-6.728C8.814 6.302 7.418 6.302 8.432 8.16z" />
-                              </svg>
-                              Join Telegram Group {index + 1}
-                            </a>
-                          ))}
-                        </div>
-                        <p className="text-xs text-blue-600 mt-3 text-center">
-                          💡 Click the buttons above to join your exclusive investment groups
+                    }}>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          DID Token *
+                        </label>
+                        <input
+                          type="text"
+                          name="didToken"
+                          required
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Enter your DID token from Digio completion"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          You'll receive this token after completing the Digio process
                         </p>
-                      </>
-                    ) : (
-                      <>
-                        <h4 className="text-sm font-semibold text-blue-800 mb-3">
-                          📱 Telegram Group Access
-                        </h4>
-                        <p className="text-sm text-blue-700 mb-3">
-                          Your Telegram group links will be available shortly. Please check your subscriptions tab in your profile page.
-                        </p>
-                        <button
-                          onClick={() => {
-                            handleClose();
-                            router.push("/settings");
-                          }}
-                          className="w-full px-4 py-3 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      </div>
+
+                      <div className="flex gap-3">
+                        <Button
+                          type="button"
+                          onClick={() => setStep("processing")}
+                          variant="outline"
+                          className="flex-1"
                         >
-                          Go to Profile Settings
-                        </button>
-                      </>
-                    )}
+                          Back
+                        </Button>
+                        <Button
+                          type="submit"
+                          className="flex-1 bg-[#001633] hover:bg-[#002244] text-white"
+                        >
+                          Verify & Continue
+                        </Button>
+                      </div>
+                    </form>
                   </div>
+                )}
 
-
-                </div>
-              )}
-
-              {step === "error" && (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <AlertCircle className="h-8 w-8 text-red-600" />
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2 text-red-800">
-                    Payment Failed
-                  </h3>
-                  <p className="text-gray-600 mb-6">
-                    Something went wrong with your payment. Please try again.
-                  </p>
-                  <div className="space-y-2">
+                {step === "processing" && (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <h3 className="text-lg font-semibold mb-2">
+                      Processing Payment
+                    </h3>
+                    <p className="text-gray-600 mb-4">{processingMsg}</p>
+                    <p className="text-xs text-gray-500 mb-4">
+                      If the Razorpay window is open, you can close it to cancel.
+                    </p>
                     <Button
-                      onClick={() => setStep("plan")}
-                      className="w-full bg-[#001633] hover:bg-[#002244]"
-                    >
-                      Try Again
-                    </Button>
-                    <Button
-                      onClick={handleClose}
                       variant="outline"
-                      className="w-full"
+                      onClick={() => {
+                        cancelRequested.current = true;
+                        setProcessing(false);
+                        setStep("plan");
+                      }}
                     >
                       Cancel
                     </Button>
                   </div>
-                </div>
-              )}
+                )}
+
+                {step === "success" && (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Check className="h-8 w-8 text-green-600" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2 text-green-800">
+                      Payment Successful!
+                    </h3>
+                    <p className="text-gray-600 mb-6">
+                      Your {bundle.name} subscription has been activated
+                      successfully!
+                    </p>
+                    <Button
+                      onClick={() => {
+                        handleClose();
+                        router.push("/dashboard");
+                      }}
+                      className="w-full bg-green-600 hover:bg-green-700 mb-4"
+                    >
+                      Continue to Dashboard
+                    </Button>
+
+                    {/* Telegram Links Section */}
+                    <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      {telegramLinks && telegramLinks.length > 0 ? (
+                        <>
+                          <h4 className="text-sm font-semibold text-blue-800 mb-3">
+                            🎉 Join Your Exclusive Telegram Groups:
+                          </h4>
+                          <div className="space-y-2">
+                            {telegramLinks.map((link, index) => (
+                              <a
+                                key={index}
+                                href={link.invite_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-center gap-2 w-full px-4 py-3 text-sm bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
+                              >
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path d="M12 0C5.374 0 0 5.373 0 12s5.374 12 12 12 12-5.373 12-12S18.626 0 12 0zm5.568 8.16c-.169 1.858-.896 6.728-.896 6.728-.377 2.655-.377 2.655-1.377 2.655-.896 0-1.377-1.377-1.377-2.655 0-1.858.896-6.728.896-6.728C15.186 6.302 16.582 6.302 17.568 8.16zM8.432 8.16c.169 1.858.896 6.728.896 6.728.377 2.655.377 2.655 1.377 2.655.896 0 1.377-1.377 1.377-2.655 0-1.858-.896-6.728-.896-6.728C8.814 6.302 7.418 6.302 8.432 8.16z" />
+                                </svg>
+                                Join Telegram Group {index + 1}
+                              </a>
+                            ))}
+                          </div>
+                          <p className="text-xs text-blue-600 mt-3 text-center">
+                            💡 Click the buttons above to join your exclusive investment groups
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <h4 className="text-sm font-semibold text-blue-800 mb-3">
+                            📱 Telegram Group Access
+                          </h4>
+                          <p className="text-sm text-blue-700 mb-3">
+                            Your Telegram group links will be available shortly. Please check your subscriptions tab in your profile page.
+                          </p>
+                          <button
+                            onClick={() => {
+                              handleClose();
+                              router.push("/settings");
+                            }}
+                            className="w-full px-4 py-3 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                          >
+                            Go to Profile Settings
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+
+                  </div>
+                )}
+
+                {step === "error" && (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <AlertCircle className="h-8 w-8 text-red-600" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2 text-red-800">
+                      Payment Failed
+                    </h3>
+                    <p className="text-gray-600 mb-6">
+                      Something went wrong with your payment. Please try again.
+                    </p>
+                    <div className="space-y-2">
+                      <Button
+                        onClick={() => setStep("plan")}
+                        className="w-full bg-[#001633] hover:bg-[#002244]"
+                      >
+                        Try Again
+                      </Button>
+                      <Button
+                        onClick={handleClose}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            </div >
 
             {/* Footer - Fixed */}
-            <div className="p-4 sm:p-6 border-t bg-white flex-shrink-0">
+            < div className="p-4 sm:p-6 border-t bg-white flex-shrink-0" >
               {step === "plan" && (
                 <Button
                   onClick={handleProceed}
@@ -1499,39 +1928,127 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 >
                   {isAuthenticated ? "Continue to Payment" : "Proceed to Payment"}
                 </Button>
-              )}
-              
-              {step === "consent" && (
-                <div className="flex gap-3">
-                  <Button
-                    onClick={() => setStep("plan")}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    Back to Plan
-                  </Button>
-                  <Button
-                    onClick={proceedAfterVideo}
-                    className="flex-1 bg-[#001633] hover:bg-[#002244] text-white"
-                  >
-                    Proceed to Verification
-                  </Button>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        </motion.div>
-      </AnimatePresence>
+              )
+              }
+
+              {
+                step === "consent" && (
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={() => setStep("plan")}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      Back to Plan
+                    </Button>
+                    <Button
+                      onClick={proceedAfterVideo}
+                      className="flex-1 bg-[#001633] hover:bg-[#002244] text-white"
+                    >
+                      Proceed to Verification
+                    </Button>
+                  </div>
+                )
+              }
+            </div >
+          </motion.div >
+        </motion.div >
+      </AnimatePresence >
 
       {/* Digio Verification Modal */}
-      {showDigio && agreementData && (
-        <DigioVerificationModal
-          isOpen={showDigio}
-          onClose={() => setShowDigio(false)}
-          onVerificationComplete={handleDigioComplete}
-          agreementData={agreementData}
-        />
-      )}
+      {
+        showDigio && agreementData && (
+          <DigioVerificationModal
+            isOpen={showDigio}
+            onClose={() => setShowDigio(false)}
+            onVerificationComplete={handleDigioComplete}
+            agreementData={agreementData}
+          />
+        )
+      }
+
+      {/* Payment Gateway Selector Modal */}
+      <PaymentGatewaySelectorModal
+        isOpen={showGatewaySelector}
+        onClose={() => {
+          setShowGatewaySelector(false);
+          setStep("consent");
+        }}
+        onSelect={handleGatewaySelect}
+        title="Choose Payment Method"
+        description="Select your preferred payment gateway to complete the subscription"
+        isEmandate={isEmandateFlow}
+      />
+
+      {/* Cashfree S2S Payment Modal */}
+      {
+        showCashfreeS2S && cashfreeS2SData && (
+          <CashfreeS2SPayment
+            isOpen={showCashfreeS2S}
+            onClose={() => {
+              setShowCashfreeS2S(false);
+              setCashfreeS2SData(null);
+              setStep("consent");
+            }}
+            subscriptionId={cashfreeS2SData.subscriptionId}
+            amount={cashfreeS2SData.amount}
+            productName={cashfreeS2SData.productName}
+            onSuccess={() => {
+              setShowCashfreeS2S(false);
+              // Handle success - redirect to dashboard
+              router.push('/dashboard?payment=success');
+            }}
+            onError={(error) => {
+              console.error('Cashfree S2S error:', error);
+              toast({
+                title: "Payment Error",
+                description: error,
+                variant: "destructive",
+              });
+            }}
+          />
+        )
+      }
+
+      {/* Cashfree Modal */}
+      {
+        showCashfreeModal && cashfreeModalData && (
+          <CashfreeModal
+            isOpen={showCashfreeModal}
+            onClose={() => {
+              setShowCashfreeModal(false);
+              setCashfreeModalData(null);
+              setStep("plan");
+            }}
+            paymentSessionId={cashfreeModalData.paymentSessionId}
+            subsSessionId={cashfreeModalData.subsSessionId}
+            paymentType={cashfreeModalData.paymentType}
+            amount={cashfreeModalData.amount}
+            title={cashfreeModalData.paymentType === 'one_time' ? "Complete Payment" : "Complete Payment Authorization"}
+            onSuccess={async () => {
+              setShowCashfreeModal(false);
+              setCashfreeModalData(null);
+              setStep("success");
+
+              // Verify payment and redirect
+              setTimeout(() => {
+                router.push('/dashboard?payment=success');
+              }, 2000);
+            }}
+            onFailure={(error) => {
+              console.error('Cashfree modal error:', error);
+              setShowCashfreeModal(false);
+              setCashfreeModalData(null);
+              setStep("error");
+              toast({
+                title: "Payment Failed",
+                description: error?.message || "Payment authorization failed. Please try again.",
+                variant: "destructive",
+              });
+            }}
+          />
+        )
+      }
     </>
   );
 };

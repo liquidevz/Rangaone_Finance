@@ -77,7 +77,6 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
 
   // Debug effect
   useEffect(() => {
-    console.log('State changed - isSignupMode:', isSignupMode, 'email:', formData.email);
   }, [isSignupMode, formData.email]);
 
   const steps = ["Authentication", "Aadhaar eSign", "Payment", "Complete Profile"];
@@ -178,7 +177,6 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
             state: formData.state
           };
           
-          console.log("Signup data being sent:", signupData);
           
           // Signup first
           await authService.signup(signupData);
@@ -191,13 +189,6 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
           } catch (loginError: any) {
             const isEmail = /\S+@\S+\.\S+/.test(formData.username);
             const errorMessage = loginError.message || loginError.toString();
-            
-            console.log('Login error details:', {
-              isEmail,
-              errorMessage,
-              loginError,
-              response: loginError.response
-            });
             
             // If it's an email and login fails, switch to signup mode
             if (isEmail) {
@@ -329,7 +320,6 @@ const CartAuthForm: React.FC<CartAuthFormProps> = ({ onAuthSuccess, onPaymentTri
   };
 
   const renderStepContent = () => {
-    console.log('Rendering step:', currentStep, 'isSignupMode:', isSignupMode);
     switch (currentStep) {
       case 0: // Authentication (merged login/signup)
         if (isSignupMode) {

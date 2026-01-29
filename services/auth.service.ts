@@ -63,14 +63,12 @@ export const authService = {
   // Authentication methods
   signup: async (payload: SignupPayload): Promise<SignupResponse> => {
     try {
-      console.log("Signup payload:", payload);
       const response = await post<SignupResponse>("/auth/signup", payload, {
         headers: {
           accept: "application/json",
           "Content-Type": "application/json",
         },
       });
-      console.log("Signup response:", response);
       return response;
     } catch (error: any) {
       console.error("Signup error:", error);
@@ -129,6 +127,14 @@ export const authService = {
     } catch (error) {
       console.error("Logout API call failed:", error);
       // Don't throw error, just log it
+    }
+    
+    // Clear subscription cache on logout
+    try {
+      const { subscriptionService } = await import('./subscription.service');
+      subscriptionService.clearCache();
+    } catch (err) {
+      console.error("Failed to clear subscription cache:", err);
     }
     
     // Always clear local tokens regardless of API call result

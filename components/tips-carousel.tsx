@@ -67,14 +67,6 @@ const MarqueeText = ({
   // Always show marquee for long text to ensure it works
   const isLongText = text.length > 15; // Reduced threshold to trigger marquee more often
 
-  // Debug log to see what text is being passed
-  console.log("MarqueeText debug:", {
-    text,
-    textLength: text.length,
-    isLongText,
-    shouldScroll,
-  });
-
   // Force marquee for any text longer than 15 characters or if it should scroll
   if (!shouldScroll && !isLongText) {
     return (
@@ -786,15 +778,6 @@ export default function TipsCarousel({
     const paddedMinDate = addDays(minDate, -paddingDays);
     const paddedMaxDate = addDays(maxDate, paddingDays);
 
-    console.log("📅 Timeline Date Range:", {
-      tipsCount: tips.length,
-      validDates: dates.length,
-      minDate: format(minDate, "dd MMM yyyy"),
-      maxDate: format(maxDate, "dd MMM yyyy"),
-      paddedMin: format(paddedMinDate, "dd MMM yyyy"),
-      paddedMax: format(paddedMaxDate, "dd MMM yyyy"),
-    });
-
     return { min: paddedMinDate, max: paddedMaxDate };
   }, [tips]);
 
@@ -808,10 +791,6 @@ export default function TipsCarousel({
     }
 
     try {
-      console.log(
-        `🔍 Fetching stock symbols for ${tipsWithStockId.length} tips using cache service (non-blocking)`
-      );
-      
       // Extract unique stock IDs
       const stockIds = Array.from(new Set(tipsWithStockId.map((tip) => {
         return tip.stockId!.replace(/\.[A-Z]+$/, '').trim();
@@ -829,14 +808,12 @@ export default function TipsCarousel({
       // Set initial cached symbols immediately if any are available
       if (initialSymbols.size > 0) {
         setStockSymbols(initialSymbols);
-        console.log(`📋 Set ${initialSymbols.size} cached symbols immediately`);
       }
 
       // Then fetch the remaining symbols in the background
       const uncachedIds = stockIds.filter(id => !stockSymbolCacheService.isSymbolCached(id));
       
       if (uncachedIds.length > 0) {
-        console.log(`🔄 Fetching ${uncachedIds.length} uncached symbols in background`);
         
         // Fetch missing symbols without blocking the UI
         const symbolResults = await stockSymbolCacheService.getMultipleSymbols(uncachedIds);
@@ -850,7 +827,6 @@ export default function TipsCarousel({
           return newSymbols;
         });
         
-        console.log(`✅ Added ${symbolResults.size} new symbols from background fetch`);
       }
       
     } catch (error) {
@@ -895,15 +871,6 @@ export default function TipsCarousel({
       if (!stockName) {
         stockName = `Stock ${index + 1}`;
       }
-      // Debug: Log the mapping and lookup
-      if (isModelPortfolio) {
-        console.log(
-          "[TipsCarousel] Looking up weight for symbol:",
-          stockName,
-          "in map:",
-          Array.from(portfolioHoldingsMap.entries())
-        );
-      }
       // Get weightage from portfolio holdings if available
       let weightage: number | undefined = undefined;
       if (
@@ -912,10 +879,6 @@ export default function TipsCarousel({
         portfolioHoldingsMap.has(stockName)
       ) {
         weightage = portfolioHoldingsMap.get(stockName);
-        console.log(
-          `[TipsCarousel] Found weightage for ${stockName}:`,
-          weightage
-        );
       }
       if (weightage === undefined && isModelPortfolio) {
         weightage = 5.0;
@@ -1308,11 +1271,6 @@ export default function TipsCarousel({
             selectedDate={currentTipDate}
             onDateChange={(date) => {
               if (!date || isNaN(date.getTime())) return;
-              
-              console.log(
-                "📅 Timeline Date Selected:",
-                format(date, "dd MMM yyyy")
-              );
 
               // Find the tip with the closest date to the selected date
               let closestTipIndex = 0;
@@ -1335,14 +1293,6 @@ export default function TipsCarousel({
               if (isNaN(closestTipDate.getTime())) return;
               
               const dayDiff = Math.abs(differenceInDays(date, closestTipDate));
-
-              console.log("🎯 Timeline Navigation:", {
-                selectedDate: format(date, "dd MMM yyyy"),
-                closestTipDate: format(closestTipDate, "dd MMM yyyy"),
-                closestTipIndex,
-                dayDiff,
-                willNavigate: dayDiff <= 1,
-              });
 
               if (dayDiff <= 1) {
                 goToTip(closestTipIndex);

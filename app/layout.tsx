@@ -28,6 +28,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://www.youtube.com" />
+        <link rel="dns-prefetch" href="https://www.youtube.com" />
         <link rel="preload" as="image" href="/landing-page/HeroImage.png" />
         <link rel="preload" as="image" href="/landing-page/mobileHeroImage.png" />
         <link rel="preload" as="image" href="/landing-page/rlogodark.png" />
