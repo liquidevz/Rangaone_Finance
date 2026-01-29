@@ -82,7 +82,8 @@ export default function FAQContactSection() {
       const contactData: ContactFormData = {
         name: formData.name,
         email: formData.email,
-        message: `Representation: ${formData.represent}\n\nMessage: ${formData.message}\n\nContact me on the following number: ${formData.mobile}`
+        represent: formData.represent,
+        message: `Message: ${formData.message}\n\nContact me on the following number: ${formData.mobile}`
       }
 
       await contactService.sendContactMessage(contactData)

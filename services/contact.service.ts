@@ -3,6 +3,7 @@ import axiosApi from '@/lib/axios';
 export interface ContactFormData {
   name: string;
   email: string;
+  represent: string;
   message: string;
 }
 
