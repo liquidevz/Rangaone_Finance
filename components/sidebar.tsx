@@ -62,6 +62,12 @@ const navigationItems = [
     icon: <Play className="h-4 w-4" />,
     items: [
       {
+        label: "User Portfolio",
+        icon: <Briefcase className="h-6 w-6" />,
+        href: "/resources/user-portfolio",
+        badge: null,
+      },
+      {
         label: "Videos For You",
         icon: <Video className="h-6 w-6" />,
         href: "/videos-for-you",
@@ -73,6 +79,7 @@ const navigationItems = [
         href: "/dashboard/contact-us",
         badge: null,
       },
+
     ],
   },
 ];
@@ -106,6 +113,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = false, onToggle
   };
 
   const isActive = (href: string) => {
+    if (!pathname) return false;
     if (href === "/dashboard") {
       return pathname === href;
     }
@@ -145,16 +153,16 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = false, onToggle
               "flex items-center transition-all duration-300",
               isCollapsed ? "lg:justify-center lg:w-full" : "gap-2"
             )}>
-              <img 
-                src="/landing-page/rlogodark.png" 
-                alt="RangaOne Logo" 
-                className="h-10 w-auto" 
+              <img
+                src="/landing-page/rlogodark.png"
+                alt="RangaOne Logo"
+                className="h-10 w-auto"
               />
               {!isCollapsed && (
-                <img 
-                  src="/landing-page/namelogodark.png" 
-                  alt="RangaOne Name" 
-                  className="h-10 w-auto" 
+                <img
+                  src="/landing-page/namelogodark.png"
+                  alt="RangaOne Name"
+                  className="h-10 w-auto"
                 />
               )}
             </div>
@@ -234,16 +242,16 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = false, onToggle
                       "transition-all duration-200 group relative overflow-hidden",
                       isActive(item.href)
                         ? [
-                            "bg-[#131859] text-white font-medium",
-                            "shadow-lg shadow-blue-500/30 transform translate-y-0",
-                            "ring-2 ring-blue-200/50",
-                            "before:absolute before:inset-0 before:bg-gradient-to-r before:from-white/0 before:to-white/10"
-                          ]
+                          "bg-[#131859] text-white font-medium",
+                          "shadow-lg shadow-blue-500/30 transform translate-y-0",
+                          "ring-2 ring-blue-200/50",
+                          "before:absolute before:inset-0 before:bg-gradient-to-r before:from-white/0 before:to-white/10"
+                        ]
                         : [
-                            "text-gray-700 hover:bg-white/90 hover:shadow-md hover:transform hover:translate-y-[-1px]",
-                            "border border-transparent hover:border-gray-200/60",
-                            "backdrop-blur-sm"
-                          ],
+                          "text-gray-700 hover:bg-white/90 hover:shadow-md hover:transform hover:translate-y-[-1px]",
+                          "border border-transparent hover:border-gray-200/60",
+                          "backdrop-blur-sm"
+                        ],
                       isCollapsed ? "lg:w-16 lg:h-16 lg:p-0 lg:justify-center" : "px-4 py-3"
                     )}
                     title={isCollapsed ? item.label : undefined}
@@ -296,14 +304,14 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = false, onToggle
                 "transition-all duration-200 group relative overflow-hidden",
                 isActive("/settings")
                   ? [
-                      "bg-gradient-to-r from-gray-600 to-gray-700 text-white font-medium",
-                      "shadow-lg shadow-gray-500/30 ring-2 ring-gray-200/50",
-                    ]
+                    "bg-gradient-to-r from-gray-600 to-gray-700 text-white font-medium",
+                    "shadow-lg shadow-gray-500/30 ring-2 ring-gray-200/50",
+                  ]
                   : [
-                      "text-gray-700 hover:bg-white/90 hover:shadow-md hover:transform hover:translate-y-[-1px]",
-                      "border border-transparent hover:border-gray-200/60",
-                      "backdrop-blur-sm"
-                    ],
+                    "text-gray-700 hover:bg-white/90 hover:shadow-md hover:transform hover:translate-y-[-1px]",
+                    "border border-transparent hover:border-gray-200/60",
+                    "backdrop-blur-sm"
+                  ],
                 isCollapsed ? "lg:w-16 lg:h-16 lg:p-0 lg:justify-center" : "px-4 py-3"
               )}
               title={isCollapsed ? "Settings" : undefined}

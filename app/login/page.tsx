@@ -15,7 +15,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type React from "react";
 import { useState, useEffect } from "react";
 
-const ForgotPasswordModal = dynamic(() => import("@/components/auth/forgot-password-modal"), { 
+const ForgotPasswordModal = dynamic(() => import("@/components/auth/forgot-password-modal"), {
   ssr: false
 });
 
@@ -27,7 +27,7 @@ const clearBrowserCaches = async () => {
       const cacheNames = await caches.keys();
       await Promise.all(cacheNames.map(name => caches.delete(name)));
     }
-    
+
     // Unregister service workers
     if ('serviceWorker' in navigator) {
       const registrations = await navigator.serviceWorker.getRegistrations();
@@ -57,17 +57,23 @@ export default function LoginPage() {
     clearBrowserCaches();
   }, []);
 
+  // Get the redirect URL from query params
+  const redirectTo = searchParams?.get('redirectTo') || null;
+
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
       if (cartRedirectState.hasPendingCartRedirect()) {
         cartRedirectState.clearPendingCartRedirect();
         router.replace("/cart");
+      } else if (redirectTo) {
+        // Redirect to the original intended URL
+        router.replace(redirectTo);
       } else {
         router.replace("/dashboard");
       }
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, router, redirectTo]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -80,7 +86,7 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.identifier || !formData.password) {
       toast({
         title: "Missing fields",
@@ -100,18 +106,21 @@ export default function LoginPage() {
         description: "You have successfully logged in.",
       });
 
-      // Handle cart redirect or default to dashboard
+      // Handle redirect priority: cart > redirectTo param > dashboard
       if (cartRedirectState.hasPendingCartRedirect()) {
         cartRedirectState.clearPendingCartRedirect();
         router.replace("/cart");
+      } else if (redirectTo) {
+        // Redirect to the original intended URL
+        router.replace(redirectTo);
       } else {
         router.replace("/dashboard");
       }
     } catch (error: any) {
       console.error("Login error:", error);
-      
+
       let errorMessage = "Invalid username/email or password. Please try again.";
-      
+
       if (error?.response?.status === 401) {
         errorMessage = "Invalid email/phone/username or password. Please try again.";
       } else if (error?.response?.status === 403) {
@@ -159,17 +168,17 @@ export default function LoginPage() {
           {/* Header */}
           <div className="text-center">
             <div className="flex items-center justify-center gap-2 mx-auto mt-2 mb-12 -my-16">
-              <Image 
-                src="/landing-page/rlogodark.png" 
-                alt="RangaOne Logo" 
+              <Image
+                src="/landing-page/rlogodark.png"
+                alt="RangaOne Logo"
                 width={80}
                 height={80}
                 priority
                 fetchPriority="high"
               />
-              <Image 
-                src="/landing-page/namelogodark.png" 
-                alt="RangaOne Name" 
+              <Image
+                src="/landing-page/namelogodark.png"
+                alt="RangaOne Name"
                 width={180}
                 height={180}
                 priority
@@ -321,7 +330,7 @@ export default function LoginPage() {
             Welcome to RangaOne Finance
           </h1>
           <p className="text-xl opacity-90">
-          Grow Your Portfolio, Not your worries
+            Grow Your Portfolio, Not your worries
           </p>
         </div>
       </div>

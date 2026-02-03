@@ -18,6 +18,7 @@ export const tipsService = {
   // Check if user should see premium tips based on subscription
   shouldShowPremiumTips: async (): Promise<boolean> => {
     try {
+      // Dynamic import to avoid circular dependencies if any
       const { subscriptionService } = await import('./subscription.service');
       return await subscriptionService.hasPremiumAccess();
     } catch (error) {
@@ -40,11 +41,9 @@ export const tipsService = {
     const url = `/api/user/tips${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     
     const response = await axiosApi.get<Tip[]>(url, {
-      headers: {
-        accept: "application/json",
-      },
+      headers: { accept: "application/json" },
     });
-    return response.data;
+    return response.data || [];
   },
 
   // Fetch portfolio-specific tips
@@ -62,34 +61,32 @@ export const tipsService = {
     const url = `/api/user/tips-with-portfolio${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     
     const response = await axiosApi.get<Tip[]>(url, {
-      headers: {
-        accept: "application/json",
-      },
+      headers: { accept: "application/json" },
     });
-    return response.data;
+    return response.data || [];
   },
 
-  // Fetch tip by ID
+  // Fetch tip by ID with enhanced error logging
   getById: async (id: string): Promise<Tip> => {
-    
     try {
+      if (!id) throw new Error("Tip ID is required");
+
       const response = await axiosApi.get<Tip>(`/api/user/tips/${id}`, {
-        headers: {
-          accept: "application/json",
-        },
+        headers: { accept: "application/json" },
       });
-      
       
       return response.data;
     } catch (error: any) {
-      console.error('❌ API Error:', error);
-      console.error('🔗 Request URL:', `/api/user/tips/${id}`);
-      console.error('📊 Error details:', {
-        status: error?.response?.status,
-        statusText: error?.response?.statusText,
-        data: error?.response?.data,
-        message: error?.message
-      });
+      console.error('❌ TipsService Error:', error.message);
+      
+      // Detailed error logging for debugging
+      if (error?.response) {
+        console.error('📊 API Error Response:', {
+          status: error.response.status,
+          url: error.config?.url,
+          data: error.response.data
+        });
+      }
       
       throw error;
     }

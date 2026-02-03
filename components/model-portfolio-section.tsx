@@ -523,10 +523,10 @@ export default function ModelPortfolioSection() {
                      </div>
 
                      <div className="flex flex-col">
-                       <h3 className="font-bold text-sm text-black dark:text-[#FFFFF0] mb-2">Min. Investment</h3>
+                       <h3 className="font-bold text-sm text-black dark:text-[#FFFFF0] mb-2">Monthly, Contribution</h3>
                        <div className="flex items-center">
                          <span className="text-lg font-bold text-black dark:text-[#FFFFF0]">
-                           ₹{portfolio.minInvestment?.toLocaleString() || (monthlyFee * 12)?.toLocaleString()}
+                           ₹{portfolio.monthlyContribution?.toLocaleString()}
                          </span>
                        </div>
                      </div>

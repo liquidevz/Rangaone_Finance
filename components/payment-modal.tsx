@@ -182,6 +182,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     setProcessing(false);
   }, [bundle, user]);
 
+  useEffect(() => {
+   setAppliedCoupon(null);
+   paymentFlowState.clear();
+}, [bundle?._id]);
+
+
   // Ensure subscriptionType is defaulted correctly if needed
   useEffect(() => {
     // If not eMandate flow, default to monthly if not already set or if current selection is invalid
@@ -1356,7 +1362,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                         Coupon Code (Optional)
                       </label>
                       <CouponInput
-                        key={subscriptionType}
+                        key={`${bundle?._id}-${subscriptionType}`}
                         onCouponApplied={handleCouponApplied}
                         originalAmount={getOriginalPrice()}
                         disabled={processing}

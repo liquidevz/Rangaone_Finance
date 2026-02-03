@@ -4,112 +4,42 @@ import { useState, useEffect } from "react"
 import DashboardLayout from "@/components/dashboard-layout"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Play, Calendar, Clock, User, Loader2, Folder, AlertCircle } from "lucide-react"
+import { Play, Calendar, User, Loader2, Folder, Layers, Youtube } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { portfolioService } from "@/services/portfolio.service"
-import { Portfolio } from "@/lib/types"
+import { userPortfolioService, VideoBundle, VideoItem } from "@/services/user-portfolio.service"
 import { PageHeader } from "@/components/page-header"
-import { useIsMobile } from "@/components/ui/use-mobile"
 import { MobileVideoPlayer } from "@/components/mobile-video-player"
-
-interface VideoData {
-  id: string
-  title: string
-  youtubeId: string
-  portfolioName: string
-  portfolioCategory: string
-  createdAt: string
-  thumbnail?: string
-  portfolioId: string
-  description?: string
-}
-
-interface PortfolioGroup {
-  portfolioId: string
-  portfolioName: string
-  portfolioCategory: string
-  description?: string
-  videos: VideoData[]
-}
+import { Button } from "@/components/ui/button"
 
 export default function VideosForYou() {
-  const [activeTab, setActiveTab] = useState("all")
-  const [portfolioGroups, setPortfolioGroups] = useState<PortfolioGroup[]>([])
-  const [selectedVideo, setSelectedVideo] = useState<VideoData | null>(null)
+  const [data, setData] = useState<{ bundles: VideoBundle[], portfolios: VideoBundle[] } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [videoError, setVideoError] = useState<string | null>(null)
-  const [videoLoading, setVideoLoading] = useState(false)
-  const isMobile = useIsMobile()
+  const [selectedVideo, setSelectedVideo] = useState<{ video: VideoItem, bundleName: string, category: string } | null>(null)
 
-  // Extract YouTube video ID from URL
-  const extractYouTubeId = (url: string): string => {
-    const regex = /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/
-    const match = url.match(regex)
-    return match ? match[1] : ""
-  }
-
-  // Fetch portfolios and group videos
+  // Fetch videos from new API
   useEffect(() => {
     const fetchVideos = async () => {
       try {
         setLoading(true)
-        const portfolios = await portfolioService.getAll()
-        
-        const groups: PortfolioGroup[] = []
-        
-        portfolios.forEach((portfolio: Portfolio) => {
-          if (portfolio.youTubeLinks && portfolio.youTubeLinks.length > 0) {
-            const videos: VideoData[] = []
-            
-            portfolio.youTubeLinks.forEach((videoLink, index) => {
-              const youtubeId = extractYouTubeId(videoLink.link)
-              if (youtubeId) {
-                videos.push({
-                  id: `${portfolio._id}-${index}`,
-                  title: (portfolio.youTubeLinks?.length || 0) === 1 ? portfolio.name : `${portfolio.name} - Part ${index + 1}`,
-                  youtubeId,
-                  portfolioName: portfolio.name,
-                  portfolioCategory: portfolio.PortfolioCategory || "General",
-                  createdAt: videoLink.createdAt,
-                  thumbnail: `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`,
-                  portfolioId: portfolio._id,
-                  description: typeof portfolio.description === 'string' 
-                    ? portfolio.description 
-                    : Array.isArray(portfolio.description) 
-                      ? (portfolio.description as { key: string; value: string }[]).find(d => d.key === 'general')?.value || ''
-                      : ''
-                })
-              }
-            })
-            
-            if (videos.length > 0) {
-              groups.push({
-                portfolioId: portfolio._id,
-                portfolioName: portfolio.name,
-                portfolioCategory: portfolio.PortfolioCategory || "General",
-                description: typeof portfolio.description === 'string' 
-                  ? portfolio.description 
-                  : Array.isArray(portfolio.description) 
-                    ? (portfolio.description as { key: string; value: string }[]).find(d => d.key === 'general')?.value || ''
-                    : '',
-                videos: videos.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-              })
-            }
-          }
-        })
-        
-        // Sort groups by category (Premium first) then by name
-        groups.sort((a, b) => {
-          if (a.portfolioCategory !== b.portfolioCategory) {
-            return a.portfolioCategory.toLowerCase() === "premium" ? -1 : 1
-          }
-          return a.portfolioName.localeCompare(b.portfolioName)
-        })
-        
-        setPortfolioGroups(groups)
-        if (groups.length > 0 && groups[0].videos.length > 0) {
-          setSelectedVideo(groups[0].videos[0])
+        const response = await userPortfolioService.getVideosForYou()
+        setData(response)
+
+        // Auto-select first video if available
+        if (response.bundles.length > 0 && response.bundles[0].videos.length > 0) {
+          const firstBundle = response.bundles[0];
+          setSelectedVideo({
+            video: firstBundle.videos[0],
+            bundleName: firstBundle.name,
+            category: firstBundle.category
+          });
+        } else if (response.portfolios.length > 0 && response.portfolios[0].videos.length > 0) {
+          const firstPortfolio = response.portfolios[0];
+          setSelectedVideo({
+            video: firstPortfolio.videos[0],
+            bundleName: firstPortfolio.name,
+            category: firstPortfolio.category
+          });
         }
       } catch (err) {
         setError("Failed to load videos")
@@ -122,253 +52,223 @@ export default function VideosForYou() {
     fetchVideos()
   }, [])
 
-  // Handle video selection with error handling
-  const handleVideoSelect = (video: VideoData) => {
-    setVideoError(null)
-    setVideoLoading(true)
-    setSelectedVideo(video)
-    
-    // Scroll to video player on selection
-    const videoPlayer = document.getElementById('video-player-section')
-    if (videoPlayer) {
-      videoPlayer.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-    
-    // Reset loading state after a short delay
-    setTimeout(() => {
-      setVideoLoading(false)
-    }, 1000)
+  const extractYouTubeId = (url: string): string => {
+    const regex = /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/
+    const match = url ? url.match(regex) : null
+    return match ? match[1] : ""
   }
 
-  const filteredGroups = portfolioGroups.filter((group) => {
-    if (activeTab === "all") return true
-    return group.portfolioCategory.toLowerCase() === activeTab.toLowerCase()
-  })
+  const handleVideoSelect = (video: VideoItem, bundleName: string, category: string) => {
+    setSelectedVideo({ video, bundleName, category })
+    // Smooth scroll to player
+    const playerElement = document.getElementById('main-video-player')
+    if (playerElement) {
+      playerElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
 
-  const categories = ["all", ...Array.from(new Set(portfolioGroups.map((group) => group.portfolioCategory.toLowerCase())))]
-  const totalVideos = portfolioGroups.reduce((sum, group) => sum + group.videos.length, 0)
+  const renderVideoSection = (title: string, items: VideoBundle[], icon: any) => {
+    if (!items || items.length === 0) return null;
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="bg-[#131859] p-2 rounded-lg text-white">
+            {icon}
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {items.map((bundle) => (
+            bundle.videos.map((video, idx) => {
+              const youtubeId = extractYouTubeId(video.link)
+              if (!youtubeId) return null
+
+              const isSelected = selectedVideo?.video.link === video.link
+
+              return (
+                <Card
+                  key={`${bundle.id}-${idx}`}
+                  className={cn(
+                    "group overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 bg-white border-2 flex flex-col h-full",
+                    isSelected
+                      ? "ring-2 ring-[#C5A059] border-[#C5A059] shadow-lg"
+                      : "border-gray-100 hover:border-blue-200"
+                  )}
+                  onClick={() => handleVideoSelect(video, bundle.name, bundle.category)}
+                >
+                  <div className="relative aspect-video overflow-hidden bg-gray-900">
+                    <img
+                      src={`https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`}
+                      alt={bundle.name}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-90 group-hover:opacity-100"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+
+                    {/* Play Button Overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                      <div className="bg-white/20 backdrop-blur-md rounded-full p-3 border border-white/50 transform scale-75 group-hover:scale-100 transition-transform duration-300">
+                        <Play className="h-6 w-6 text-white fill-current" />
+                      </div>
+                    </div>
+
+                    {/* Category Badge */}
+                    <div className={cn(
+                      "absolute top-3 left-3 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
+                      bundle.category.toLowerCase() === "premium"
+                        ? "bg-gradient-to-r from-[#C5A059] to-[#E6C685] text-[#131859]"
+                        : "bg-blue-600/90 text-white"
+                    )}>
+                      {bundle.category}
+                    </div>
+
+                    {/* Duration/Status */}
+                    {isSelected && (
+                      <div className="absolute top-3 right-3 bg-[#131859]/90 backdrop-blur text-white px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                        PLAYING
+                      </div>
+                    )}
+                  </div>
+
+                  <CardContent className="p-4 flex flex-col flex-grow relative">
+                    {/* Card Type Tag */}
+                    <div className="absolute -top-3 left-4 bg-white shadow-sm border border-gray-100 px-2 py-0.5 rounded-md text-[10px] uppercase font-bold text-gray-400 tracking-wider flex items-center gap-1">
+                      {bundle.type === 'bundle' ? <Layers className="w-3 h-3" /> : <Folder className="w-3 h-3" />}
+                      {bundle.type}
+                    </div>
+
+                    <div className="mt-2">
+                      <h3 className="font-bold text-base leading-tight text-gray-900 group-hover:text-[#131859] transition-colors mb-2">
+                        {bundle.name}
+                      </h3>
+                      {/* Assuming multiple videos per bundle, showing part/episode info could be useful if provided, 
+                            but API structure suggests simple list. We treat each video as an episode of the bundle. */}
+                      {bundle.videos.length > 1 && (
+                        <p className="text-xs text-gray-500 mb-2">Episode {idx + 1}</p>
+                      )}
+                    </div>
+
+                    <div className="mt-auto pt-3 flex items-center justify-between border-t border-gray-50 text-xs text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(video.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
+                      <span className="flex items-center gap-1 text-[#C5A059] font-medium">
+                        Watch Now <Play className="w-3 h-3 ml-0.5" />
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <DashboardLayout>
-      <div className="flex flex-col w-full gap-6">
-        <PageHeader 
-          title="Videos For You" 
-          subtitle="Educational content and market insights from our portfolios"
-          showBackButton={false}
+      <div className="flex flex-col w-full gap-6 pb-12">
+        <PageHeader
+          title="Videos For You"
+          subtitle="Exclusive market insights and educational content curated for you"
         />
 
         {/* Loading State */}
         {loading && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-[#131859]" />
-            <span className="ml-2 text-gray-600">Loading videos...</span>
+          <div className="flex flex-col items-center justify-center py-20 min-h-[50vh]">
+            <Loader2 className="h-10 w-10 animate-spin text-[#131859] mb-4" />
+            <p className="text-gray-500 font-medium animate-pulse">Curating your video feed...</p>
           </div>
         )}
 
         {/* Error State */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-            <p className="text-red-600">{error}</p>
-          </div>
-        )}
-
-        {/* No Videos State */}
-        {!loading && !error && portfolioGroups.length === 0 && (
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
-            <p className="text-gray-600">No videos available at the moment.</p>
-          </div>
-        )}
-
-        {/* Featured Video Player */}
-        {selectedVideo && (
-          <div id="video-player-section" className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-lg border border-gray-200 overflow-hidden mb-8">
-            <div className="w-full bg-black relative rounded-t-xl overflow-hidden">
-              <MobileVideoPlayer
-                youtubeId={selectedVideo.youtubeId}
-                title={selectedVideo.title}
-              />
-              <div className="absolute top-4 right-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm font-medium z-10">
-                Now Playing
-              </div>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center max-w-2xl mx-auto mt-8">
+            <div className="bg-red-100 p-3 rounded-full w-fit mx-auto mb-4">
+              <Youtube className="h-6 w-6 text-red-600" />
             </div>
-            <div className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedVideo.title}</h2>
-                  {selectedVideo.description && (
-                    <p className="text-gray-600 mb-3 line-clamp-2">{selectedVideo.description}</p>
-                  )}
+            <h3 className="text-lg font-bold text-red-900 mb-2">Unable to load videos</h3>
+            <p className="text-red-600 mb-6">{error}</p>
+            <Button onClick={() => window.location.reload()} variant="outline" className="border-red-200 hover:bg-red-50 text-red-700">
+              Try Again
+            </Button>
+          </div>
+        )}
+
+        {/* Content */}
+        {!loading && !error && data && (
+          <>
+            {/* Main Player Section */}
+            {selectedVideo && (
+              <div id="main-video-player" className="bg-[#0A0E2E] rounded-2xl overflow-hidden shadow-2xl border border-[#1e2345] mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="grid lg:grid-cols-3 gap-0">
+                  <div className="lg:col-span-2 relative">
+                    <MobileVideoPlayer
+                      youtubeId={extractYouTubeId(selectedVideo.video.link)}
+                      title={selectedVideo.bundleName}
+                    />
+                  </div>
+                  <div className="p-6 lg:p-8 flex flex-col justify-center bg-gradient-to-b from-[#0A0E2E] to-[#0f143c]">
+                    <div className="mb-auto">
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className={cn(
+                          "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
+                          selectedVideo.category.toLowerCase() === "premium"
+                            ? "bg-gradient-to-r from-[#C5A059] to-[#E6C685] text-[#131859]"
+                            : "bg-blue-600 text-white"
+                        )}>
+                          {selectedVideo.category}
+                        </span>
+                        <span className="text-[#C5A059] text-xs font-mono">
+                          {new Date(selectedVideo.video.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <h1 className="text-2xl md:text-3xl font-bold text-white mb-4 leading-tight">
+                        {selectedVideo.bundleName}
+                      </h1>
+                      <p className="text-gray-400 text-sm leading-relaxed mb-6">
+                        Watch this exclusive insight. This content is curated based on your portfolio subscriptions and interests.
+                      </p>
+                    </div>
+
+                    <div className="pt-6 border-t border-white/10">
+                      <div className="flex items-center justify-between text-sm text-gray-400">
+                        <span>RangaOne Finance</span>
+                        <div className="flex items-center gap-2">
+                          <span>Share</span>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full hover:bg-white/10 hover:text-white">
+                            <Youtube className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <span className={cn(
-                  "px-3 py-1 rounded-full text-xs font-semibold ml-4 flex-shrink-0",
-                  selectedVideo.portfolioCategory.toLowerCase() === "premium" 
-                    ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white"
-                    : "bg-[#131859] text-white"
-                )}>
-                  {selectedVideo.portfolioCategory}
-                </span>
               </div>
-              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-                <span className="flex items-center bg-gray-100 px-3 py-1 rounded-full">
-                  <User className="h-4 w-4 mr-2" />
-                  {selectedVideo.portfolioName}
-                </span>
-                <span className="flex items-center bg-gray-100 px-3 py-1 rounded-full">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  {new Date(selectedVideo.createdAt).toLocaleDateString('en-US', { 
-                    year: 'numeric', 
-                    month: 'short', 
-                    day: 'numeric' 
-                  })}
-                </span>
+            )}
+
+            {/* Empty State */}
+            {data.bundles.length === 0 && data.portfolios.length === 0 && (
+              <div className="text-center py-20 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                <div className="bg-white p-4 rounded-full w-fit mx-auto mb-4 shadow-sm">
+                  <Play className="h-8 w-8 text-gray-300" />
+                </div>
+                <h3 className="text-gray-900 font-medium mb-1">No videos available</h3>
+                <p className="text-gray-500 text-sm">Check back later for new updates.</p>
               </div>
+            )}
+
+            <div className="space-y-12">
+              {renderVideoSection("Exclusive Bundles", data.bundles, <Layers className="h-5 w-5" />)}
+              {renderVideoSection("Portfolio Insights", data.portfolios, <Folder className="h-5 w-5" />)}
             </div>
-          </div>
-        )}
-
-        {/* Portfolio Video Library */}
-        {portfolioGroups.length > 0 && (
-          <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-            <div className="bg-[#131859] p-6 text-white">
-              <h2 className="text-2xl font-bold mb-2">Portfolio Video Library</h2>
-              <p className="text-blue-100">{totalVideos} educational videos from {portfolioGroups.length} portfolios</p>
-            </div>
-
-            <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <div className="px-6 pt-6">
-                <TabsList className="w-full flex flex-wrap justify-start bg-gray-50 p-2 h-auto gap-2 rounded-lg">
-                  {categories.map((category) => {
-                    const count = category === "all" 
-                      ? totalVideos 
-                      : portfolioGroups
-                          .filter(group => group.portfolioCategory.toLowerCase() === category.toLowerCase())
-                          .reduce((sum, group) => sum + group.videos.length, 0);
-                    return (
-                      <TabsTrigger
-                        key={category}
-                        value={category}
-                        className={cn(
-                          "py-3 px-4 rounded-lg font-medium transition-all duration-200 capitalize",
-                          activeTab === category
-                            ? "bg-[#131859] text-white shadow-md"
-                            : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200",
-                        )}
-                      >
-                        {category} <span className="ml-1 text-xs opacity-75">({count})</span>
-                      </TabsTrigger>
-                    );
-                  })}
-                </TabsList>
-              </div>
-
-              <TabsContent value={activeTab} className="p-6 space-y-8">
-                {filteredGroups.map((group) => (
-                  <div key={group.portfolioId} className="">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className={cn(
-                        "p-2 rounded-lg",
-                        group.portfolioCategory.toLowerCase() === "premium"
-                          ? "bg-gradient-to-r from-purple-500 to-pink-500"
-                          : "bg-[#131859]"
-                      )}>
-                        <Folder className="h-5 w-5 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold text-gray-900">{group.portfolioName}</h3>
-                        <p className="text-sm text-gray-600">{group.videos.length} video{group.videos.length > 1 ? 's' : ''} • {group.portfolioCategory}</p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                      {group.videos.map((video, index) => (
-                        <VideoCard
-                          key={video.id}
-                          video={video}
-                          onClick={() => handleVideoSelect(video)}
-                          isSelected={selectedVideo?.id === video.id}
-                          index={index}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                {filteredGroups.length === 0 && (
-                  <div className="text-center py-12">
-                    <div className="text-gray-400 mb-4">
-                      <Play className="h-16 w-16 mx-auto" />
-                    </div>
-                    <p className="text-gray-500 text-lg">No portfolios found in this category.</p>
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-          </div>
+          </>
         )}
       </div>
     </DashboardLayout>
-  )
-}
-
-function VideoCard({ video, onClick, isSelected, index }: { 
-  video: VideoData; 
-  onClick: () => void; 
-  isSelected: boolean;
-  index: number;
-}) {
-  return (
-    <Card
-      className={cn(
-        "group overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 bg-white border-2",
-        isSelected 
-          ? "ring-4 ring-indigo-500/50 border-indigo-500 shadow-xl" 
-          : "border-gray-200 hover:border-indigo-300",
-      )}
-      onClick={onClick}
-      style={{ animationDelay: `${index * 50}ms` }}
-    >
-      <CardContent className="p-0">
-        <div className="relative overflow-hidden">
-          <img 
-            src={video.thumbnail || "/placeholder.svg"} 
-            alt={video.title} 
-            className="w-full h-44 object-cover transition-transform duration-300 group-hover:scale-105" 
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.src = "/placeholder.svg";
-            }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
-            <div className="bg-white/90 backdrop-blur-sm rounded-full p-4 transform scale-75 group-hover:scale-100 transition-transform duration-300">
-              <Play className="h-6 w-6 text-indigo-600 fill-current" />
-            </div>
-          </div>
-          {isSelected && (
-            <div className="absolute top-3 right-3 bg-[#131859] text-white px-2 py-1 rounded-full text-xs font-semibold">
-              Playing
-            </div>
-          )}
-          <div className={cn(
-            "absolute top-3 left-3 px-2 py-1 rounded-full text-xs font-semibold",
-            video.portfolioCategory.toLowerCase() === "premium"
-              ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white"
-              : "bg-[#131859] text-white"
-          )}>
-            {video.portfolioCategory}
-          </div>
-        </div>
-        <div className="p-4">
-          <h3 className="font-bold text-base mb-2 line-clamp-2 text-gray-900 group-hover:text-[#131859] transition-colors">
-            {video.title}
-          </h3>
-          <p className="text-sm text-gray-600 mb-3 font-medium">{video.portfolioName}</p>
-          <div className="flex justify-between items-center text-xs text-gray-500">
-            <span className="flex items-center">
-              <Calendar className="h-3 w-3 mr-1" />
-              {new Date(video.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            </span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
   )
 }

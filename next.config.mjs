@@ -3,7 +3,7 @@ const nextConfig = {
   // =============================================================================
   // CRITICAL: Always enable standalone for production Docker deployments
   // =============================================================================
-  output: 'standalone',
+  // output: 'standalone',
 
   // Basic configuration
   reactStrictMode: false,

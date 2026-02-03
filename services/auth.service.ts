@@ -73,12 +73,12 @@ export const authService = {
     } catch (error: any) {
       console.error("Signup error:", error);
       console.error("Signup error response:", error.response?.data);
-      
+
       if (error?.response?.status === 400) {
         const errorMessage = error.response?.data?.message || error.response?.data?.error || "Invalid signup data";
         throw new Error(errorMessage);
       }
-      
+
       throw error;
     }
   },
@@ -87,7 +87,7 @@ export const authService = {
     try {
       // Transform identifier to email or mobile based on format
       const loginData: any = { password: payload.password };
-      
+
       // Check if identifier is email or mobile
       if (payload.identifier.includes('@')) {
         loginData.email = payload.identifier;
@@ -128,7 +128,7 @@ export const authService = {
       console.error("Logout API call failed:", error);
       // Don't throw error, just log it
     }
-    
+
     // Clear subscription cache on logout
     try {
       const { subscriptionService } = await import('./subscription.service');
@@ -136,7 +136,7 @@ export const authService = {
     } catch (err) {
       console.error("Failed to clear subscription cache:", err);
     }
-    
+
     // Always clear local tokens regardless of API call result
     authService.clearTokens();
   },
@@ -150,7 +150,7 @@ export const authService = {
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
           return null;
         }
-        
+
         const token = authHeader.substring(7);
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/user/profile`, {
           headers: {
@@ -158,18 +158,18 @@ export const authService = {
             'Accept': 'application/json'
           }
         });
-        
+
         if (!response.ok) {
           return null;
         }
-        
+
         return await response.json();
       } catch (error) {
         console.error('Error getting current user from request:', error);
         return null;
       }
     }
-    
+
     // Client-side: use existing method
     return await get<UserProfile>("/api/user/profile", {
       headers: {
@@ -280,8 +280,8 @@ export const authService = {
         localStorage.setItem("accessToken", accessToken);
         localStorage.setItem("refreshToken", refreshToken);
       } else {
-        sessionStorage.setItem("accessToken", accessToken);
-        sessionStorage.setItem("refreshToken", refreshToken);
+        localStorage.setItem("accessToken", accessToken);
+        localStorage.setItem("refreshToken", refreshToken);
       }
 
       // Update axios default headers
@@ -299,8 +299,8 @@ export const authService = {
       sessionStorage.removeItem("refreshToken");
 
       // Clear all cookies
-      document.cookie.split(";").forEach(function(c) { 
-        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+      document.cookie.split(";").forEach(function (c) {
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
       });
 
       // Clear axios default headers

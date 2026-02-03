@@ -973,8 +973,27 @@ export default function PortfolioDetailsPage() {
   const calculatePortfolioMetrics = () => {
     const minInvestment = (portfolio as any)?.minInvestment || 30000;
     
+    // Status priority map for sorting
+    const statusPriority: Record<string, number> = {
+      'fresh-buy': 1,
+      'sell': 1,
+      'addon-buy': 2,
+      'partial-sell': 2,
+      'hold': 3,
+      'avoid': 4
+    };
+
     // Use backend calculated values instead of frontend calculations
-    const holdingsWithQuantities = useBackendCalculatedValues(holdingsWithPrices, minInvestment);
+    // AND explicitly sort them immediately
+    const holdingsWithQuantities = useBackendCalculatedValues(holdingsWithPrices, minInvestment).sort((a: any, b: any) => {
+      const statusA = (a.status || '').toLowerCase();
+      const statusB = (b.status || '').toLowerCase();
+      
+      const priorityA = statusPriority[statusA] || 99;
+      const priorityB = statusPriority[statusB] || 99;
+      
+      return priorityA - priorityB;
+    });
     
     // Calculate holdings value using currentPrice * quantity for consistency
     const actualHoldingsValue = holdingsWithQuantities.reduce((sum: number, holding: any) => {
@@ -1005,7 +1024,6 @@ export default function PortfolioDetailsPage() {
       holdingsWithQuantities
     };
   };
-  
   const portfolioMetrics = calculatePortfolioMetrics();
 
   
@@ -1977,129 +1995,247 @@ export default function PortfolioDetailsPage() {
         </Card>
       </div>
 
-      {/* Latest Research Reports Section */}
-        <div className="mt-8 scroll-mt-24 md:scroll-mt-28" id="reports">
-          <div className="bg-white rounded-lg shadow-sm border p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-3 sm:space-y-0">
-              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-600 leading-tight">
-                <span className="block sm:inline">Latest Research Reports</span>
-                <span className="block sm:inline text-base sm:text-lg lg:text-xl text-gray-700 font-medium mt-1 sm:mt-0 sm:ml-2">
-                  for {getDisplayTitle((portfolio as any)?.name || 'Portfolio')}
-                </span>
-              </h2>
-              <div className="flex items-center space-x-2 flex-shrink-0">
-                <span className="text-xs sm:text-sm text-gray-600">Filter By:</span>
-                <select 
-                  className="border border-gray-300 rounded px-2 sm:px-3 py-1 text-xs sm:text-sm"
-                  onChange={(e) => setReportFilter(e.target.value)}
-                  value={reportFilter}
-                >
-                  <option value="all">All</option>
-                  {(() => {
-                    const allLinks = [
-                      ...((portfolio as any)?.downloadLinks || []),
-                      ...((portfolio as any)?.researchLinks || []),
-                      ...((portfolio as any)?.links || []),
-                      ...((portfolio as any)?.reports || [])
-                    ];
-                    const uniqueTypes = Array.from(new Set(allLinks.map(link => link.linkType).filter(Boolean)));
-                    return uniqueTypes.map(type => (
-                      <option key={type} value={type}>{type}</option>
-                    ));
-                  })()}
-                </select>
-              </div>
-            </div>
+    {/* Latest Research Reports Section */}
+<div id="reports" className="mt-8 scroll-mt-24 md:scroll-mt-28">
+  <div className="bg-white rounded-xl shadow-sm border p-4 sm:p-6">
 
-            <div className="border-b border-gray-200 mb-4">
-              <h3 className="text-blue-600 font-medium pb-2">Latest Updates</h3>
-            </div>
+    {/* HEADER */}
+    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-5">
+      
+      <h2 className="leading-tight">
+        <span className="block text-lg sm:text-xl lg:text-2xl font-bold text-blue-600">
+          Latest Research Reports
+        </span>
 
-            <div className="space-y-6">
-              {(() => {
-                const allLinks = [
-                  ...((portfolio as any)?.downloadLinks || []),
-                  ...((portfolio as any)?.researchLinks || []),
-                  ...((portfolio as any)?.links || []),
-                  ...((portfolio as any)?.reports || [])
-                ];
-                
-                const uniqueTypes = Array.from(new Set(allLinks.map(link => link.linkType).filter(Boolean)));
-                
-                const filteredLinks = allLinks.filter(link => {
-                  if (reportFilter === 'all') return true;
-                  return link.linkType?.toLowerCase() === reportFilter.toLowerCase();
-                });
-                
-                
-                return filteredLinks.length > 0 ? (
-                  filteredLinks.map((link: any, index: number) => {
-                    const linkUrl = link.linkUrl || link.url || link.link || link.downloadUrl || link.href;
-                    
-                    return (
-                      <div key={index} className="border-b border-gray-100 pb-6 last:border-b-0">
-                        <p className="px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 rounded text-xs sm:text-sm md:text-base font-medium bg-gray-700 text-[#FFFFF0] inline-block whitespace-nowrap">
-                          {link.linkType || 'Research document and analysis for portfolio subscribers.'}
-                        </p>
-                        <h4 className="font-semibold text-gray-900 text-lg mb-2">
-                          {link.name || link.linkDiscription || link.linkDescription || link.title || `${link.linkType?.charAt(0).toUpperCase() + link.linkType?.slice(1) || 'Document'} Report`}
-                        </h4>
+        <span className="block sm:inline text-sm sm:text-base lg:text-lg text-gray-700 font-medium sm:ml-2">
+          for {getDisplayTitle((portfolio as any)?.name || 'Portfolio')}
+        </span>
+      </h2>
 
-                        <div className="flex items-center text-sm text-gray-600 mb-2">
-                          <span>Publish on {new Date(link.createdAt || link.publishedAt || link.dateCreated || Date.now()).toLocaleDateString('en-GB', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric'
-                          })}</span>
-                        </div>
-                        {linkUrl ? (
-                          <a 
-                            href={linkUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-orange-500 text-sm font-medium hover:text-orange-600 transition-colors"
-                          >
-                            Details →
-                          </a>
-                        ) : (
-                          <span className="text-gray-400 text-sm">Link not available</span>
-                        )}
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="text-center py-8">
-                    <div className="text-gray-400 mb-2">📄</div>
-                    <p className="text-gray-600">No research reports available at the moment.</p>
-                  </div>
-                );
-              })()}
-            </div>
+      {/* FILTER */}
+      <div className="flex items-center gap-2 shrink-0">
+        <span className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">
+          Filter:
+        </span>
 
-            {/* Compact Performance Summary for mobile placed below chart */}
-            {isMobile && priceHistory.length > 0 && (
-              <div className="mt-2 px-2 py-2 bg-white border rounded-md text-xs flex items-center justify-between">
-                {(() => {
-                  const firstValue = priceHistory[0]?.portfolioValue || 0;
-                  const lastValue = priceHistory[priceHistory.length - 1]?.portfolioValue || 0;
-                  const totalGain = lastValue - firstValue;
-                  const totalGainPercent = firstValue > 0 ? ((totalGain / firstValue) * 100) : 0;
-                  const isPositive = totalGain >= 0;
-                  return (
-                    <>
-                      <span className="text-gray-600">Performance</span>
-                      <span className={`font-semibold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                        {isPositive ? '+' : ''}₹{Math.abs(totalGain).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                        {' '}({isPositive ? '+' : ''}{totalGainPercent.toFixed(2)}%)
-                      </span>
-                    </>
-                  );
-                })()}
-              </div>
-            )}
-            </div>
-          </div>
+        <select
+          className="
+            border border-gray-300
+            rounded-md
+            px-2 py-1.5
+            text-xs sm:text-sm
+            focus:outline-none
+            focus:ring-2
+            focus:ring-blue-500
+          "
+          onChange={(e) => setReportFilter(e.target.value)}
+          value={reportFilter}
+        >
+          <option value="all">All</option>
+
+          {Array.from(
+            new Set(
+              [
+                ...((portfolio as any)?.downloadLinks || []),
+                ...((portfolio as any)?.researchLinks || []),
+                ...((portfolio as any)?.links || []),
+                ...((portfolio as any)?.reports || [])
+              ]
+                .map((l: any) => l.linkType)
+                .filter(Boolean)
+            )
+          ).map((type) => (
+            <option key={type} value={type}>
+              {type}
+            </option>
+          ))}
+        </select>
       </div>
+    </div>
+
+    {/* SUBHEADER */}
+    <div className="border-b border-gray-200 mb-4 pb-2">
+      <h3 className="text-blue-600 font-medium">
+        Latest Updates
+      </h3>
+    </div>
+
+    {/* SCROLL CONTAINER */}
+    <div
+      className="
+        overflow-y-auto
+        pr-1
+        scrollbar-thin
+        max-h-[55vh]
+        sm:max-h-[60vh]
+        lg:max-h-[65vh]
+      "
+    >
+      {(() => {
+
+        const allLinks = [
+          ...((portfolio as any)?.downloadLinks || []),
+          ...((portfolio as any)?.researchLinks || []),
+          ...((portfolio as any)?.links || []),
+          ...((portfolio as any)?.reports || [])
+        ];
+
+        const filteredLinks = allLinks.filter((link: any) => {
+          if (reportFilter === 'all') return true;
+          return link.linkType?.toLowerCase() === reportFilter.toLowerCase();
+        });
+
+        if (!filteredLinks.length) {
+          return (
+            <div className="text-center py-10">
+              <div className="text-3xl mb-2">📄</div>
+              <p className="text-gray-600 text-sm sm:text-base">
+                No research reports available at the moment.
+              </p>
+            </div>
+          );
+        }
+
+        return filteredLinks.map((link: any, index: number) => {
+
+          const linkUrl =
+            link.linkUrl ||
+            link.url ||
+            link.link ||
+            link.downloadUrl ||
+            link.href;
+
+          const title =
+            link.name ||
+            link.linkDiscription ||
+            link.linkDescription ||
+            link.title ||
+            `${link.linkType || 'Document'} Report`;
+
+          const date = new Date(
+            link.createdAt ||
+            link.publishedAt ||
+            link.dateCreated ||
+            Date.now()
+          ).toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric'
+          });
+
+          return (
+            <article
+              key={index}
+              className="
+                py-4
+                border-b
+                last:border-none
+              "
+            >
+              <span className="
+                inline-block
+                mb-2
+                px-2.5
+                py-1
+                rounded-md
+                text-xs
+                sm:text-sm
+                font-medium
+                bg-gray-800
+                text-[#FFFFF0]
+              ">
+                {link.linkType || 'Research'}
+              </span>
+
+              <h4 className="
+                font-semibold
+                text-gray-900
+                text-base
+                sm:text-lg
+                leading-snug
+              ">
+                {title}
+              </h4>
+
+              <p className="text-xs sm:text-sm text-gray-500 mb-2">
+                Published on {date}
+              </p>
+
+              {linkUrl ? (
+                <a
+                  href={linkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="
+                    inline-block
+                    text-orange-500
+                    text-sm
+                    font-medium
+                    hover:text-orange-600
+                    transition
+                  "
+                >
+                  View Details →
+                </a>
+              ) : (
+                <span className="text-gray-400 text-sm">
+                  Link not available
+                </span>
+              )}
+            </article>
+          );
+        });
+      })()}
+    </div>
+
+    {/* MOBILE PERFORMANCE */}
+    {isMobile && priceHistory.length > 0 && (
+      <div className="
+        mt-4
+        px-3
+        py-2
+        bg-gray-50
+        border
+        rounded-md
+        text-xs
+        flex
+        items-center
+        justify-between
+      ">
+        {(() => {
+
+          const first = priceHistory[0]?.portfolioValue || 0;
+          const last = priceHistory.at(-1)?.portfolioValue || 0;
+
+          const gain = last - first;
+          const percent = first > 0 ? (gain / first) * 100 : 0;
+          const positive = gain >= 0;
+
+          return (
+            <>
+              <span className="text-gray-600">
+                Performance
+              </span>
+
+              <span className={`font-semibold ${positive ? 'text-green-600' : 'text-red-600'}`}>
+                {positive ? '+' : ''}₹
+                {Math.abs(gain).toLocaleString('en-IN', {
+                  maximumFractionDigits: 0
+                })}
+                {' '}
+                ({positive ? '+' : ''}
+                {percent.toFixed(2)}%)
+              </span>
+            </>
+          );
+        })()}
+      </div>
+    )}
+
+  </div>
+</div>
+</div>
+
     </DashboardLayout>
   );
 }

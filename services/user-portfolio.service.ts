@@ -39,9 +39,57 @@ export interface UserPortfolio {
   oneYearGains?: string;
   monthlyGains?: string;
   timeHorizon?: string;
+  monthlyContribution?: Number,
   rebalancing?: string;
   index?: string;
   compareWith?: string;
+}
+
+export interface UserPortfolioHolding {
+  stockSymbol: string;
+  stockName?: string;
+  quantity: number;
+  averagePrice: number;
+  investmentValue?: number;
+  currentPrice?: number;
+  currentValue?: number;
+  profitLoss?: number;
+  profitLossPercent?: number;
+  sector?: string;
+  exchange?: string;
+}
+
+export interface SavePortfolioRequest {
+  portfolioId?: string;
+  portfolioName?: string;
+  holdings: UserPortfolioHolding[];
+  showToAdmin?: boolean;
+}
+
+export interface SavedPortfolioResponse {
+  success: boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+}
+
+export interface VideoItem {
+  link: string;
+  createdAt: string;
+  _id?: string;
+}
+
+export interface VideoBundle {
+  id: string;
+  name: string;
+  type: string;
+  category: string;
+  videos: VideoItem[];
+}
+
+export interface VideosForYouResponse {
+  bundles: VideoBundle[];
+  portfolios: VideoBundle[];
 }
 
 // Create a separate axios instance for public API calls (without auth headers)
@@ -57,7 +105,7 @@ export const userPortfolioService = {
   // Fetch all portfolios (works for both authenticated and non-authenticated users)
   getAll: async (): Promise<UserPortfolio[]> => {
     try {
-      const authToken = typeof window !== "undefined" 
+      const authToken = typeof window !== "undefined"
         ? localStorage.getItem("accessToken") || sessionStorage.getItem("accessToken")
         : null;
 
@@ -72,10 +120,10 @@ export const userPortfolioService = {
         });
         return response.data;
       }
-      
+
       // If not authenticated, use public API endpoint
       const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.rangaone.finance";
-      
+
       const response = await axiosApi.get<UserPortfolio[]>("/api/user/portfolios");
       return response.data;
     } catch (error: any) {
@@ -99,7 +147,7 @@ export const userPortfolioService = {
   // Get user's subscribed portfolios only
   getSubscribedPortfolios: async (): Promise<UserPortfolio[]> => {
     try {
-      const authToken = typeof window !== "undefined" 
+      const authToken = typeof window !== "undefined"
         ? localStorage.getItem("accessToken") || sessionStorage.getItem("accessToken")
         : null;
 
@@ -137,7 +185,7 @@ export const userPortfolioService = {
   // Fetch portfolio by ID (requires authentication)
   getById: async (id: string): Promise<UserPortfolio | null> => {
     try {
-      const authToken = typeof window !== "undefined" 
+      const authToken = typeof window !== "undefined"
         ? localStorage.getItem("accessToken") || sessionStorage.getItem("accessToken")
         : null;
 
@@ -208,5 +256,143 @@ export const userPortfolioService = {
       durationMonths: portfolio.durationMonths,
       holdingsValue: portfolio.holdingsValue || 0,
     };
+  },
+
+  /**
+   * Save or update the user's portfolio holdings
+   */
+  savePortfolio: async (data: SavePortfolioRequest): Promise<SavedPortfolioResponse> => {
+    try {
+      const token = typeof window !== "undefined"
+        ? localStorage.getItem("accessToken") || sessionStorage.getItem("accessToken")
+        : null;
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const response = await axiosApi.post<SavedPortfolioResponse>(
+        "/api/user-portfolio",
+        data,
+        { headers }
+      );
+
+      return response.data;
+    } catch (error: any) {
+      console.error("Failed to save portfolio:", error);
+
+      if (error.response?.data) {
+        return error.response.data;
+      }
+
+      return {
+        success: false,
+        error: error.message || "Failed to save portfolio",
+      };
+    }
+  },
+
+  /**
+   * Get the saved portfolio for a user
+   */
+  getSavedPortfolio: async (portfolioNameOrId: string, isId: boolean = false): Promise<any> => {
+    try {
+      const token = typeof window !== "undefined"
+        ? localStorage.getItem("accessToken") || sessionStorage.getItem("accessToken")
+        : null;
+
+      const headers: Record<string, string> = {
+        accept: "application/json",
+      };
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const param = isId ? `portfolioId=${portfolioNameOrId}` : `portfolioName=${encodeURIComponent(portfolioNameOrId)}`;
+      const response = await axiosApi.get(
+        `/api/user-portfolio?${param}`,
+        { headers }
+      );
+
+      return response.data;
+    } catch (error: any) {
+      // It's normal to get a 404 if the user hasn't saved this portfolio yet
+      if (error.response?.status === 404) {
+        return null;
+      }
+      console.error("Failed to fetch saved portfolio:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Delete a saved portfolio
+   */
+  deletePortfolio: async (portfolioId: string): Promise<any> => {
+    try {
+      const token = typeof window !== "undefined"
+        ? localStorage.getItem("accessToken") || sessionStorage.getItem("accessToken")
+        : null;
+
+      const headers: Record<string, string> = {
+        accept: "application/json",
+      };
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const response = await axiosApi.delete(
+        `/api/user-portfolio/${portfolioId}`,
+        { headers }
+      );
+
+      return response.data;
+    } catch (error: any) {
+      console.error("Failed to delete portfolio:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get Videos For You
+   */
+  getVideosForYou: async (): Promise<VideosForYouResponse> => {
+    try {
+      const token = typeof window !== "undefined"
+        ? localStorage.getItem("accessToken") || sessionStorage.getItem("accessToken")
+        : null;
+
+      const headers: Record<string, string> = {
+        accept: "application/json",
+      };
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      // Use the direct URL if needed, or rely on the baseURL if it's set correctly
+      // The user provided full URL: https://api.rangaone.finance/api/user/videos-for-you
+      // We'll use the relative path assuming axiosApi/axios is configured with base URL
+      // If not, we fall back to absolute URL
+
+      const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.rangaone.finance";
+
+      const response = await axios.get<VideosForYouResponse>(
+        `${baseURL}/api/user/videos-for-you`,
+        { headers }
+      );
+
+      return response.data;
+    } catch (error: any) {
+      console.error("Failed to fetch videos for you:", error);
+      // Return empty structure on error to avoid crashing UI
+      return { bundles: [], portfolios: [] };
+    }
   }
 };

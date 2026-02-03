@@ -113,8 +113,8 @@ axiosApi.interceptors.response.use(
               localStorage.setItem("accessToken", accessToken);
               localStorage.setItem("refreshToken", newRefreshToken);
             } else {
-              sessionStorage.setItem("accessToken", accessToken);
-              sessionStorage.setItem("refreshToken", newRefreshToken);
+              localStorage.setItem("accessToken", accessToken);
+              localStorage.setItem("refreshToken", newRefreshToken);
             }
           }
 

@@ -9,17 +9,31 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { portfolioService } from '@/services/portfolio.service';
 import { Portfolio } from '@/lib/types';
-import { Loader2, Calculator, TrendingUp, AlertCircle, Download, Copy } from 'lucide-react';
+import {
+  Loader2,
+  Calculator,
+  TrendingUp,
+  AlertCircle,
+  Download,
+  Copy,
+  PieChart,
+  ChevronDown,
+  ChevronUp
+} from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { formatActionForDisplay, getActionColorScheme } from '@/lib/action-display-utils';
+import { FaRupeeSign } from 'react-icons/fa';
 
+// ==================== TYPES ====================
 interface StockAllocation {
   symbol: string;
   weight: number;
   price: number;
-  action: string; // Use exact API status string
+  action: string;
   sharesBought: number;
   actualCost: number;
+  message?: string;
+  shortfall?: number;
 }
 
 interface CalculationResult {
@@ -28,6 +42,27 @@ interface CalculationResult {
   freeCashRemaining: number;
 }
 
+const stripHtml = (html: string): string => {
+  if (!html) return '';
+  return html.replace(/<[^>]*>/g, '').trim();
+};
+
+// ==================== UTILITY FUNCTIONS ====================
+// Truncate to 2 decimals without rounding (e.g., 7.869 -> 7.86)
+const truncateToTwoDecimals = (num: number): string => {
+  if (isNaN(num)) return '0.00';
+  return (Math.floor(num * 100) / 100).toFixed(2);
+};
+
+// Format currency with proper commas (no K/L/Cr)
+const formatCurrency = (value: number): string => {
+  if (!isFinite(value) || isNaN(value)) return '₹0';
+  // Use truncate for formatting to avoid rounding up
+  const truncated = Math.floor(value * 100) / 100;
+  return `₹${truncated.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+};
+
+// ==================== MAIN COMPONENT ====================
 export function InvestmentCalculator() {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null);
@@ -93,52 +128,49 @@ export function InvestmentCalculator() {
   const performCalculation = (portfolio: Portfolio, totalAmount: number): CalculationResult => {
     const holdings = portfolio.holdings || [];
     const minInvestment = portfolio.minInvestment || 0;
-    
-    // Get all valid holdings for display
-    const allValidHoldings = holdings.filter(holding => 
-      holding.symbol && 
-      typeof holding.buyPrice === 'number' && 
+
+    const allValidHoldings = holdings.filter(holding =>
+      holding.symbol &&
+      typeof holding.buyPrice === 'number' &&
       holding.buyPrice > 0
     );
 
     if (allValidHoldings.length === 0) {
       throw new Error('Portfolio has no valid holdings with proper data');
     }
-    
-    // Determine which stocks to actually buy - EXCLUDE HOLD and PARTIAL SELL status stocks
+
     const excludeFromBuying = (holding: any) => {
       if (!holding.status) return false;
       const status = holding.status.toLowerCase();
-      return status.includes('hold') || status.includes('partial sell');
+      return status.includes('hold') || status.includes('partial sell') || status.includes('full sell');
     };
 
     let buyableHoldings;
     if (totalAmount < minInvestment) {
-      buyableHoldings = allValidHoldings.filter(holding => 
+      buyableHoldings = allValidHoldings.filter(holding =>
         holding.status &&
         !excludeFromBuying(holding) &&
-        (holding.status.toLowerCase().includes('buy more') || 
-         holding.status.toLowerCase().includes('addon-buy') ||
-         holding.status.toLowerCase().includes('fresh-buy') ||
-         (holding.status.toLowerCase().includes('buy') && !holding.status.toLowerCase().includes('fresh')))
+        (holding.status.toLowerCase().includes('buy more') ||
+          holding.status.toLowerCase().includes('addon-buy') ||
+          holding.status.toLowerCase().includes('fresh-buy') ||
+          (holding.status.toLowerCase().includes('buy') && !holding.status.toLowerCase().includes('fresh')))
       );
-      
+
       if (buyableHoldings.length === 0) {
-        buyableHoldings = allValidHoldings.filter(holding => 
+        buyableHoldings = allValidHoldings.filter(holding =>
           holding.status &&
           !excludeFromBuying(holding) &&
           holding.status.toLowerCase().includes('fresh-buy')
         );
       }
-      
+
       if (buyableHoldings.length === 0) {
         throw new Error('No Buy or Buy More stocks available for investment below minimum amount');
       }
     } else {
-      // Even with full investment, exclude HOLD stocks from buying
       buyableHoldings = allValidHoldings.filter(holding => !excludeFromBuying(holding));
     }
-    
+
     const prioritizedBuyableHoldings = [...buyableHoldings].sort((a, b) => {
       const getStatusPriority = (status: string) => {
         if (!status) return 0;
@@ -148,24 +180,27 @@ export function InvestmentCalculator() {
         if (s.includes('fresh-buy')) return 1;
         return 0;
       };
-      
+
       const aPriority = getStatusPriority(a.status || '');
       const bPriority = getStatusPriority(b.status || '');
-      return bPriority - aPriority;
+
+      if (bPriority !== aPriority) {
+        return bPriority - aPriority;
+      }
+
+      return (b.weight || 0) - (a.weight || 0);
     });
 
     const stocks: StockAllocation[] = [];
     let remainingAmount = totalAmount;
-    
-    // Sort all holdings: buyable stocks first, then others
+
     const sortedAllHoldings = [...allValidHoldings].sort((a, b) => {
       const aIsBuyable = buyableHoldings.includes(a);
       const bIsBuyable = buyableHoldings.includes(b);
-      
+
       if (aIsBuyable && !bIsBuyable) return -1;
       if (!aIsBuyable && bIsBuyable) return 1;
-      
-      // Within buyable stocks, sort by priority
+
       if (aIsBuyable && bIsBuyable) {
         const getStatusPriority = (status: string) => {
           if (!status) return 0;
@@ -175,64 +210,94 @@ export function InvestmentCalculator() {
           if (s.includes('fresh-buy')) return 1;
           return 0;
         };
-        
+
         const aPriority = getStatusPriority(a.status || '');
         const bPriority = getStatusPriority(b.status || '');
-        return bPriority - aPriority;
+
+        if (bPriority !== aPriority) {
+          return bPriority - aPriority;
+        }
+
+        return (b.weight || 0) - (a.weight || 0);
       }
-      
+
       return 0;
     });
-    
-    // Step 1: Ensure at least 1 share of each buyable stock (priority rule)
+
     prioritizedBuyableHoldings.forEach(holding => {
       if (remainingAmount >= holding.buyPrice) {
         const sharesBought = 1;
         const actualCost = holding.buyPrice;
         remainingAmount -= actualCost;
-        
+
         stocks.push({
           symbol: holding.symbol,
           weight: holding.weight || 0,
           price: holding.buyPrice,
-          action: holding.status || 'Fresh Buy', // Use exact API status
+          action: holding.status || 'Fresh Buy',
           sharesBought,
           actualCost
         });
+      } else {
+        // Add to list even if we can't afford it yet (will clear Step 2 checks or show 0)
+        stocks.push({
+          symbol: holding.symbol,
+          weight: holding.weight || 0,
+          price: holding.buyPrice,
+          action: holding.status || 'Fresh Buy',
+          sharesBought: 0,
+          actualCost: 0
+        });
       }
     });
-    
-    // Step 2: Apply weightage allocation with 50% rule for additional shares
+
     stocks.forEach(stock => {
       const allocatedAmount = (stock.weight / 100) * totalAmount;
       const alreadyInvested = stock.actualCost;
-      const remainingAllocation = allocatedAmount - alreadyInvested;
-      
+      const remainingAllocation = Math.max(0, allocatedAmount - alreadyInvested);
+
       if (remainingAllocation > 0 && remainingAmount > 0) {
-        // Buy additional whole shares
         const additionalShares = Math.floor(Math.min(remainingAllocation, remainingAmount) / stock.price);
         let additionalCost = additionalShares * stock.price;
         let totalAdditionalShares = additionalShares;
-        
-        // Apply 50% rule for one more share if needed
-        const leftoverAllocation = remainingAllocation - additionalCost;
-        const extraNeeded = stock.price - leftoverAllocation;
-        
-        if (extraNeeded > 0 && extraNeeded <= (stock.price * 0.5) && remainingAmount >= stock.price) {
+
+        // Calculate "leftover" from the *intended* allocation
+        const currentTotalCost = alreadyInvested + additionalCost;
+        const leftoverFromTarget = allocatedAmount - currentTotalCost;
+
+        const halfPrice = stock.price * 0.5;
+        let msg = "";
+        let shortfallAmount = 0;
+
+        // 50% Rule Check
+        // 50% Rule Check
+        if (leftoverFromTarget >= halfPrice) {
+          // If we are close enough (>= 50% of a share's worth allocated), we buy it
           totalAdditionalShares += 1;
           additionalCost += stock.price;
         }
-        
-        // Update stock allocation
-        if (totalAdditionalShares > 0 && remainingAmount >= additionalCost) {
+
+        if (totalAdditionalShares > 0) {
           stock.sharesBought += totalAdditionalShares;
           stock.actualCost += additionalCost;
           remainingAmount -= additionalCost;
         }
+      } else {
+        // No remaining allocation or no cash
+        // Check 50% rule based on "allocated vs actual"
+        const allocatedAmount = (stock.weight / 100) * totalAmount;
+        const currentTotalCost = stock.actualCost;
+        const leftoverFromTarget = allocatedAmount - currentTotalCost;
+
+        if (leftoverFromTarget >= (stock.price * 0.5)) {
+          // Force buy one more if we satisfy >= 50%
+          stock.sharesBought += 1;
+          stock.actualCost += stock.price;
+          remainingAmount -= stock.price;
+        }
       }
     });
-    
-    // Step 3: Add non-buyable stocks to display (0 shares)
+
     sortedAllHoldings.forEach(holding => {
       const isBuyable = buyableHoldings.includes(holding);
       if (!isBuyable) {
@@ -240,15 +305,12 @@ export function InvestmentCalculator() {
           symbol: holding.symbol,
           weight: holding.weight || 0,
           price: holding.buyPrice,
-          action: holding.status || 'Fresh Buy', // Use exact API status
+          action: holding.status || 'Fresh Buy',
           sharesBought: 0,
           actualCost: 0
         });
       }
     });
-
-    // Calculate remaining cash
-    remainingAmount = totalAmount - stocks.reduce((sum, stock) => sum + stock.actualCost, 0);
 
     const totalInvested = stocks.reduce((sum, stock) => sum + stock.actualCost, 0);
     const freeCashRemaining = totalAmount - totalInvested;
@@ -265,9 +327,9 @@ export function InvestmentCalculator() {
       .filter(stock => stock.sharesBought > 0)
       .map(stock => `${stock.symbol}: ${stock.sharesBought} shares @ ₹${stock.price}`)
       .join('\n');
-    
+
     const summary = `Investment Order List\n${'='.repeat(20)}\n${orderList}\n\nTotal Investment: ₹${result.totalInvested.toLocaleString()}\nCash Remaining: ₹${result.freeCashRemaining.toLocaleString()}`;
-    
+
     navigator.clipboard.writeText(summary).then(() => {
       alert('Order list copied to clipboard!');
     }).catch(() => {
@@ -280,16 +342,16 @@ export function InvestmentCalculator() {
     const rows = result.stocks.map(stock => [
       stock.symbol,
       formatActionForDisplay(stock.action),
-      stock.weight.toFixed(2),
-      stock.price.toFixed(2),
+      truncateToTwoDecimals(stock.weight),
+      truncateToTwoDecimals(stock.price),
       stock.sharesBought,
-      stock.actualCost.toFixed(2)
+      truncateToTwoDecimals(stock.actualCost)
     ]);
-    
+
     const csvContent = [headers, ...rows]
       .map(row => row.join(','))
       .join('\n');
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -301,48 +363,70 @@ export function InvestmentCalculator() {
     window.URL.revokeObjectURL(url);
   };
 
+  // ==================== LOADING STATE ====================
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading portfolios...</span>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-10 w-10 animate-spin text-gray-500 mx-auto" />
+          <p className="text-base font-medium text-gray-600">Loading portfolios...</p>
+        </div>
       </div>
     );
   }
 
+  // ==================== RENDER ====================
   return (
     <div className="space-y-6" data-tour="calculator-section">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calculator className="h-5 w-5" />
+      {/* ==================== INPUT CARD ==================== */}
+      <Card className="shadow-sm border border-gray-200">
+        <CardHeader className="bg-gray-50 border-b border-gray-200">
+          <CardTitle className="flex items-center gap-2 text-lg text-gray-800">
+            <Calculator className="h-5 w-5 text-gray-600" />
             Investment Calculator
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <CardContent className="space-y-5 p-5 bg-white">
+          {/* Portfolio & Amount Selection */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Portfolio Selection */}
             <div className="space-y-2">
-              <Label htmlFor="portfolio">Select Portfolio</Label>
-              <Select onValueChange={(value) => {
-                const portfolio = portfolios.find(p => p._id === value);
-                setSelectedPortfolio(portfolio || null);
-                setResult(null);
-              }}>
-                <SelectTrigger>
+              <Label htmlFor="portfolio" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <PieChart className="h-4 w-4 text-gray-500" />
+                Select Portfolio
+              </Label>
+              <Select
+                onValueChange={(value) => {
+                  const portfolio = portfolios.find(p => p._id === value);
+                  setSelectedPortfolio(portfolio || null);
+                  setResult(null);
+                  setError('');
+                }}
+              >
+                <SelectTrigger className="h-11 border border-gray-300 bg-white text-gray-800 hover:border-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
                   <SelectValue placeholder="Choose a portfolio" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white border-gray-200">
                   {portfolios.map((portfolio) => (
-                    <SelectItem key={portfolio._id} value={portfolio._id}>
-                      {portfolio.name || 'Unnamed Portfolio'} (Min: ₹{(portfolio.minInvestment || 0).toLocaleString()})
+                    <SelectItem key={portfolio._id} value={portfolio._id} className="text-gray-800 focus:bg-blue-50 focus:text-blue-800">
+                      <div className="flex flex-col">
+                        <span className="font-medium">{portfolio.name || 'Unnamed Portfolio'}</span>
+                        <span className="text-xs text-gray-500">
+                          Min: {formatCurrency(portfolio.minInvestment || 0)}
+                        </span>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
+            {/* Investment Amount */}
             <div className="space-y-2">
-              <Label htmlFor="amount">Investment Amount (₹)</Label>
+              <Label htmlFor="amount" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <FaRupeeSign className="h-3.5 w-3.5 text-gray-500" />
+                Investment Amount (₹)
+              </Label>
               <Input
                 id="amount"
                 type="number"
@@ -351,30 +435,40 @@ export function InvestmentCalculator() {
                 onChange={(e) => {
                   setInvestmentAmount(e.target.value);
                   setResult(null);
+                  setError('');
                 }}
+                onWheel={(e) => e.currentTarget.blur()}
+                className="h-11 border border-gray-300 bg-white text-gray-800 hover:border-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-base font-medium placeholder:text-gray-400"
+                step="0.01"
+                min="0"
               />
             </div>
           </div>
 
+          {/* Portfolio Details */}
           {selectedPortfolio && (
-            <div className="p-4 bg-blue-50 rounded-lg">
-              <h4 className="font-medium text-blue-900 mb-2">{selectedPortfolio.name}</h4>
-              <p className="text-sm text-blue-700 mb-2">
-                {typeof selectedPortfolio.description === 'string' 
-                  ? selectedPortfolio.description 
-                  : 'Portfolio description not available'
-                }
+            <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
+              <h4 className="font-semibold text-blue-900 mb-2">{selectedPortfolio.name}</h4>
+              <p className="text-sm text-blue-700 mb-3">
+                {Array.isArray(selectedPortfolio.description)
+                  ? stripHtml(selectedPortfolio.description.find((item: any) => item.key === 'home card')?.value || '')
+                  : stripHtml(selectedPortfolio.description || '')}
               </p>
-              <div className="flex flex-wrap gap-2 text-sm">
-                <span className="text-blue-600">Min Investment: ₹{(selectedPortfolio.minInvestment || 0).toLocaleString()}</span>
-                <span className="text-blue-600">•</span>
-                <span className="text-blue-600">Duration: {selectedPortfolio.durationMonths || 0} months</span>
-                <span className="text-blue-600">•</span>
-                <span className="text-blue-600">Holdings: {selectedPortfolio.holdings?.length || 0} stocks</span>
+              <div className="flex flex-wrap gap-3 text-sm">
+                <span className="px-3 py-1.5 bg-white rounded-md border border-blue-200 text-blue-700">
+                  Min: {formatCurrency(selectedPortfolio.minInvestment || 0)}
+                </span>
+                <span className="px-3 py-1.5 bg-white rounded-md border border-blue-200 text-blue-700">
+                  Duration: {selectedPortfolio.durationMonths || 0} months
+                </span>
+                <span className="px-3 py-1.5 bg-white rounded-md border border-blue-200 text-blue-700">
+                  Holdings: {selectedPortfolio.holdings?.length || 0} stocks
+                </span>
               </div>
             </div>
           )}
 
+          {/* Error Alert */}
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -382,19 +476,20 @@ export function InvestmentCalculator() {
             </Alert>
           )}
 
-          <Button 
-            onClick={calculateInvestment} 
+          {/* Calculate Button */}
+          <Button
+            onClick={calculateInvestment}
             disabled={!selectedPortfolio || !investmentAmount || calculating}
-            className="w-full"
+            className="w-full h-12 text-base font-semibold bg-blue-600 hover:bg-blue-700 text-white"
           >
             {calculating ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
                 Calculating...
               </>
             ) : (
               <>
-                <TrendingUp className="h-4 w-4 mr-2" />
+                <TrendingUp className="h-5 w-5 mr-2" />
                 Calculate Investment
               </>
             )}
@@ -402,126 +497,165 @@ export function InvestmentCalculator() {
         </CardContent>
       </Card>
 
+      {/* ==================== RESULTS CARD ==================== */}
       {result && (
-        <Card ref={resultsRef}>
-          <CardHeader>
-            <CardTitle>Investment Allocation Results</CardTitle>
+        <Card ref={resultsRef} className="shadow-sm border border-gray-200">
+          <CardHeader className="bg-gray-50 border-b border-gray-200">
+            <CardTitle className="flex items-center gap-2 text-lg text-gray-800">
+              <TrendingUp className="h-5 w-5 text-green-600" />
+              Investment Allocation Results
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-              <div className="text-center p-3 bg-green-50 rounded-lg">
-                <div className="text-2xl font-bold text-green-600">₹{result.totalInvested.toLocaleString()}</div>
-                <div className="text-sm text-green-700">Total Invested</div>
+          <CardContent className="p-5 bg-white">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+              <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="text-2xl font-bold text-green-700 mb-1">
+                  {formatCurrency(result.totalInvested)}
+                </div>
+                <div className="text-sm text-green-600 font-medium">Total Invested</div>
               </div>
-              <div className="text-center p-3 bg-blue-50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">₹{result.freeCashRemaining.toLocaleString()}</div>
-                <div className="text-sm text-blue-700">Cash Remaining</div>
+              <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="text-2xl font-bold text-blue-700 mb-1">
+                  {formatCurrency(result.freeCashRemaining)}
+                </div>
+                <div className="text-sm text-blue-600 font-medium">Cash Remaining</div>
               </div>
-              <div className="text-center p-3 bg-purple-50 rounded-lg">
-                <div className="text-2xl font-bold text-purple-600">{result.stocks.filter(s => s.sharesBought > 0).length}</div>
-                <div className="text-sm text-purple-700">Stocks Purchased</div>
+              <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-200 sm:col-span-2 lg:col-span-1">
+                <div className="text-2xl font-bold text-purple-700 mb-1">
+                  {result.stocks.filter(s => s.sharesBought > 0).length}
+                </div>
+                <div className="text-sm text-purple-600 font-medium">Stocks Purchased</div>
               </div>
             </div>
 
-            <Separator className="my-4" />
+            {/* Shortfall Alert */}
+            {result.freeCashRemaining < 0 && (
+              <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 text-amber-600" />
+                <div>
+                  <div className="font-bold text-amber-800">Additional Funds Required: ₹{Math.abs(result.freeCashRemaining).toLocaleString()}</div>
+                  <div className="text-sm text-amber-700">Some stocks were auto-allocated to maintain &gt;50% weightage coverage. Please add this amount to fulfill the order.</div>
+                </div>
+              </div>
+            )}
 
+            <Separator className="my-5" />
+
+            {/* Stock Allocation Table */}
             <div className="space-y-4">
-              <h4 className="font-semibold text-lg text-blue-600">Stock-wise Allocation</h4>
-              {/* Mobile Table Layout */}
-              <div className="block lg:hidden overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-gray-600 text-[#FFFFF0] text-xs">
-                      <th className="px-2 py-2 text-left font-medium">Stock Name</th>
-                      <th className="px-2 py-2 text-center font-medium">Action</th>
-                      <th className="px-2 py-2 text-center font-medium">Wt (%)</th>
-                      <th className="px-2 py-2 text-center font-medium">Price (₹)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-xs">
-                    {result.stocks.map((stock, index) => (
-                      <React.Fragment key={index}>
-                        <tr 
-                          className={`cursor-pointer transition-all duration-200 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-blue-50`}
-                          onClick={() => setExpandedRow(expandedRow === index ? null : index)}
-                        >
-                          <td className="px-2 py-2">
-                            <div className="font-medium text-blue-600">{stock.symbol}</div>
-                            <div className="text-gray-500 text-xs">NSE : {stock.symbol}</div>
-                          </td>
-                          <td className="px-2 py-2 text-center">
-                            <span className={`px-1 py-0.5 rounded text-xs font-medium ${getActionColorScheme(stock.action || '')}`}>
-                              {formatActionForDisplay(stock.action || '')}
-                            </span>
-                          </td>
-                          <td className="px-2 py-2 text-center font-medium">{stock.weight.toFixed(2)}%</td>
-                          <td className="px-2 py-2 text-center">
-                            <div className="inline-block font-medium px-2 py-1 rounded bg-gray-200 text-gray-700 text-xs">
-                              ₹{stock.price.toFixed(2)}
+              <h4 className="font-semibold text-base text-gray-800">
+                Stock-wise Allocation
+              </h4>
+
+              {/* Mobile Table */}
+              <div className="block lg:hidden">
+                <div className="space-y-2">
+                  {result.stocks.map((stock, index) => (
+                    <div
+                      key={index}
+                      className={`rounded-lg border overflow-hidden ${stock.sharesBought > 0
+                        ? 'border-gray-200 bg-white shadow-sm'
+                        : 'border-gray-100 bg-gray-50'
+                        }`}
+                    >
+                      <div
+                        className="p-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => setExpandedRow(expandedRow === index ? null : index)}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <div className="font-semibold text-gray-800">{stock.symbol}</div>
+                            <div className="text-xs text-gray-500">NSE : {stock.symbol}</div>
+                          </div>
+                          {expandedRow === index ? (
+                            <ChevronUp className="h-5 w-5 text-gray-400" />
+                          ) : (
+                            <ChevronDown className="h-5 w-5 text-gray-400" />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getActionColorScheme(stock.action)}`}>
+                            {formatActionForDisplay(stock.action)}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            Weight: {truncateToTwoDecimals(stock.weight)}%
+                          </span>
+                        </div>
+                      </div>
+
+                      {expandedRow === index && (
+                        <div className="p-3 bg-gray-50 border-t border-gray-100">
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                              <div className="text-xs text-gray-500 mb-0.5">Price</div>
+                              <div className="font-semibold text-gray-800">{formatCurrency(stock.price)}</div>
                             </div>
-                          </td>
-                        </tr>
-                        {expandedRow === index && (
-                          <tr className="bg-blue-50">
-                            <td colSpan={4} className="px-2 py-3">
-                              <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div>
-                                  <span className="text-gray-600 font-medium">Shares:</span>
-                                  <div className="text-gray-800 font-medium">{stock.sharesBought}</div>
-                                </div>
-                                <div>
-                                  <span className="text-gray-600 font-medium">Investment:</span>
-                                  <div className="text-gray-800 font-medium">
-                                    ₹{stock.actualCost.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                                  </div>
-                                </div>
+                            <div>
+                              <div className="text-xs text-gray-500 mb-0.5">Shares</div>
+                              <div className="font-semibold text-gray-800">{stock.sharesBought}</div>
+                            </div>
+                            <div className="col-span-2">
+                              <div className="text-xs text-gray-500 mb-0.5">Investment</div>
+                              <div className="font-bold text-green-700">
+                                {formatCurrency(stock.actualCost)}
                               </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              {/* Desktop Table Layout */}
-              <div className="hidden lg:block overflow-x-auto">
+              {/* Desktop Table */}
+              <div className="hidden lg:block overflow-x-auto rounded-lg border border-gray-200">
                 <table className="w-full">
                   <thead>
-                    <tr className="bg-gray-600 text-[#FFFFF0] text-xs">
-                      <th className="px-2 py-2 text-left font-medium">Stock Name</th>
-                      <th className="px-2 py-2 text-center font-medium">Action</th>
-                      <th className="px-2 py-2 text-center font-medium">Wt (%)</th>
-                      <th className="px-2 py-2 text-center font-medium">Price (₹)</th>
-                      <th className="px-2 py-2 text-center font-medium">Shares</th>
-                      <th className="px-2 py-2 text-center font-medium">Investment (₹)</th>
+                    <tr className="bg-gray-100">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Stock Name</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Action</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Weight</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Price</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Shares</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Investment</th>
                     </tr>
                   </thead>
-                  <tbody className="text-xs">
+                  <tbody className="divide-y divide-gray-100">
                     {result.stocks.map((stock, index) => (
-                      <tr key={index} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                        <td className="px-2 py-2">
-                          <div className="font-medium text-blue-600">{stock.symbol}</div>
-                          <div className="text-gray-500 text-xs">NSE : {stock.symbol}</div>
+                      <tr
+                        key={index}
+                        className={`${stock.sharesBought > 0
+                          ? 'bg-white hover:bg-gray-50'
+                          : 'bg-gray-50/50'
+                          }`}
+                      >
+                        <td className="px-4 py-3">
+                          <div className="font-semibold text-blue-600">{stock.symbol}</div>
                         </td>
-                        <td className="px-2 py-2 text-center">
-                          <span className={`px-1 py-0.5 rounded text-xs font-medium ${getActionColorScheme(stock.action || '')}`}>
-                            {formatActionForDisplay(stock.action || '')}
+                        <td className="px-4 py-3 text-center">
+                          <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getActionColorScheme(stock.action)}`}>
+                            {formatActionForDisplay(stock.action)}
                           </span>
                         </td>
-                        <td className="px-2 py-2 text-center font-medium">{stock.weight.toFixed(2)}%</td>
-                        <td className="px-2 py-2 text-center">
-                          <div className="inline-block font-medium px-2 py-1 rounded bg-gray-200 text-gray-700 text-xs">
-                            ₹{stock.price.toFixed(2)}
-                          </div>
+                        <td className="px-4 py-3 text-center text-sm font-medium text-gray-700">
+                          {truncateToTwoDecimals(stock.weight)}%
                         </td>
-                        <td className="px-2 py-2 text-center">
-                          <div className="font-medium text-blue-600">{stock.sharesBought}</div>
+                        <td className="px-4 py-3 text-center">
+                          <span className="text-sm font-medium text-gray-700 px-2 py-1 bg-gray-100 rounded">
+                            {formatCurrency(stock.price)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`text-base font-bold ${stock.sharesBought > 0 ? 'text-blue-600' : 'text-gray-400'
+                            }`}>
+                            {stock.sharesBought}
+                          </span>
                         </td>
                         <td className="px-2 py-2 text-center">
                           <span className="font-medium">
-                            ₹{stock.actualCost.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                            ₹{truncateToTwoDecimals(stock.actualCost)}
                           </span>
                         </td>
                       </tr>
@@ -531,30 +665,32 @@ export function InvestmentCalculator() {
               </div>
             </div>
 
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-              <h5 className="font-medium mb-2">Rules Applied:</h5>
+            {/* Rules Applied */}
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <h5 className="font-semibold text-gray-800 mb-2">Rules Applied:</h5>
               <ul className="text-sm text-gray-600 space-y-1">
-                <li>• <strong>Step 1 - Priority Purchase:</strong> Buy More → Buy → Fresh Buy (at least 1 share each)</li>
+                <li>• <strong>Step 1 - Priority Purchase:</strong> Buy More → Buy → Fresh Buy (sorted by weight)</li>
                 <li>• <strong>Step 2 - Weightage Allocation:</strong> Additional shares based on portfolio weightage</li>
                 <li>• <strong>Step 3 - 50% Rule:</strong> Buy extra share if shortfall ≤ 50% of stock price</li>
-                <li>• <strong>Guarantee:</strong> At least 1 share bought even if weightage is low and 50% rule is broken</li>
+                <li>• <strong>Exclusions:</strong> HOLD, PARTIAL SELL, FULL SELL excluded from purchase</li>
                 <li>• <strong>Cash Balance:</strong> Unused funds remain as cash balance</li>
               </ul>
             </div>
 
-            <div className="mt-6 flex gap-3">
-              <Button 
-                variant="outline" 
+            {/* Action Buttons */}
+            <div className="mt-6 flex flex-col sm:flex-row gap-3">
+              <Button
+                variant="outline"
                 onClick={() => copyToClipboard(result)}
-                className="flex items-center gap-2"
+                className="flex items-center justify-center gap-2"
               >
                 <Copy className="h-4 w-4" />
                 Copy Order List
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => downloadCSV(result)}
-                className="flex items-center gap-2"
+                className="flex items-center justify-center gap-2"
               >
                 <Download className="h-4 w-4" />
                 Download CSV

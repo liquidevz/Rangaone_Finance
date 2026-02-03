@@ -16,11 +16,12 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
     // Define public routes that don't require authentication
     const publicRoutes = ["/", "/login", "/signup", "/contact-us", "/about-us", "/premium-subscription", "/basic-subscription", "/cart"];
-    const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith("/auth/") || pathname.startsWith("/policies/");
+    const currentPath = pathname || "/";
+    const isPublicRoute = publicRoutes.includes(currentPath) || currentPath.startsWith("/auth/") || currentPath.startsWith("/policies/");
 
     // Define auth routes that should redirect to dashboard if authenticated
     const authRoutes = ["/login", "/signup"];
-    const isAuthRoute = authRoutes.includes(pathname);
+    const isAuthRoute = authRoutes.includes(currentPath);
 
     if (isAuthenticated && isAuthRoute) {
       // If user is authenticated and trying to access auth pages, redirect to dashboard
@@ -30,9 +31,9 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
     if (!isAuthenticated && !isPublicRoute) {
       // If user is not authenticated and trying to access protected route
-      // Store the current path for redirect after login
-      sessionStorage.setItem("redirectPath", pathname);
-      router.replace("/login");
+      // Redirect to login with the current path as redirectTo parameter
+      const redirectUrl = encodeURIComponent(currentPath);
+      router.replace(`/login?redirectTo=${redirectUrl}`);
       return;
     }
   }, [isAuthenticated, isLoading, pathname, router]);
@@ -51,7 +52,8 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   // Define public routes that don't require authentication
   const publicRoutes = ["/", "/login", "/signup", "/contact-us", "/about-us", "/premium-subscription", "/basic-subscription", "/cart"];
-  const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith("/auth/") || pathname.startsWith("/policies/");
+  const currentPath = pathname || "/";
+  const isPublicRoute = publicRoutes.includes(currentPath) || currentPath.startsWith("/auth/") || currentPath.startsWith("/policies/");
 
   // If it's a public route or user is authenticated, render children
   if (isPublicRoute || isAuthenticated) {
