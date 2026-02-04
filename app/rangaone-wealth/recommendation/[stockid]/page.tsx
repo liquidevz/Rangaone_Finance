@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { authService } from "@/services/auth.service";
 import { useAuth } from "@/components/auth/auth-context";
+import { useSecureImage } from "@/hooks/use-secure-image";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { format } from "date-fns";
 
@@ -49,6 +50,46 @@ function processImages(rawImages: any[]): string[] {
     .filter((src): src is string => !!src && src !== 'data:image/png;base64,');
 }
 
+// Carousel Image with Loading Spinner and Secure Fetch
+function CarouselImage({ src, index, onClick }: { src: string; index: number; onClick: () => void }) {
+  const { objectUrl, isLoading, error } = useSecureImage(src);
+
+  return (
+    <div
+      className="min-w-full flex-shrink-0 snap-center flex items-center justify-center bg-gray-50 h-[280px] md:h-[400px] cursor-pointer relative"
+      onClick={onClick}
+    >
+      {/* Loading Spinner */}
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-xs text-gray-500">Loading...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+          <div className="text-center text-gray-500">
+            <p className="text-sm">Failed to load image</p>
+          </div>
+        </div>
+      )}
+
+      {objectUrl && (
+        <img
+          src={objectUrl}
+          alt={`Analysis Chart ${index + 1}`}
+          className={`max-w-full max-h-full object-contain pointer-events-none select-none transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+          draggable={false}
+        />
+      )}
+    </div>
+  );
+}
+
 // Image Modal Component with Zoom
 function ImageModal({
   isOpen,
@@ -69,6 +110,9 @@ function ImageModal({
   const lastTouchDistance = useRef<number | null>(null);
   const lastPosition = useRef({ x: 0, y: 0 });
   const imageRef = useRef<HTMLDivElement>(null);
+
+  // Use secure image hook for modal image
+  const { objectUrl, isLoading, error } = useSecureImage(isOpen ? imageSrc : null);
 
   const handleZoomIn = () => setScale(prev => Math.min(prev + 0.5, 4));
   const handleZoomOut = () => {
@@ -163,13 +207,32 @@ function ImageModal({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <img
-          src={imageSrc}
-          alt={`Image ${imageIndex + 1}`}
-          className="max-w-full max-h-full object-contain transition-transform duration-200"
-          style={{ transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)` }}
-          draggable={false}
-        />
+        {/* Modal Loading State */}
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center z-10">
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-10 h-10 border-4 border-white/50 border-t-white rounded-full animate-spin"></div>
+              <span className="text-sm text-white/80">Loading high-res...</span>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Error State */}
+        {error && (
+          <div className="absolute inset-0 flex items-center justify-center z-10">
+            <span className="text-white/80">Failed to load image</span>
+          </div>
+        )}
+
+        {objectUrl && (
+          <img
+            src={objectUrl}
+            alt={`Image ${imageIndex + 1}`}
+            className="max-w-full max-h-full object-contain transition-transform duration-200"
+            style={{ transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)` }}
+            draggable={false}
+          />
+        )}
       </div>
     </div>
   );
@@ -673,19 +736,12 @@ export default function StockRecommendationPage() {
                   style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
                 >
                   {images.map((imgSrc, index) => (
-                    <div
+                    <CarouselImage
                       key={index}
-                      className="min-w-full flex-shrink-0 snap-center flex items-center justify-center bg-gray-50 h-[280px] md:h-[400px] cursor-pointer"
+                      src={imgSrc}
+                      index={index}
                       onClick={() => openImageModal(index)}
-                    >
-                      <img
-                        src={imgSrc}
-                        alt={`Analysis Chart ${index + 1}`}
-                        className="max-w-full max-h-full object-contain pointer-events-none select-none"
-                        loading="lazy"
-                        draggable={false}
-                      />
-                    </div>
+                    />
                   ))}
                 </div>
 

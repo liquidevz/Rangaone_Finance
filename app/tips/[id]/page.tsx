@@ -2,53 +2,72 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Download, AlertCircle, ChevronLeft, ChevronRight, ImageIcon, X, ZoomIn, ZoomOut } from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowLeft, Download, AlertCircle, ChevronLeft, ChevronRight, ImageIcon, X, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { tipsService, Tip } from "@/services/tip.service";
 import { useAuth } from "@/components/auth/auth-context";
 
+import { useSecureImage } from "@/hooks/use-secure-image";
+
 interface ExtendedTip extends Tip {
   images?: any[];
 }
 
 // Helper function to convert raw buffer objects to base64 strings
+// Helper function to validate image URLs
 function processImages(rawImages: any[]): string[] {
   if (!Array.isArray(rawImages)) return [];
-
-  return rawImages
-    .map((imgSrc) => {
-      // Already a valid base64 string
-      if (typeof imgSrc === 'string') {
-        return imgSrc;
-      }
-
-      // Handle raw Mongoose Buffer object
-      // Format: { data: { type: 'Buffer', data: [137, 80, ...] }, contentType: 'image/png' }
-      if (imgSrc && typeof imgSrc === 'object') {
-        if (imgSrc.data?.type === 'Buffer' && Array.isArray(imgSrc.data.data)) {
-          try {
-            const bytes = imgSrc.data.data;
-            let binary = '';
-            for (let i = 0; i < bytes.length; i++) {
-              binary += String.fromCharCode(bytes[i]);
-            }
-            const base64 = typeof window !== 'undefined' ? window.btoa(binary) : '';
-            return `data:${imgSrc.contentType || 'image/png'};base64,${base64}`;
-          } catch (e) {
-            console.error('Error converting image buffer:', e);
-            return null;
-          }
-        }
-      }
-
-      return null;
-    })
-    .filter((src): src is string => !!src && src !== 'data:image/png;base64,');
+  return rawImages.filter((img): img is string => typeof img === 'string' && img.length > 0);
 }
 
+// Carousel Image with Loading Spinner
+// Carousel Image with Loading Spinner and Secure Fetch
+function CarouselImage({ src, index, onClick }: { src: string; index: number; onClick: () => void }) {
+  const { objectUrl, isLoading, error } = useSecureImage(src);
+
+  return (
+    <div
+      className="min-w-full flex-shrink-0 snap-center flex items-center justify-center bg-gray-50 h-[280px] md:h-[400px] cursor-pointer relative"
+      onClick={onClick}
+    >
+      {/* Loading Spinner */}
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-xs text-gray-500">Loading...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+          <div className="text-center text-gray-500">
+            <p className="text-sm">Failed to load image</p>
+          </div>
+        </div>
+      )}
+
+      {objectUrl && (
+        <img
+          src={objectUrl}
+          alt={`Analysis Chart ${index + 1}`}
+          className={`max-w-full max-h-full object-contain pointer-events-none select-none transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+          draggable={false}
+        />
+      )}
+    </div>
+  );
+}
+
+
+
+// Image Modal Component with Zoom
 // Image Modal Component with Zoom
 function ImageModal({
   isOpen,
@@ -63,81 +82,20 @@ function ImageModal({
   imageIndex: number;
   totalImages: number;
 }) {
-  const [scale, setScale] = useState(1);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const lastTouchDistance = useRef<number | null>(null);
-  const lastPosition = useRef({ x: 0, y: 0 });
-  const imageRef = useRef<HTMLDivElement>(null);
+  // Securely fetch the modal image
+  const { objectUrl, isLoading, error } = useSecureImage(isOpen ? imageSrc : null);
 
-  const handleZoomIn = () => {
-    setScale(prev => Math.min(prev + 0.5, 4));
-  };
-
-  const handleZoomOut = () => {
-    setScale(prev => {
-      const newScale = Math.max(prev - 0.5, 1);
-      if (newScale === 1) setPosition({ x: 0, y: 0 });
-      return newScale;
-    });
-  };
-
-  const handleReset = () => {
-    setScale(1);
-    setPosition({ x: 0, y: 0 });
-  };
-
-  // Handle touch pinch zoom
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (e.touches.length === 2) {
-      e.preventDefault();
-      const touch1 = e.touches[0];
-      const touch2 = e.touches[1];
-      const distance = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
-
-      if (lastTouchDistance.current !== null) {
-        const delta = distance - lastTouchDistance.current;
-        setScale(prev => Math.max(1, Math.min(4, prev + delta * 0.01)));
-      }
-      lastTouchDistance.current = distance;
-    } else if (e.touches.length === 1 && scale > 1) {
-      // Pan when zoomed
-      const touch = e.touches[0];
-      if (isDragging) {
-        setPosition({
-          x: touch.clientX - lastPosition.current.x,
-          y: touch.clientY - lastPosition.current.y
-        });
-      }
-    }
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 2) {
-      const touch1 = e.touches[0];
-      const touch2 = e.touches[1];
-      lastTouchDistance.current = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
-    } else if (e.touches.length === 1 && scale > 1) {
-      setIsDragging(true);
-      lastPosition.current = {
-        x: e.touches[0].clientX - position.x,
-        y: e.touches[0].clientY - position.y
-      };
-    }
-  };
-
-  const handleTouchEnd = () => {
-    lastTouchDistance.current = null;
-    setIsDragging(false);
-  };
-
-  // Reset on close
+  // Handle Escape key to close modal
   useEffect(() => {
-    if (!isOpen) {
-      setScale(1);
-      setPosition({ x: 0, y: 0 });
-    }
-  }, [isOpen]);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -152,75 +110,112 @@ function ImageModal({
   if (!isOpen) return null;
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-black/90 flex flex-col"
-        onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 text-white">
-          {/* <span className="text-sm font-medium">Image {imageIndex + 1} of {totalImages}</span> */}
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-white/20 rounded-full transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
+    <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center overflow-hidden">
+      {/* Header Controls */}
+      <div className="absolute top-0 left-0 right-0 z-50 flex justify-between items-center p-4 bg-gradient-to-b from-black/50 to-transparent pointer-events-none">
+        <div className="text-white text-sm font-medium bg-black/40 px-3 py-1 rounded-full backdrop-blur-sm pointer-events-auto">
+          {imageIndex + 1} / {totalImages}
         </div>
-
-        {/* Image Container */}
-        <div
-          ref={imageRef}
-          className="flex-1 flex items-center justify-center overflow-hidden"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
+        {/* Solid Black Close Button */}
+        <button
+          onClick={onClose}
+          className="p-2 bg-black hover:bg-gray-900 rounded-full text-white shadow-lg pointer-events-auto transition-colors focus:outline-none focus:ring-2 focus:ring-white/50"
+          aria-label="Close modal"
         >
-          <motion.img
-            src={imageSrc}
-            alt={`Image ${imageIndex + 1}`}
-            className="max-w-full max-h-full object-contain select-none"
-            style={{
-              scale,
-              x: position.x,
-              y: position.y,
-              cursor: scale > 1 ? 'grab' : 'default'
-            }}
-            draggable={false}
-          />
-        </div>
+          <X className="w-6 h-6" />
+        </button>
+      </div>
 
-        {/* Zoom Controls */}
-        <div className="flex items-center justify-center gap-4 p-4">
-          <button
-            onClick={handleZoomOut}
-            disabled={scale <= 1}
-            className="p-3 bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed rounded-full text-white transition-colors"
+      {/* Main Content */}
+      <div className="w-full h-full flex items-center justify-center overflow-hidden relative">
+        {/* Modal Loading State */}
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center z-10">
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-10 h-10 border-4 border-white/50 border-t-white rounded-full animate-spin"></div>
+              <span className="text-sm text-white/80">Loading high-res...</span>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Error State */}
+        {error && (
+          <div className="absolute inset-0 flex items-center justify-center z-10">
+            <span className="text-white/80">Failed to load image</span>
+          </div>
+        )}
+
+        {objectUrl && (
+          <TransformWrapper
+            initialScale={1}
+            minScale={1}
+            maxScale={4}
+            centerOnInit={true}
+            centerZoomedOut={true}
+            limitToBounds={true}
+            smooth={true}
+            wheel={{ step: 0.2 }}
           >
-            <ZoomOut className="w-6 h-6" />
-          </button>
-          <span className="text-white text-sm min-w-[60px] text-center">{Math.round(scale * 100)}%</span>
-          <button
-            onClick={handleZoomIn}
-            disabled={scale >= 4}
-            className="p-3 bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed rounded-full text-white transition-colors"
-          >
-            <ZoomIn className="w-6 h-6" />
-          </button>
-          {scale !== 1 && (
-            <button
-              onClick={handleReset}
-              className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full text-white text-sm transition-colors"
-            >
-              Reset
-            </button>
-          )}
-        </div>
-      </motion.div>
-    </AnimatePresence>
+            {({ zoomIn, zoomOut, resetTransform }) => (
+              <>
+                <TransformComponent
+                  wrapperStyle={{
+                    width: "100%",
+                    height: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  contentStyle={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "auto",
+                    height: "auto",
+                  }}
+                >
+                  <img
+                    src={objectUrl}
+                    alt={`Image ${imageIndex + 1}`}
+                    className="max-w-[95vw] max-h-[85vh] object-contain shadow-2xl"
+                    draggable={false}
+                  />
+                </TransformComponent>
+
+                {/* Floating Bottom Controls */}
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 z-50 pointer-events-auto">
+                  <div className="flex bg-black/60 backdrop-blur-md rounded-full px-4 py-2 gap-4 border border-white/10">
+                    <button
+                      onClick={() => zoomOut()}
+                      className="text-white/80 hover:text-white transition-colors flex flex-col items-center gap-1"
+                      title="Zoom Out"
+                    >
+                      <ZoomOut className="w-5 h-5" />
+                    </button>
+                    <div className="w-px h-5 bg-white/20"></div>
+                    <button
+                      onClick={() => resetTransform()}
+                      className="text-white/80 hover:text-white transition-colors flex flex-col items-center gap-1"
+                      title="Reset"
+                    >
+                      <RotateCcw className="w-5 h-5" />
+                    </button>
+                    <div className="w-px h-5 bg-white/20"></div>
+                    <button
+                      onClick={() => zoomIn()}
+                      className="text-white/80 hover:text-white transition-colors flex flex-col items-center gap-1"
+                      title="Zoom In"
+                    >
+                      <ZoomIn className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </TransformWrapper>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -246,10 +241,10 @@ export default function TipDetailsPage() {
   }, [tip?.images]);
 
   useEffect(() => {
-    if (params.id) {
+    if (params?.id) {
       loadTipDetails(params.id as string);
     }
-  }, [params.id]);
+  }, [params?.id]);
 
   // NO AUTO-SCROLL - removed the auto-scroll effect
 
@@ -498,19 +493,12 @@ export default function TipDetailsPage() {
                   style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
                 >
                   {images.map((imgSrc, index) => (
-                    <div
+                    <CarouselImage
                       key={index}
-                      className="min-w-full flex-shrink-0 snap-center flex items-center justify-center bg-gray-50 h-[280px] md:h-[400px] cursor-pointer"
+                      src={imgSrc}
+                      index={index}
                       onClick={() => openImageModal(index)}
-                    >
-                      <img
-                        src={imgSrc}
-                        alt={`Analysis Chart ${index + 1}`}
-                        className="max-w-full max-h-full object-contain pointer-events-none select-none"
-                        loading="lazy"
-                        draggable={false}
-                      />
-                    </div>
+                    />
                   ))}
                 </div>
 

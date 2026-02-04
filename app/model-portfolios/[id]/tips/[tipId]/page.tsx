@@ -4,17 +4,19 @@ import DashboardLayout from "@/components/dashboard-layout";
 import { InnerPageHeader } from "@/components/inner-page-header";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
+import { useSecureImage } from "@/hooks/use-secure-image";
 import { useCart } from "@/components/cart/cart-context";
 import { tipsService, type Tip } from "@/services/tip.service";
 import { subscriptionService, type SubscriptionAccess } from "@/services/subscription.service";
 import { stockPriceService, type StockPriceData } from "@/services/stock-price.service";
-import { ArrowLeft, ExternalLink, Lock, ChevronLeft, ChevronRight, ImageIcon, X, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowLeft, ExternalLink, Lock, ChevronLeft, ChevronRight, ImageIcon, X, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { authService } from "@/services/auth.service";
 import { useAuth } from "@/components/auth/auth-context";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { format } from "date-fns";
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
 // Extend Tip locally to ensure images property exists
 interface ExtendedTip extends Tip {
@@ -22,45 +24,58 @@ interface ExtendedTip extends Tip {
 }
 
 // Helper function to convert raw buffer objects to base64 strings
+// Helper function to validate image URLs
 function processImages(rawImages: any[]): string[] {
   if (!Array.isArray(rawImages)) return [];
-
-  return rawImages
-    .map((imgSrc) => {
-      // Already a valid base64 string
-      if (typeof imgSrc === 'string') {
-        return imgSrc;
-      }
-
-      // Handle raw Mongoose Buffer object
-      // Format: { data: { type: 'Buffer', data: [137, 80, ...] }, contentType: 'image/png' }
-      if (imgSrc && typeof imgSrc === 'object') {
-        if (imgSrc.data?.type === 'Buffer' && Array.isArray(imgSrc.data.data)) {
-          try {
-            const bytes = imgSrc.data.data;
-            let binary = '';
-            for (let i = 0; i < bytes.length; i++) {
-              binary += String.fromCharCode(bytes[i]);
-            }
-            const base64 = typeof window !== 'undefined' ? window.btoa(binary) : '';
-            return `data:${imgSrc.contentType || 'image/png'};base64,${base64}`;
-          } catch (e) {
-            console.error('Error converting image buffer:', e);
-            return null;
-          }
-        }
-      }
-
-      return null;
-    })
-    .filter((src): src is string => !!src && src !== 'data:image/png;base64,');
+  return rawImages.filter((img): img is string => typeof img === 'string' && img.length > 0);
 }
+
+// Carousel Image with Loading Spinner and Secure Fetch
+function CarouselImage({ src, index, onClick }: { src: string; index: number; onClick: () => void }) {
+  const { objectUrl, isLoading, error } = useSecureImage(src);
+
+  return (
+    <div
+      className="min-w-full flex-shrink-0 snap-center flex items-center justify-center bg-gray-50 h-[280px] md:h-[400px] cursor-pointer relative"
+      onClick={onClick}
+    >
+      {/* Loading Spinner */}
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-xs text-gray-500">Loading...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+          <div className="text-center text-gray-500">
+            <p className="text-sm">Failed to load image</p>
+          </div>
+        </div>
+      )}
+
+      {objectUrl && (
+        <img
+          src={objectUrl}
+          alt={`Analysis Chart ${index + 1}`}
+          className={`max-w-full max-h-full object-contain pointer-events-none select-none transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+          draggable={false}
+        />
+      )}
+    </div>
+  );
+}
+
 
 export default function PortfolioTipDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const portfolioId = params.id as string;
-  const tipId = params.tipId as string;
+  const portfolioId = params?.id as string;
+  const tipId = params?.tipId as string;
   const { toast } = useToast();
   const { addToCart } = useCart();
   const { isAuthenticated: isAuth, isLoading: isAuthLoading } = useAuth();
@@ -79,6 +94,11 @@ export default function PortfolioTipDetailsPage() {
   const images = useMemo(() => {
     return processImages(tipData?.images || []);
   }, [tipData?.images]);
+
+  // Securely fetch the modal image
+  const { objectUrl: modalObjectUrl, isLoading: isModalLoading, error: modalError } = useSecureImage(
+    modalOpen && images[modalImageIndex] ? images[modalImageIndex] : null
+  );
 
   useEffect(() => {
     async function loadData() {
@@ -128,6 +148,18 @@ export default function PortfolioTipDetailsPage() {
 
     loadData();
   }, [tipId, toast, router, isAuth, isAuthLoading]);
+
+  // Handle Escape key to close modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && modalOpen) {
+        setModalOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [modalOpen]);
 
   // NO AUTO-SCROLL - removed for better UX
 
@@ -308,6 +340,8 @@ export default function PortfolioTipDetailsPage() {
   const portfolioName = tipData.portfolio && typeof tipData.portfolio === "object" && "name" in tipData.portfolio
     ? (tipData.portfolio as any).name.replace(/\bportfolio\b/i, "").trim() || (tipData.portfolio as any).name
     : "Model Portfolio";
+
+
 
   return (
     <DashboardLayout>
@@ -499,19 +533,12 @@ export default function PortfolioTipDetailsPage() {
                     style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
                   >
                     {images.map((imgSrc, index) => (
-                      <div
+                      <CarouselImage
                         key={index}
-                        className="min-w-full flex-shrink-0 snap-center flex items-center justify-center bg-gray-50 h-[280px] md:h-[400px] cursor-pointer"
+                        src={imgSrc}
+                        index={index}
                         onClick={() => { setModalImageIndex(index); setModalOpen(true); }}
-                      >
-                        <img
-                          src={imgSrc}
-                          alt={`Analysis Chart ${index + 1}`}
-                          className="max-w-full max-h-full object-contain pointer-events-none select-none"
-                          loading="lazy"
-                          draggable={false}
-                        />
-                      </div>
+                      />
                     ))}
                   </div>
 
@@ -554,31 +581,110 @@ export default function PortfolioTipDetailsPage() {
 
           {/* Image Modal */}
           {modalOpen && images[modalImageIndex] && (
-            <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center">
-              <button
-                onClick={() => setModalOpen(false)}
-                className="absolute top-4 right-4 z-50 p-2 bg-white/20 rounded-full text-white hover:bg-white/30"
-              >
-                <X className="w-6 h-6" />
-              </button>
-
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 text-white text-sm font-medium bg-black/50 px-3 py-1 rounded-full">
-                {modalImageIndex + 1} / {images.length}
-              </div>
-
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-50">
-                <button onClick={() => setModalOpen(false)} className="px-4 py-2 bg-white/20 rounded-full text-white text-sm hover:bg-white/30">
-                  Close
+            <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center overflow-hidden">
+              {/* Header Controls */}
+              <div className="absolute top-0 left-0 right-0 z-50 flex justify-between items-center p-4 bg-gradient-to-b from-black/50 to-transparent pointer-events-none">
+                <div className="text-white text-sm font-medium bg-black/40 px-3 py-1 rounded-full backdrop-blur-sm pointer-events-auto">
+                  {modalImageIndex + 1} / {images.length}
+                </div>
+                {/* Solid Black Close Button */}
+                <button
+                  onClick={() => setModalOpen(false)}
+                  className="p-2 bg-black hover:bg-gray-900 rounded-full text-white shadow-lg pointer-events-auto transition-colors focus:outline-none focus:ring-2 focus:ring-white/50"
+                  aria-label="Close modal"
+                >
+                  <X className="w-6 h-6" />
                 </button>
               </div>
 
-              <div className="w-full h-full flex items-center justify-center p-4">
-                <img
-                  src={images[modalImageIndex]}
-                  alt={`Image ${modalImageIndex + 1}`}
-                  className="max-w-full max-h-full object-contain"
-                  draggable={false}
-                />
+              {/* Main Content */}
+              <div className="w-full h-full flex items-center justify-center overflow-hidden relative">
+                {/* Modal Loading State */}
+                {isModalLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center z-10">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-10 h-10 border-4 border-white/50 border-t-white rounded-full animate-spin"></div>
+                      <span className="text-sm text-white/80">Loading high-res...</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Modal Error State */}
+                {modalError && (
+                  <div className="absolute inset-0 flex items-center justify-center z-10">
+                    <span className="text-white/80">Failed to load image</span>
+                  </div>
+                )}
+
+                {modalObjectUrl && (
+                  <TransformWrapper
+                    initialScale={1}
+                    minScale={1}
+                    maxScale={4}
+                    centerOnInit={true}
+                    centerZoomedOut={true}
+                    limitToBounds={true}
+                    smooth={true}
+                    wheel={{ step: 0.2 }}
+                  >
+                    {({ zoomIn, zoomOut, resetTransform }) => (
+                      <>
+                        <TransformComponent
+                          wrapperStyle={{
+                            width: "100%",
+                            height: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                          contentStyle={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: "auto",
+                            height: "auto",
+                          }}
+                        >
+                          <img
+                            src={modalObjectUrl}
+                            alt={`Image ${modalImageIndex + 1}`}
+                            className="max-w-[95vw] max-h-[85vh] object-contain shadow-2xl"
+                            draggable={false}
+                          />
+                        </TransformComponent>
+
+                        {/* Floating Bottom Controls */}
+                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 z-50 pointer-events-auto">
+                          <div className="flex bg-black/60 backdrop-blur-md rounded-full px-4 py-2 gap-4 border border-white/10">
+                            <button
+                              onClick={() => zoomOut()}
+                              className="text-white/80 hover:text-white transition-colors flex flex-col items-center gap-1"
+                              title="Zoom Out"
+                            >
+                              <ZoomOut className="w-5 h-5" />
+                            </button>
+                            <div className="w-px h-5 bg-white/20"></div>
+                            <button
+                              onClick={() => resetTransform()}
+                              className="text-white/80 hover:text-white transition-colors flex flex-col items-center gap-1"
+                              title="Reset"
+                            >
+                              <RotateCcw className="w-5 h-5" />
+                            </button>
+                            <div className="w-px h-5 bg-white/20"></div>
+                            <button
+                              onClick={() => zoomIn()}
+                              className="text-white/80 hover:text-white transition-colors flex flex-col items-center gap-1"
+                              title="Zoom In"
+                            >
+                              <ZoomIn className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </TransformWrapper>
+                )}
               </div>
             </div>
           )}
