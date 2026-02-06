@@ -119,7 +119,7 @@ export default function SubscriptionSettings() {
     
     // Fallback to existing logic
     if (typeof subscription.productId === 'object') {
-      return subscription.productId.name
+      return subscription.productId?.name || "N/A"
     }
     return subscription.portfolio?.name || subscription.bundle?.name || 'Unknown Product'
   }
