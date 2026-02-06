@@ -23,14 +23,14 @@ export default function InvestmentCalculatorPage() {
               className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-green-100 data-[state=active]:text-green-700 data-[state=active]:shadow-sm rounded-md transition-all"
             >
               <UserPlus className="h-4 w-4" />
-              New Investor
+              New Investment
             </TabsTrigger>
             <TabsTrigger
               value="existing"
               className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-green-100 data-[state=active]:text-green-700 data-[state=active]:shadow-sm rounded-md transition-all"
             >
               <Users className="h-4 w-4" />
-              Existing Investor
+              Existing Investment
             </TabsTrigger>
           </TabsList>
 
