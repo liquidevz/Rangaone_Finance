@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { portfolioService } from '@/services/portfolio.service';
+import { userPortfolioService } from '@/services/user-portfolio.service';
 import { Portfolio } from '@/lib/types';
 import {
     Loader2,
@@ -22,7 +23,8 @@ import {
     ChevronDown,
     ChevronUp,
     Plus,
-    IndianRupee
+    IndianRupee,
+    RefreshCw
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { formatActionForDisplay, getActionColorScheme } from '@/lib/action-display-utils';
@@ -115,11 +117,13 @@ export function ExistingInvestorCalculator() {
     const [strictBudget, setStrictBudget] = useState(true);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string>('');
+    const [syncing, setSyncing] = useState(false);
     const [expandedRow, setExpandedRow] = useState<string | null>(null);
     const [expandedAllocRow, setExpandedAllocRow] = useState<string | null>(null);
     const [showAllocation, setShowAllocation] = useState(false);
     const [showResults, setShowResults] = useState(false);
     const [showValidationWarning, setShowValidationWarning] = useState(false);
+    const [showNoPortfolioModal, setShowNoPortfolioModal] = useState(false);
     const resultsRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -139,6 +143,40 @@ export function ExistingInvestorCalculator() {
             setShowResults(false);
         }
     }, [selectedPortfolio]);
+
+    const handleSyncQuantity = async () => {
+        if (!selectedPortfolio?._id) return;
+
+        setSyncing(true);
+        try {
+            // Get saved portfolio data
+            const response = await userPortfolioService.getSavedPortfolio(selectedPortfolio._id, true);
+            const data = response?.data || null;
+
+            if (!data) {
+                // No saved portfolio found, show modal
+                setShowNoPortfolioModal(true);
+                setSyncing(false);
+                return;
+            }
+
+            // Update stock quantities with saved values
+            const updatedQuantities: Record<string, number> = { ...stockQuantities };
+            data.holdings.forEach((holding: any) => {
+                if (holding.stockSymbol) {
+                    updatedQuantities[holding.stockSymbol] = holding.quantity || 0;
+                }
+            });
+
+            setStockQuantities(updatedQuantities);
+        } catch (error) {
+            console.error("Sync failed:", error);
+            // Show error in a simple way since we don't have toast here
+            alert("Failed to sync quantities. Please try again.");
+        } finally {
+            setSyncing(false);
+        }
+    };
 
     const loadPortfolios = async () => {
         try {
@@ -707,17 +745,42 @@ export function ExistingInvestorCalculator() {
                         </div>
 
                         {/* Actions */}
-                        <div className="mt-4 flex gap-3">
+                        <div className="mt-4 flex flex-wrap gap-3">
                             <Button variant="outline" onClick={copyToClipboard} className="flex items-center gap-2">
                                 <Copy className="h-4 w-4" /> Copy
                             </Button>
                             <Button variant="outline" onClick={downloadCSV} className="flex items-center gap-2">
                                 <Download className="h-4 w-4" /> Export CSV
                             </Button>
+                            <Button 
+                                variant="outline" 
+                                onClick={handleSyncQuantity} 
+                                disabled={syncing || !selectedPortfolio}
+                                className="flex items-center gap-2"
+                            >
+                                {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                                Sync with Portfolio
+                            </Button>
+
                         </div>
                     </CardContent>
                 </Card>
             )}
+
+            {/* No Portfolio Saved Modal */}
+            <AlertDialog open={showNoPortfolioModal} onOpenChange={setShowNoPortfolioModal}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>No Saved Portfolio Found</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            You haven't saved any holdings for this portfolio yet. Please enter your quantities manually and save the portfolio first in the "My Portfolios" section.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction onClick={() => setShowNoPortfolioModal(false)}>OK</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             {/* NEW INVESTMENT ALLOCATION */}
             {selectedPortfolio && selectedPortfolio.holdings && selectedPortfolio.holdings.length > 0 && (
