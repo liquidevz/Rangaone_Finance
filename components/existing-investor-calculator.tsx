@@ -581,18 +581,31 @@ export function ExistingInvestorCalculator() {
 
                         {/* Legend */}
                         <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                            <div className="flex flex-wrap gap-3 sm:gap-6 text-sm justify-center sm:justify-start">
-                                <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full">
-                                    <span className="text-gray-500 font-medium">−</span>
-                                    <span className="text-gray-600 font-medium">On Track (±{WEIGHTAGE_TOLERANCE}%)</span>
+                            <div className="flex flex-wrap gap-3 sm:gap-6 text-sm justify-center sm:justify-between">
+                                <div className="flex flex-wrap gap-3 sm:gap-6">
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full">
+                                        <span className="text-gray-500 font-medium">−</span>
+                                        <span className="text-gray-600 font-medium">On Track (±{WEIGHTAGE_TOLERANCE}%)</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-red-100 rounded-full">
+                                        <span className="text-red-500 font-bold">↑</span>
+                                        <span className="text-red-700 font-medium">Over-bought</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-green-100 rounded-full">
+                                        <span className="text-green-500 font-bold">↓</span>
+                                        <span className="text-green-700 font-medium">Under-bought</span>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-2 px-3 py-1.5 bg-red-100 rounded-full">
-                                    <span className="text-red-500 font-bold">↑</span>
-                                    <span className="text-red-700 font-medium">Over-bought</span>
-                                </div>
-                                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-100 rounded-full">
-                                    <span className="text-green-500 font-bold">↓</span>
-                                    <span className="text-green-700 font-medium">Under-bought</span>
+                                <div className="ml-auto">
+                                    <Button 
+                                        variant="outline" 
+                                        onClick={handleSyncQuantity} 
+                                        disabled={syncing || !selectedPortfolio}
+                                        className="flex items-center gap-2 hover:text-green-600 hover:scale-105 transition-all duration-200"
+                                    >
+                                        {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4 hover:animate-spin" />}
+                                        <span className="hover:animate-pulse">Sync with Portfolio</span>
+                                    </Button>
                                 </div>
                             </div>
                         </div>
@@ -736,17 +749,6 @@ export function ExistingInvestorCalculator() {
                                                         {stock.status === 'ok' && '−'}
                                                         {stock.difference > 0 ? '+' : ''}{truncateToTwoDecimals(stock.difference)}%
                                                     </span>
-                                                </td>
-                                                <td className="px-4 py-3 text-right">
-                                                    <Button 
-                                                        variant="outline" 
-                                                        onClick={handleSyncQuantity} 
-                                                        disabled={syncing || !selectedPortfolio}
-                                                        className="flex items-center gap-2 ml-auto hover:text-green-600 hover:scale-105 transition-all duration-200"
-                                                    >
-                                                        {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4 hover:animate-spin" />}
-                                                        <span className="hover:animate-pulse">Sync with Portfolio</span>
-                                                    </Button>
                                                 </td>
                                             </tr>
                                         ))}
