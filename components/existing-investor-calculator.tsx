@@ -737,6 +737,17 @@ export function ExistingInvestorCalculator() {
                                                         {stock.difference > 0 ? '+' : ''}{truncateToTwoDecimals(stock.difference)}%
                                                     </span>
                                                 </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <Button 
+                                                        variant="outline" 
+                                                        onClick={handleSyncQuantity} 
+                                                        disabled={syncing || !selectedPortfolio}
+                                                        className="flex items-center gap-2 ml-auto hover:text-green-600 hover:scale-105 transition-all duration-200"
+                                                    >
+                                                        {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4 hover:animate-spin" />}
+                                                        <span className="hover:animate-pulse">Sync with Portfolio</span>
+                                                    </Button>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -752,15 +763,7 @@ export function ExistingInvestorCalculator() {
                             <Button variant="outline" onClick={downloadCSV} className="flex items-center gap-2">
                                 <Download className="h-4 w-4" /> Export CSV
                             </Button>
-                            <Button 
-                                variant="outline" 
-                                onClick={handleSyncQuantity} 
-                                disabled={syncing || !selectedPortfolio}
-                                className="flex items-center gap-2"
-                            >
-                                {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                                Sync with Portfolio
-                            </Button>
+                          
 
                         </div>
                     </CardContent>
