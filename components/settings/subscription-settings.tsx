@@ -51,7 +51,28 @@ export default function SubscriptionSettings() {
   const fetchSubscriptionData = async () => {
     try {
       const { subscriptions: subs, accessData: access, telegramLinks: links } = await subscriptionService.getUserSubscriptions(true)
-      setSubscriptions(subs)
+      const transformedSubscriptions = subs.map(sub => {
+        const user = typeof sub.user === 'string' ? sub.user : sub.user._id; 
+        let portfolio = sub.portfolio;
+        if (typeof portfolio === 'string') {
+          portfolio = { _id: portfolio, name: 'Unknown Portfolio' };
+        }
+        
+        let bundle = sub.bundle;
+        if (typeof bundle === 'string') {
+          bundle = { _id: bundle, name: 'Unknown Bundle' };
+        }
+        
+        return {
+          ...sub,
+          user,
+          productId: sub.productId,
+          portfolio: portfolio || undefined,
+          bundle: bundle || undefined
+        };
+      });
+      
+      setSubscriptions(transformedSubscriptions);
       setAccessData(access)
       
       // Use telegram links from service response
